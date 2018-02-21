@@ -1,0 +1,6 @@
+# Environments
+.env
+# Jupyter Notebook
+.ipynb_checkpoints
+# General
+.DS_Store
