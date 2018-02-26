@@ -24,9 +24,7 @@ import hashlib
 import os
 import sys
 import subprocess as sub
-#from pathlib import Path
 import requests
-from requests.auth import HTTPDigestAuth
 import json
 
 
@@ -45,16 +43,18 @@ dateStamp = dt.datetime.now().strftime("%Y") + "-" + \
     dt.datetime.now().strftime("%m") + "-" + \
     dt.datetime.now().strftime("%d")
 
+phiDateStamp = "PHI-" + dateStamp
+
 allDonorsList = pd.DataFrame(columns=["userID", "name", "donorGroup"])
-donorBandDdayListColumns = ["userID", "bDay", "dDay", "hashID", "donorGroup"]
+donorBandDdayListColumns = ["userID", "bDay", "dDay", "hashID"]
 allDonorBandDdayList = pd.DataFrame(columns=donorBandDdayListColumns)
 
 # create output folders
-donorListFolder = securePath + dateStamp + "_donorLists/"
+donorListFolder = securePath + phiDateStamp + "-donorLists/"
 if not os.path.exists(donorListFolder):
     os.makedirs(donorListFolder)
 
-donorJsonDataFolder = securePath + dateStamp + "_donorJsonData/"
+donorJsonDataFolder = securePath + phiDateStamp + "-donorJsonData/"
 if not os.path.exists(donorJsonDataFolder):
     os.makedirs(donorJsonDataFolder)
 
@@ -101,7 +101,7 @@ def load_donors(outputDonorList, donorGroup):
     return donorList
 
 
-def get_bdays_and_ddays(email, password, donorGroup, donorBandDdayListColumns):
+def get_bdays_and_ddays(email, password, donorBandDdayListColumns):
 
     tempBandDdayList = pd.DataFrame(columns=donorBandDdayListColumns)
     url1 = "https://api.tidepool.org/auth/login"
@@ -138,21 +138,20 @@ def get_bdays_and_ddays(email, password, donorGroup, donorBandDdayListColumns):
                         pd.DataFrame([[userID,
                                        bDay,
                                        dDay,
-                                       hashID,
-                                       donorGroup]],
+                                       hashID]],
                                      columns=donorBandDdayListColumns),
                         ignore_index=True)
         else:
-            print(donorGroup, myResponse2.status_code)
+            print(donorGroup, "ERROR", myResponse2.status_code)
     else:
-        print(donorGroup, myResponse.status_code)
+        print(donorGroup, "ERROR", myResponse.status_code)
 
     return tempBandDdayList
 
 
 # %% loop through each donor group to get a list of donors, bdays, and ddays
 for donorGroup in donorGroups:
-    outputDonorList = donorListFolder + donorGroup + "_donors.csv"
+    outputDonorList = donorListFolder + donorGroup + "-donors.csv"
 
     # get environmental variables
     email, password = get_environmental_variables(donorGroup)
@@ -164,21 +163,26 @@ for donorGroup in donorGroups:
     donorList = load_donors(outputDonorList, donorGroup)
     allDonorsList = allDonorsList.append(donorList, ignore_index=True)
 
-    # load in bdays and ddays
+    # load in bdays and ddays and append to all donor list
     donorBandDdayList = get_bdays_and_ddays(email,
                                             password,
-                                            donorGroup,
                                             donorBandDdayListColumns)
 
     allDonorBandDdayList = allDonorBandDdayList.append(donorBandDdayList,
                                                        ignore_index=True)
 
-    print(donorGroup, "complete")
+    print("BIGDATA_" + donorGroup, "complete")
 
 # %% save output
 
+allDonorBandDdayList = pd.merge(allDonorBandDdayList,
+                                allDonorsList,
+                                how="left",
+                                on="userID")
+
 uniqueDonors = allDonorBandDdayList.loc[
         ~allDonorBandDdayList["userID"].duplicated()]
+
 uniqueDonors = uniqueDonors.reset_index(drop=True)
 print("There are",
       len(uniqueDonors),
@@ -189,29 +193,4 @@ print("The total number of missing datapoints:",
       "\n",
       uniqueDonors.isnull().sum())
 
-uniqueDonors.to_csv(securePath + dateStamp + "_uniqueDonorList.csv")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+uniqueDonors.to_csv(securePath + phiDateStamp + "-uniqueDonorList.csv")
