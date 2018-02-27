@@ -11,6 +11,9 @@ dependencies:
     * requires environmental variables: import environmentalVariables.py
     * requires https://github.com/tidepool-org/command-line-data-tools
 license: BSD-2-Clause
+TODO:
+* [] waiting for QA to cross reference donor accounts with testing accounts,
+once they do, then the ignoreAccounts file needs to be updated
 """
 
 # %% load in required libraries
@@ -31,10 +34,11 @@ securePath = "/tidepoolSecure/data/"
 ignoreAccountsPath = securePath + \
     "Prod accounts to be ignored%2Fdeleted - Sheet1.csv"
 
-# %% define global variables
 donorGroups = ["", "BT1", "carbdm", "CDN", "CWD", "DHF", "DIATRIBE",
                "diabetessisters", "DYF", "JDRF", "NSF", "T1DX"]
 
+
+# %% define global variables
 salt = os.environ["BIGDATA_SALT"]
 
 dateStamp = dt.datetime.now().strftime("%Y") + "-" + \
@@ -52,22 +56,8 @@ donorListFolder = securePath + phiDateStamp + "-donorLists/"
 if not os.path.exists(donorListFolder):
     os.makedirs(donorListFolder)
 
-donorJsonDataFolder = securePath + phiDateStamp + "-donorJsonData/"
-if not os.path.exists(donorJsonDataFolder):
-    os.makedirs(donorJsonDataFolder)
-
 
 # %% define functions
-def get_environmental_variables(donorGroup):
-    envEmailVariableName = "BIGDATA_" + donorGroup + "_EMAIL"
-    emailAddress = os.environ[envEmailVariableName]
-
-    envPasswordVariableName = "BIGDATA_" + donorGroup + "_PASSWORD"
-    pswd = os.environ[envPasswordVariableName]
-
-    return emailAddress, pswd
-
-
 def get_donor_lists(email, password, outputDonorList):
     p = sub.Popen(["getusers", email,
                    "-p", password, "-o",
@@ -152,7 +142,8 @@ for donorGroup in donorGroups:
     outputDonorList = donorListFolder + donorGroup + "-donors.csv"
 
     # get environmental variables
-    email, password = get_environmental_variables(donorGroup)
+    email, password = \
+        environmentalVariables.get_environmental_variables(donorGroup)
 
     # get the list of donors
     get_donor_lists(email, password, outputDonorList)
