@@ -4,5 +4,6 @@
 .ipynb_checkpoints
 # General
 .DS_Store
+work-record-archive/
 # Python
 __pycache__/

@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-description: get donor list and pull json data
+description: get the most recent donor list
 version: 0.0.1
 created: 2018-02-21
 author: Ed Nykaza
 dependencies:
+    * requires that donors are accepted (currently a manual process)
+    * requires a list of qa accounts on production to be ignored
     * requires environmental variables: import environmentalVariables.py
     * requires https://github.com/tidepool-org/command-line-data-tools
 license: BSD-2-Clause
-TODO:
-* [] need to add in check for donors that are on the QA production list
-* []
-* []
 """
 
 # %% load in required libraries
@@ -30,12 +28,12 @@ import json
 
 # %% user inputs (choices to be made to run code)
 securePath = "/tidepoolSecure/data/"
-
+ignoreAccountsPath = securePath + \
+    "Prod accounts to be ignored%2Fdeleted - Sheet1.csv"
 
 # %% define global variables
 donorGroups = ["", "BT1", "carbdm", "CDN", "CWD", "DHF", "DIATRIBE",
                "diabetessisters", "DYF", "JDRF", "NSF", "T1DX"]
-
 
 salt = os.environ["BIGDATA_SALT"]
 
@@ -183,7 +181,16 @@ allDonorBandDdayList = pd.merge(allDonorBandDdayList,
 uniqueDonors = allDonorBandDdayList.loc[
         ~allDonorBandDdayList["userID"].duplicated()]
 
+# cross reference the QA users here and DROP them
+ignoreAccounts = pd.read_csv(ignoreAccountsPath, low_memory=False)
+uniqueIgnoreAccounts = \
+    ignoreAccounts[ignoreAccounts.Userid.notnull()].Userid.unique()
+
+for ignoreAccount in uniqueIgnoreAccounts:
+    uniqueDonors = uniqueDonors[uniqueDonors.userID != ignoreAccount]
+
 uniqueDonors = uniqueDonors.reset_index(drop=True)
+
 print("There are",
       len(uniqueDonors),
       "unique donors, of the",
