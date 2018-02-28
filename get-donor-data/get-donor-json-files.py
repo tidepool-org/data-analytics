@@ -43,7 +43,7 @@ uniqueDonors = pd.read_csv(donorFolder + phiDateStamp + "-uniqueDonorList.csv")
 
 # %% pull the json files for all of the unique donors
 for userID, donorGroup in zip(uniqueDonors.userID, uniqueDonors.donorGroup):
-    jsonDataName = userID + ".json"
+    jsonDataName = "PHI-" + userID + ".json"
     outputFilePathName = donorJsonDataFolder + jsonDataName
 
     # if the json file already exists, do NOT pull it again
