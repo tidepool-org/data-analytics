@@ -35,7 +35,7 @@ import json
 # %% user inputs (choices to be made to run code)
 securePath = "/tidepoolSecure/data/"
 ignoreAccountsPath = securePath + \
-    "Prod accounts to be ignored%2Fdeleted - Sheet1.csv"
+    "PHI-2018-02-28-prod-accounts-to-be-ignored.csv"
 
 donorGroups = ["", "BT1", "carbdm", "CDN", "CWD", "DHF", "DIATRIBE",
                "diabetessisters", "DYF", "JDRF", "NSF", "T1DX"]
@@ -190,6 +190,7 @@ for ignoreAccount in uniqueIgnoreAccounts:
     uniqueDonors = uniqueDonors[uniqueDonors.userID != ignoreAccount]
 
 uniqueDonors = uniqueDonors.reset_index(drop=True)
+uniqueDonors.index.name = "dIndex"
 
 print("There are",
       len(uniqueDonors),
