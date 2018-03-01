@@ -95,6 +95,7 @@ def load_donors(outputDonorList, donorGroup):
         if donorGroup == "":
             donorGroup = "bigdata"
         donorList[donorGroup] = True
+        donorList["donorGroup"] = donorGroup
 
     return donorList
 
@@ -184,7 +185,7 @@ for donorGroup in donorGroups:
 
 uniqueDonors = allDonorBandDdayList.loc[
         ~allDonorBandDdayList["userID"].duplicated(),
-        donorBandDdayListColumns + ["name"]]
+        donorBandDdayListColumns + ["name", "donorGroup"]]
 
 # add donor groups to unique donors
 donorCounts = allDonorBandDdayList.groupby("userID").count()
