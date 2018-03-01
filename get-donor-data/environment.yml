@@ -1,0 +1,9 @@
+name: get-donor-data
+channels:
+  - conda-forge
+dependencies:
+- python=3
+- python-dotenv
+- pandas
+- requests
+- pylint
