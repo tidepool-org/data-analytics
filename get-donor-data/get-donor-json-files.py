@@ -23,7 +23,7 @@ import subprocess as sub
 
 # %% user inputs (choices to be made to run code)
 securePath = "/tidepoolSecure/data/"
-dateStamp = "2018-02-27"
+dateStamp = "2018-02-28"
 
 # %% define global variables
 phiDateStamp = "PHI-" + dateStamp
@@ -38,19 +38,20 @@ if not os.path.exists(donorJsonDataFolder):
     os.makedirs(donorJsonDataFolder)
 
 # load in list of unique donors
-uniqueDonors = pd.read_csv(donorFolder + phiDateStamp + "-uniqueDonorList.csv")
+uniqueDonors = pd.read_csv(donorFolder + phiDateStamp + "-uniqueDonorList.csv",
+                           index_col="dIndex")
 
 
 # %% pull the json files for all of the unique donors
 for userID, donorGroup in zip(uniqueDonors.userID, uniqueDonors.donorGroup):
-    jsonDataName = userID + ".json"
+    jsonDataName = "PHI-" + userID + ".json"
     outputFilePathName = donorJsonDataFolder + jsonDataName
 
     # if the json file already exists, do NOT pull it again
     if not os.path.exists(outputFilePathName):
 
-        # case where donorGroup is nan, but should be ""
-        if np.isnan(donorGroup):
+        # case where donorGroup is bigdata, but should be ""
+        if donorGroup == "bigdata":
             donorGroup = ""
 
         # get environmental variables

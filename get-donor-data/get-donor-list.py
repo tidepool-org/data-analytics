@@ -35,9 +35,9 @@ import json
 # %% user inputs (choices to be made to run code)
 securePath = "/tidepoolSecure/data/"
 ignoreAccountsPath = securePath + \
-    "Prod accounts to be ignored%2Fdeleted - Sheet1.csv"
+    "PHI-2018-02-28-prod-accounts-to-be-ignored.csv"
 
-donorGroups = ["", "BT1", "carbdm", "CDN", "CWD", "DHF", "DIATRIBE",
+donorGroups = ["bigdata", "BT1", "carbdm", "CDN", "CWD", "DHF", "DIATRIBE",
                "diabetessisters", "DYF", "JDRF", "NSF", "T1DX"]
 
 
@@ -50,8 +50,8 @@ dateStamp = dt.datetime.now().strftime("%Y") + "-" + \
 
 phiDateStamp = "PHI-" + dateStamp
 
-allDonorsList = pd.DataFrame(columns=["userID", "name", "donorGroup"])
 donorBandDdayListColumns = ["userID", "bDay", "dDay", "hashID"]
+
 allDonorBandDdayList = pd.DataFrame(columns=donorBandDdayListColumns)
 
 # create output folders
@@ -92,7 +92,9 @@ def load_donors(outputDonorList, donorGroup):
                                 usecols=[0, 1],
                                 names=["userID", "name"],
                                 low_memory=False)
-
+        if donorGroup == "":
+            donorGroup = "bigdata"
+        donorList[donorGroup] = True
         donorList["donorGroup"] = donorGroup
 
     return donorList
@@ -150,6 +152,9 @@ def get_bdays_and_ddays(email, password, donorBandDdayListColumns):
 for donorGroup in donorGroups:
     outputDonorList = donorListFolder + donorGroup + "-donors.csv"
 
+    if donorGroup == "bigdata":
+        donorGroup = ""
+
     # get environmental variables
     email, password = \
         environmentalVariables.get_environmental_variables(donorGroup)
@@ -159,27 +164,38 @@ for donorGroup in donorGroups:
 
     # load in the donor list
     donorList = load_donors(outputDonorList, donorGroup)
-    allDonorsList = allDonorsList.append(donorList, ignore_index=True)
 
     # load in bdays and ddays and append to all donor list
     donorBandDdayList = get_bdays_and_ddays(email,
                                             password,
                                             donorBandDdayListColumns)
 
+    donorBandDdayList = pd.merge(donorBandDdayList,
+                                 donorList,
+                                 how="left",
+                                 on="userID")
+
     allDonorBandDdayList = allDonorBandDdayList.append(donorBandDdayList,
                                                        ignore_index=True)
 
     print("BIGDATA_" + donorGroup, "complete")
 
+
 # %% save output
 
-allDonorBandDdayList = pd.merge(allDonorBandDdayList,
-                                allDonorsList,
-                                how="left",
-                                on="userID")
-
 uniqueDonors = allDonorBandDdayList.loc[
-        ~allDonorBandDdayList["userID"].duplicated()]
+        ~allDonorBandDdayList["userID"].duplicated(),
+        donorBandDdayListColumns + ["name", "donorGroup"]]
+
+# add donor groups to unique donors
+donorCounts = allDonorBandDdayList.groupby("userID").count()
+donorCounts = donorCounts[donorGroups]
+donorCounts["userID"] = donorCounts.index
+
+uniqueDonors = pd.merge(uniqueDonors,
+                        donorCounts,
+                        how="left",
+                        on="userID")
 
 # cross reference the QA users here and DROP them
 ignoreAccounts = pd.read_csv(ignoreAccountsPath, low_memory=False)
@@ -190,14 +206,16 @@ for ignoreAccount in uniqueIgnoreAccounts:
     uniqueDonors = uniqueDonors[uniqueDonors.userID != ignoreAccount]
 
 uniqueDonors = uniqueDonors.reset_index(drop=True)
+uniqueDonors.index.name = "dIndex"
 
 print("There are",
       len(uniqueDonors),
       "unique donors, of the",
-      len(allDonorsList),
+      len(allDonorBandDdayList),
       "records")
+
 print("The total number of missing datapoints:",
       "\n",
-      uniqueDonors.isnull().sum())
+      uniqueDonors[["bDay", "dDay"]].isnull().sum())
 
 uniqueDonors.to_csv(uniqueDonorPath)
