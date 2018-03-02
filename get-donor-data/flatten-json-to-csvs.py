@@ -11,6 +11,8 @@ license: BSD-2-Clause
 TODO:
 * [] rewrite code to take advantage of parrallel processing, given that
 code takes so long to run
+* [] commandn line tools need to be updated to be able to download json files
+that are greater than 250 MB
 """
 
 # %% load in required libraries
@@ -120,6 +122,9 @@ for dIndex in range(startIndex, endIndex):
     # if the json file already exists, do NOT pull it again
     if not os.path.exists(flatJsonFilePathName):
         if fileSize > 1000:
+            if fileSize > 250E6:  # flag condition where download is > 250MB
+                diagnostics["errorMessage"] = \
+                    "download manually until commandline tools are fixed"
             with open(inputFilePathName, 'r') as f:
                 datastore = json.load(f)
 
