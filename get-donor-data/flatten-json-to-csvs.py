@@ -154,7 +154,7 @@ for dIndex in range(startIndex, endIndex):
     else:
         print(dIndex, "already processed")
 
-    print(dIndex, "of", uniqueDonors.index.max())
+    print(dIndex, "of", endIndex)
 
     allDiagnostics = pd.concat([allDiagnostics, diagnostics])
 
