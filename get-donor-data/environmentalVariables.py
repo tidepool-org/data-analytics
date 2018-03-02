@@ -15,14 +15,14 @@ import os
 from os.path import join, dirname, isfile
 from dotenv import load_dotenv
 
+
 # %% load environmental variables
 dotenv_path = join(dirname(__file__), '.env')
 if isfile(dotenv_path):
     load_dotenv(dotenv_path)
 
+
 # %% define functions
-
-
 def get_environmental_variables(donorGroup):
     try:
         envEmailVariableName = "BIGDATA_" + donorGroup + "_EMAIL"
@@ -32,5 +32,6 @@ def get_environmental_variables(donorGroup):
         pswd = os.environ[envPasswordVariableName]
 
         return emailAddress, pswd
+
     except KeyError:
         raise KeyError("Details for Donor Group '{0}' not found in .env".format(donorGroup))
