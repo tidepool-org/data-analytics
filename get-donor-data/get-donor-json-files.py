@@ -16,21 +16,44 @@ TODO:
 # %% load in required libraries
 import environmentalVariables
 import pandas as pd
-import numpy as np
+import datetime as dt
 import os
 import sys
 import subprocess as sub
+import argparse
 
-# %% user inputs (choices to be made to run code)
-securePath = "./data/"
-dateStamp = "2018-03-01"
+
+# %% user inputs (choices to be made in order to run the code)
+codeDescription = "Download donor's json files"
+
+parser = argparse.ArgumentParser(description=codeDescription)
+
+parser.add_argument("-d",
+                    "--date-stamp",
+                    dest="dateStamp",
+                    default=dt.datetime.now().strftime("%Y-%m-%d"),
+                    help="date in '%Y-%m-%d' format of unique donor list" +
+                    "(e.g., PHI-2018-03-02-uniqueDonorList)")
+
+parser.add_argument("-o",
+                    "--output-data-path",
+                    dest="dataPath",
+                    default="./data",
+                    help="the output path where the data is stored")
+
+args = parser.parse_args()
+
+
+# %% Make sure the data directory exists
+if not os.path.isdir(args.dataPath):
+    sys.exit("{0} is not a directory".format(args.dataPath))
 
 # %% define global variables
-phiDateStamp = "PHI-" + dateStamp
+phiDateStamp = "PHI-" + args.dateStamp
 
-donorFolder = securePath + phiDateStamp + "-donor-data/"
-if not os.path.exists(donorFolder):
-    sys.exit("ERROR: This folder should exist")
+donorFolder = os.path.join(args.dataPath, phiDateStamp + "-donor-data/")
+if not os.path.isdir(donorFolder):
+    sys.exit("{0} is not a directory".format(donorFolder))
 
 # create output folders
 donorJsonDataFolder = donorFolder + phiDateStamp + "-donorJsonData/"

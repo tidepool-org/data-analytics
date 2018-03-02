@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-description: get the most recent donor list
+description: download donors for each of the Tidepool donor groups
 version: 0.0.1
 created: 2018-02-21
 author: Ed Nykaza
@@ -12,14 +12,16 @@ dependencies:
     * requires https://github.com/tidepool-org/command-line-data-tools
 license: BSD-2-Clause
 TODO:
-* [] waiting for QA to cross reference donor accounts with testing accounts,
+* [X] waiting for QA to cross reference donor accounts with testing accounts,
 once they do, then the ignoreAccounts file needs to be updated
 * [] once the process of accepting new donors is automated, the use of the
 dateStamp will make more sense. As it is being used now, it is possible that
 the dateStamp does NOT reflect all of the recent donors.
 """
 
+
 # %% load in required libraries
+import environmentalVariables
 import pandas as pd
 import datetime as dt
 import numpy as np
@@ -31,37 +33,64 @@ import requests
 import json
 import argparse
 
-parser = argparse.ArgumentParser(description='Download a list of donors for each of the Tidepool accounts defined in .env')
-parser.add_argument('--data-path', dest='dataPath', default='./data',
-                    help='the path where the data is stored')
+
+# %% user inputs (choices to be made in order to run the code)
+codeDescription = "Download a list of donors for each of the Tidepool" + \
+                  "accounts defined in .env"
+
+parser = argparse.ArgumentParser(description=codeDescription)
+
+parser.add_argument("-d",
+                    "--date-stamp",
+                    dest="dateStamp",
+                    default=dt.datetime.now().strftime("%Y-%m-%d"),
+                    help="date, in '%Y-%m-%d' format, of the date when " +
+                    "donors were accepted")
+
+parser.add_argument("-i",
+                    "--input-donor-groups",
+                    dest="donorGroupsCsvFile",
+                    default="2018-02-28-donor-groups.csv",
+                    help="a .csv file that contains a column heading " +
+                    "'donorGroups' and a list of donor groups")
+
+parser.add_argument("-o",
+                    "--output-data-path",
+                    dest="dataPath",
+                    default="./data",
+                    help="the output path where the data is stored")
+
+parser.add_argument("--ignore-accounts",
+                    dest="ignoreAccountsCsvFile",
+                    default="PHI-2018-02-28-prod-accounts-to-be-ignored.csv",
+                    help="a .csv file that contains a column heading " +
+                    "'userID' and a list of userIDs to ignore")
+
 args = parser.parse_args()
 
-# Make sure the data directory exists
+
+# %% Make sure the data directory exists
 if not os.path.isdir(args.dataPath):
-    sys.exit('{0} is not a directory'.format(args.dataPath))
-
-# Only read the .env file after parsing command line args
-import environmentalVariables
-
-# %% user inputs (choices to be made to run code)
-ignoreAccountsPath = os.path.join(args.dataPath,
-    "PHI-2018-02-28-prod-accounts-to-be-ignored.csv")
-
-donorGroups = ["bigdata", "BT1", "carbdm", "CDN", "CWD", "DHF", "DIATRIBE",
-               "diabetessisters", "DYF", "JDRF", "NSF", "T1DX"]
+    sys.exit("{0} is not a directory".format(args.dataPath))
 
 
 # %% define global variables
+ignoreAccountsPath = os.path.join(args.dataPath, args.ignoreAccountsCsvFile)
+donorGroupPath = os.path.join(args.dataPath, args.donorGroupsCsvFile)
+
+donorGroups = pd.read_csv(donorGroupPath,
+                          header=0,
+                          names=["donorGroups"],
+                          low_memory=False)
+
+donorGroups = donorGroups.donorGroups
+
 try:
     salt = os.environ["BIGDATA_SALT"]
 except KeyError:
-    sys.exit('Environment variable BIGDATA_SALT not found in .env file')
+    sys.exit("Environment variable BIGDATA_SALT not found in .env file")
 
-dateStamp = dt.datetime.now().strftime("%Y") + "-" + \
-    dt.datetime.now().strftime("%m") + "-" + \
-    dt.datetime.now().strftime("%d")
-
-phiDateStamp = "PHI-" + dateStamp
+phiDateStamp = "PHI-" + args.dateStamp
 
 donorBandDdayListColumns = ["userID", "bDay", "dDay", "hashID"]
 
@@ -76,7 +105,8 @@ donorListFolder = os.path.join(donorFolder, phiDateStamp + "-donorLists")
 if not os.path.exists(donorListFolder):
     os.makedirs(donorListFolder)
 
-uniqueDonorPath = os.path.join(donorFolder, phiDateStamp + "-uniqueDonorList.csv")
+uniqueDonorPath = os.path.join(donorFolder,
+                               phiDateStamp + "-uniqueDonorList.csv")
 
 
 # %% define functions
