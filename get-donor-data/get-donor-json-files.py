@@ -22,8 +22,8 @@ import sys
 import subprocess as sub
 
 # %% user inputs (choices to be made to run code)
-securePath = "/tidepoolSecure/data/"
-dateStamp = "2018-02-28"
+securePath = "./data/"
+dateStamp = "2018-03-01"
 
 # %% define global variables
 phiDateStamp = "PHI-" + dateStamp

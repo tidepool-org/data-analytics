@@ -20,7 +20,6 @@ the dateStamp does NOT reflect all of the recent donors.
 """
 
 # %% load in required libraries
-import environmentalVariables
 import pandas as pd
 import datetime as dt
 import numpy as np
@@ -30,19 +29,33 @@ import sys
 import subprocess as sub
 import requests
 import json
+import argparse
 
+parser = argparse.ArgumentParser(description='Download a list of donors for each of the Tidepool accounts defined in .env')
+parser.add_argument('--data-path', dest='dataPath', default='./data',
+                    help='the path where the data is stored')
+args = parser.parse_args()
+
+# Make sure the data directory exists
+if not os.path.isdir(args.dataPath):
+    sys.exit('{0} is not a directory'.format(args.dataPath))
+
+# Only read the .env file after parsing command line args
+import environmentalVariables
 
 # %% user inputs (choices to be made to run code)
-securePath = "/tidepoolSecure/data/"
-ignoreAccountsPath = securePath + \
-    "PHI-2018-02-28-prod-accounts-to-be-ignored.csv"
+ignoreAccountsPath = os.path.join(args.dataPath,
+    "PHI-2018-02-28-prod-accounts-to-be-ignored.csv")
 
 donorGroups = ["bigdata", "BT1", "carbdm", "CDN", "CWD", "DHF", "DIATRIBE",
                "diabetessisters", "DYF", "JDRF", "NSF", "T1DX"]
 
 
 # %% define global variables
-salt = os.environ["BIGDATA_SALT"]
+try:
+    salt = os.environ["BIGDATA_SALT"]
+except KeyError:
+    sys.exit('Environment variable BIGDATA_SALT not found in .env file')
 
 dateStamp = dt.datetime.now().strftime("%Y") + "-" + \
     dt.datetime.now().strftime("%m") + "-" + \
@@ -55,15 +68,15 @@ donorBandDdayListColumns = ["userID", "bDay", "dDay", "hashID"]
 allDonorBandDdayList = pd.DataFrame(columns=donorBandDdayListColumns)
 
 # create output folders
-donorFolder = securePath + phiDateStamp + "-donor-data/"
+donorFolder = os.path.join(args.dataPath, phiDateStamp + "-donor-data")
 if not os.path.exists(donorFolder):
     os.makedirs(donorFolder)
 
-donorListFolder = donorFolder + phiDateStamp + "-donorLists/"
+donorListFolder = os.path.join(donorFolder, phiDateStamp + "-donorLists")
 if not os.path.exists(donorListFolder):
     os.makedirs(donorListFolder)
 
-uniqueDonorPath = donorFolder + phiDateStamp + "-uniqueDonorList.csv"
+uniqueDonorPath = os.path.join(donorFolder, phiDateStamp + "-uniqueDonorList.csv")
 
 
 # %% define functions
@@ -150,7 +163,7 @@ def get_bdays_and_ddays(email, password, donorBandDdayListColumns):
 
 # %% loop through each donor group to get a list of donors, bdays, and ddays
 for donorGroup in donorGroups:
-    outputDonorList = donorListFolder + donorGroup + "-donors.csv"
+    outputDonorList = os.path.join(donorListFolder, donorGroup + "-donors.csv")
 
     if donorGroup == "bigdata":
         donorGroup = ""
