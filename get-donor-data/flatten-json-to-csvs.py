@@ -11,8 +11,6 @@ license: BSD-2-Clause
 TODO:
 * [] rewrite code to take advantage of parrallel processing, given that
 code takes so long to run
-* [] Make sure that .0 column headers do not exist
-* [] Add a check if the data was already processed, not to process
 """
 
 # %% load in required libraries
@@ -27,8 +25,7 @@ import numpy as np
 # %% user inputs (choices to be made to run code)
 securePath = "/tidepoolSecure/data/"
 dateStamp = "2018-02-28"
-startIndex = 0
-endIndex = 2334
+
 
 # %% define global variables
 phiDateStamp = "PHI-" + dateStamp
@@ -50,35 +47,20 @@ donorCsvDataFolder = donorFolder + phiDateStamp + "-donorCsvDataByType/"
 if not os.path.exists(donorCsvDataFolder):
     os.makedirs(donorCsvDataFolder)
 
-metadataFilePathName = donorFolder + phiDateStamp + \
-    "-donorMetadata-" + str(startIndex) + "-" + str(endIndex) + ".csv"
-
 # load in list of unique donors
 uniqueDonors = pd.read_csv(donorFolder + phiDateStamp + "-uniqueDonorList.csv",
                            index_col="dIndex")
 
 allDiagnostics = pd.DataFrame()
 
+startIndex = 0
+endIndex = len(uniqueDonors)
+
+metadataFilePathName = donorFolder + phiDateStamp + \
+    "-donorMetadata-" + str(startIndex) + "-" + str(endIndex) + ".csv"
+
 
 # %% define functions
-def removeZeroFields(df):
-
-    # if *.0 exists then map back to proper field name
-    zeroFields = [
-            "duration.0",
-            "insulinSensitivity.0",
-            "units.0"
-            ]
-
-    for zeroField in zeroFields:
-        if zeroField in list(df):
-            print("zeroFields still exist")
-            break
-#            df[zeroField.replace(".0", "")] = df[zeroField]
-
-    return df
-
-
 def flattenJson(df):
     # get a list of columnHeadings
     columnHeadings = list(df)
@@ -96,27 +78,10 @@ def flattenJson(df):
             newDataFrame = newDataFrame.add_prefix(columnHeading + '.')
             newColHeadings = list(newDataFrame)
 
-            # make sure that the df does not already exist in the dataset
+            # put df back into the main dataframe
             for newColHeading in newColHeadings:
-                if newColHeading in list(df):
-                    print("has a column that already exists")
-                    break
-                    # pop the original df out of the dataset
-                    tempData2 = pd.DataFrame(df.pop(newColHeading))
-
-                    # combine the columns that have the same column heading
-                    tempDataFrame = pd.concat([
-                        tempData2[tempData2[newColHeading].notnull()][newColHeading],
-                        newDataFrame[newColHeading]])
-
-                else:
-                    tempDataFrame = newDataFrame[newColHeading]
-
-                # put df back into the main dataframe
+                tempDataFrame = newDataFrame[newColHeading]
                 df = pd.concat([df, tempDataFrame], axis=1)
-
-                # if *.0 exists then map back to proper field name
-                df = removeZeroFields(df)
 
     return df
 
