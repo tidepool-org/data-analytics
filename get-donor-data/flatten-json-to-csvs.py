@@ -59,44 +59,6 @@ parser.add_argument("-e",
 args = parser.parse_args()
 
 
-# %% define global variables
-phiDateStamp = "PHI-" + args.dateStamp
-
-donorFolder = os.path.join(args.dataPath, phiDateStamp + "-donor-data/")
-if not os.path.isdir(donorFolder):
-    sys.exit("{0} is not a directory".format(donorFolder))
-
-donorJsonDataFolder = donorFolder + phiDateStamp + "-donorJsonData/"
-if not os.path.isdir(donorJsonDataFolder):
-    sys.exit("{0} is not a directory".format(donorJsonDataFolder))
-
-# create output folders
-donorFlatJsonDataFolder = donorFolder + phiDateStamp + "-donorFlatJsonData/"
-if not os.path.exists(donorFlatJsonDataFolder):
-    os.makedirs(donorFlatJsonDataFolder)
-
-donorCsvDataFolder = donorFolder + phiDateStamp + "-donorCsvDataByType/"
-if not os.path.exists(donorCsvDataFolder):
-    os.makedirs(donorCsvDataFolder)
-
-# load in list of unique donors
-uniqueDonors = pd.read_csv(donorFolder + phiDateStamp + "-uniqueDonorList.csv",
-                           index_col="dIndex")
-
-allDiagnostics = pd.DataFrame()
-
-startIndex = int(args.startIndex)
-endIndex = int(args.endIndex)
-if endIndex == -1:
-    if startIndex == 0:
-        endIndex = len(uniqueDonors)
-    else:
-        endIndex = startIndex + 1
-
-metadataFilePathName = donorFolder + phiDateStamp + \
-    "-donorMetadata-" + str(startIndex) + "-" + str(endIndex) + ".csv"
-
-
 # %% define functions
 def flattenJson(df):
     # get a list of columnHeadings
@@ -145,65 +107,152 @@ def saveByType(df, outputFileName):
     return
 
 
+def defineStartAndEndIndex(args):
+    startIndex = int(args.startIndex)
+    endIndex = int(args.endIndex)
+    if endIndex == -1:
+        if startIndex == 0:
+            endIndex = len(uniqueDonors)
+        else:
+            endIndex = startIndex + 1
+
+    return startIndex, endIndex
+
+
+def tempRemoveFields(df):
+    removeFields = ["basalSchedules",
+                    "bgTarget",
+                    "carbRatio",
+                    "insulinSensitivity",
+                    "payload",
+                    "suppressed"]
+
+    tempRemoveFields = list(set(data) & set(removeFields))
+    tempDf = data[tempRemoveFields]
+    df = df.drop(columns=tempRemoveFields)
+
+    return df, tempDf
+
+
+# %% define global variables
+phiDateStamp = "PHI-" + args.dateStamp
+
+donorFolder = os.path.join(args.dataPath, phiDateStamp + "-donor-data/")
+if not os.path.isdir(donorFolder):
+    sys.exit("{0} is not a directory".format(donorFolder))
+
+donorJsonDataFolder = donorFolder + phiDateStamp + "-donorJsonData/"
+if not os.path.isdir(donorJsonDataFolder):
+    sys.exit("{0} is not a directory".format(donorJsonDataFolder))
+
+# create output folders
+donorCsvFolder = os.path.join(donorFolder, phiDateStamp + "-donorCsvFolder/")
+if not os.path.exists(donorCsvFolder):
+    os.makedirs(donorCsvFolder)
+
+donorMetaDataFolder = os.path.join(donorFolder,
+                                   phiDateStamp + "-donorMetaDataFolder/")
+if not os.path.exists(donorMetaDataFolder):
+    os.makedirs(donorMetaDataFolder)
+
+# load in list of unique donors
+uniqueDonors = pd.read_csv(donorFolder + phiDateStamp + "-uniqueDonorList.csv",
+                           index_col="dIndex")
+
+allDiagnostics = pd.DataFrame()
+
+# define start and end index
+startIndex, endIndex = defineStartAndEndIndex(args)
+
+#startIndex = int(args.startIndex)
+#endIndex = int(args.endIndex)
+#if endIndex == -1:
+#    if startIndex == 0:
+#        endIndex = len(uniqueDonors)
+#    else:
+#        endIndex = startIndex + 1
+
+metadataFilePathName = donorFolder + phiDateStamp + \
+    "-donorMetadata-" + str(startIndex) + "-" + str(endIndex) + ".csv"
+
+
 # %% start of code
 for dIndex in range(startIndex, endIndex):
-    diagnostics = pd.DataFrame(index=[dIndex])
+    metadata = pd.DataFrame(index=[dIndex])
     userID = uniqueDonors.userID[dIndex]
-    diagnostics["userID"] = userID
+    metadata["userID"] = userID
     inputFilePathName = os.path.join(donorJsonDataFolder,
                                      "PHI-" + userID + ".json")
     fileSize = os.stat(inputFilePathName).st_size
-    diagnostics["fileSizeKB"] = int(fileSize / 1000)
-    flatJsonFilePathName = donorFlatJsonDataFolder + "PHI-" + userID + ".csv"
-    # if the json file already exists, do NOT pull it again
-    if not os.path.exists(flatJsonFilePathName):
+    metadata["fileSizeKB"] = int(fileSize / 1000)
+    csvFilePathName = donorCsvFolder + "PHI-" + userID + ".csv"
+    # if the csv file already exists, do NOT pull it again
+    if not os.path.exists(csvFilePathName):
         if fileSize > 1000:
             if fileSize > 250E6:  # flag condition where download is > 250MB
-                diagnostics["errorMessage"] = \
+                metadata["errorMessage"] = \
                     "download manually until commandline tools are fixed"
+
             with open(inputFilePathName, 'r') as f:
                 datastore = json.load(f)
 
                 # “Normalize” semi-structured JSON data into a flat table
                 data = json_normalize(datastore)
 
-                # flatten embedded json, if it exists
-                data = flattenJson(data)
+                # remove fields that we don't want to flatten
+                data, holdData = tempRemoveFields(data)
+
+#                removeFields = ["basalSchedules",
+#                                    "carbRatios",
+#                                    "insulinSensitivities",
+#                                    "payload",
+#                                    "suppressed"]
+#                tempRemoveFields = list(set(data) & set(removeFields))
+#                holdData = data[tempRemoveFields]
+#                data = data.drop(columns=tempRemoveFields)
 
                 # remove [] from annotations field
                 data = removeBrackets(data, "annotations")
 
-                # flatten again, if ebedded json within the embedded json
+                # flatten embedded json, if it exists
                 data = flattenJson(data)
 
-                diagnostics["nRows"] = len(data)
-                diagnostics["nColumns"] = len(list(data))
+                # add the fields that were removed back in
+                data = pd.concat([data, holdData], axis=1)
+
+
+#                # flatten again, if ebedded json within the embedded json
+#                data = flattenJson(data)
+
+#                metadata["nRows"] = len(data)
+#                metadata["nColumns"] = len(list(data))
 
                 # save the flattened json file
                 data.index.name = "jsonRowIndex"
-                data.to_csv(flatJsonFilePathName)
+                data.to_csv(csvFilePathName)
 
-                # break data by type and save
-                csvFilePath = donorCsvDataFolder + "PHI-" + userID + "/"
-                if not os.path.exists(csvFilePath):
-                    os.makedirs(csvFilePath)
-                csvUserFileName = csvFilePath + "PHI-" + userID
-                saveByType(data, csvUserFileName)
+#                # break data by type and save
+#                csvFilePath = donorMetaDataFolder + "PHI-" + userID + "/"
+#                if not os.path.exists(csvFilePath):
+#                    os.makedirs(csvFilePath)
+#                csvUserFileName = csvFilePath + "PHI-" + userID
+#                saveByType(data, csvUserFileName)
 
         else:
-            diagnostics["errorMessage"] = "no data"
+            metadata["errorMessage"] = "no data"
     else:
         print(dIndex, "already processed")
 
-    print(dIndex, "of", endIndex)
+    print(round(dIndex/(endIndex - startIndex) * 100,1),
+          "% ", dIndex, "of", endIndex)
 
-    allDiagnostics = pd.concat([allDiagnostics, diagnostics])
+    allDiagnostics = pd.concat([allDiagnostics, metadata])
 
 # %% save output
-uniqueDonors = pd.merge(uniqueDonors,
-                        allDiagnostics,
-                        how="left",
-                        on="userID")
+#uniqueDonors = pd.merge(uniqueDonors,
+#                        allDiagnostics,
+#                        how="left",
+#                        on="userID")
 
-uniqueDonors.index.name = "dIndex"
-uniqueDonors.to_csv(metadataFilePathName)
+allDiagnostics.index.name = "dIndex"
+allDiagnostics.to_csv(metadataFilePathName)
