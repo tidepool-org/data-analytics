@@ -193,6 +193,9 @@ for dIndex in range(startIndex, endIndex):
                 # add the fields that were removed back in
                 data = pd.concat([data, holdData], axis=1)
 
+                # get rid of any fields that have no data
+                data = data.dropna(axis=1, how="all")
+
                 # save the flattened json file
                 data.index.name = "jsonRowIndex"
                 data.to_csv(csvFilePathName)
