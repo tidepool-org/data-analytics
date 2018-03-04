@@ -10,10 +10,11 @@ dependencies:
 license: BSD-2-Clause
 TODO:
 * [] rewrite code to take advantage of parrallel processing, given that
-code takes so long to run
+code takes so long to run (e.g., 1500 files takes 4 hours to process)
 * [] command line tools need to be updated to be able to download json files
 that are greater than 250 MB
 """
+
 
 # %% load in required libraries
 import pandas as pd
@@ -70,8 +71,10 @@ def flattenJson(df):
         if "{" in df[df[colHead].notnull()][colHead].astype(str).str[0].values:
             # grab the data that is in brackets
             jsonBlob = df[colHead][df[colHead].astype(str).str[0] == "{"]
+
             # replace those values with nan
             df.loc[jsonBlob.index, colHead] = np.nan
+
             # turn jsonBlog to dataframe
             newDataFrame = jsonBlob.apply(pd.Series)
             newDataFrame = newDataFrame.add_prefix(colHead + '.')
@@ -93,20 +96,6 @@ def removeBrackets(df, fieldName):
     return df
 
 
-def saveByType(df, outputFileName):
-    uniqueTypeNames = list(df.type.unique())
-    if np.nan in uniqueTypeNames:
-        uniqueTypeNames.remove(np.nan)
-    groupedData = df.groupby(by="type")
-
-    # save each type of df
-    for typeName in uniqueTypeNames:
-        tempGroup = groupedData.get_group(typeName).dropna(axis=1, how="all")
-        tempGroup.to_csv(outputFileName + "-" + typeName + ".csv")
-
-    return
-
-
 def defineStartAndEndIndex(args):
     startIndex = int(args.startIndex)
     endIndex = int(args.endIndex)
@@ -122,8 +111,11 @@ def defineStartAndEndIndex(args):
 def tempRemoveFields(df):
     removeFields = ["basalSchedules",
                     "bgTarget",
+                    "bgTargets",
                     "carbRatio",
+                    "carbRatios",
                     "insulinSensitivity",
+                    "insulinSensitivities",
                     "payload",
                     "suppressed"]
 
@@ -137,6 +129,7 @@ def tempRemoveFields(df):
 # %% define global variables
 phiDateStamp = "PHI-" + args.dateStamp
 
+# input folder(s)
 donorFolder = os.path.join(args.dataPath, phiDateStamp + "-donor-data/")
 if not os.path.isdir(donorFolder):
     sys.exit("{0} is not a directory".format(donorFolder))
@@ -145,35 +138,23 @@ donorJsonDataFolder = donorFolder + phiDateStamp + "-donorJsonData/"
 if not os.path.isdir(donorJsonDataFolder):
     sys.exit("{0} is not a directory".format(donorJsonDataFolder))
 
-# create output folders
+# create output folder(s)
 donorCsvFolder = os.path.join(donorFolder, phiDateStamp + "-donorCsvFolder/")
 if not os.path.exists(donorCsvFolder):
     os.makedirs(donorCsvFolder)
-
-donorMetaDataFolder = os.path.join(donorFolder,
-                                   phiDateStamp + "-donorMetaDataFolder/")
-if not os.path.exists(donorMetaDataFolder):
-    os.makedirs(donorMetaDataFolder)
 
 # load in list of unique donors
 uniqueDonors = pd.read_csv(donorFolder + phiDateStamp + "-uniqueDonorList.csv",
                            index_col="dIndex")
 
-allDiagnostics = pd.DataFrame()
+allMetaData = pd.DataFrame()
 
 # define start and end index
 startIndex, endIndex = defineStartAndEndIndex(args)
 
-#startIndex = int(args.startIndex)
-#endIndex = int(args.endIndex)
-#if endIndex == -1:
-#    if startIndex == 0:
-#        endIndex = len(uniqueDonors)
-#    else:
-#        endIndex = startIndex + 1
-
-metadataFilePathName = donorFolder + phiDateStamp + \
-    "-donorMetadata-" + str(startIndex) + "-" + str(endIndex) + ".csv"
+metadataFilePathName = \
+    os.path.join(donorFolder, phiDateStamp + "-donorCsvFolder-metadata-") + \
+    str(startIndex) + "-" + str(endIndex-1) + ".csv"
 
 
 # %% start of code
@@ -186,7 +167,8 @@ for dIndex in range(startIndex, endIndex):
     fileSize = os.stat(inputFilePathName).st_size
     metadata["fileSizeKB"] = int(fileSize / 1000)
     csvFilePathName = donorCsvFolder + "PHI-" + userID + ".csv"
-    # if the csv file already exists, do NOT pull it again
+
+    # if the csv file already exists, do NOT process it again
     if not os.path.exists(csvFilePathName):
         if fileSize > 1000:
             if fileSize > 250E6:  # flag condition where download is > 250MB
@@ -202,15 +184,6 @@ for dIndex in range(startIndex, endIndex):
                 # remove fields that we don't want to flatten
                 data, holdData = tempRemoveFields(data)
 
-#                removeFields = ["basalSchedules",
-#                                    "carbRatios",
-#                                    "insulinSensitivities",
-#                                    "payload",
-#                                    "suppressed"]
-#                tempRemoveFields = list(set(data) & set(removeFields))
-#                holdData = data[tempRemoveFields]
-#                data = data.drop(columns=tempRemoveFields)
-
                 # remove [] from annotations field
                 data = removeBrackets(data, "annotations")
 
@@ -220,39 +193,30 @@ for dIndex in range(startIndex, endIndex):
                 # add the fields that were removed back in
                 data = pd.concat([data, holdData], axis=1)
 
-
-#                # flatten again, if ebedded json within the embedded json
-#                data = flattenJson(data)
-
-#                metadata["nRows"] = len(data)
-#                metadata["nColumns"] = len(list(data))
-
                 # save the flattened json file
                 data.index.name = "jsonRowIndex"
                 data.to_csv(csvFilePathName)
-
-#                # break data by type and save
-#                csvFilePath = donorMetaDataFolder + "PHI-" + userID + "/"
-#                if not os.path.exists(csvFilePath):
-#                    os.makedirs(csvFilePath)
-#                csvUserFileName = csvFilePath + "PHI-" + userID
-#                saveByType(data, csvUserFileName)
 
         else:
             metadata["errorMessage"] = "no data"
     else:
         print(dIndex, "already processed")
 
-    print(round(dIndex/(endIndex - startIndex) * 100,1),
-          "% ", dIndex, "of", endIndex)
+    print(round((dIndex - startIndex + 1) / (endIndex - startIndex) * 100, 1),
+          "% ", dIndex, "of", endIndex - 1)
 
-    allDiagnostics = pd.concat([allDiagnostics, metadata])
+    allMetaData = pd.concat([allMetaData, metadata])
+
 
 # %% save output
-#uniqueDonors = pd.merge(uniqueDonors,
-#                        allDiagnostics,
-#                        how="left",
-#                        on="userID")
+allMetaData.index.name = "dIndex"
+allMetaData.to_csv(metadataFilePathName)
 
-allDiagnostics.index.name = "dIndex"
-allDiagnostics.to_csv(metadataFilePathName)
+print((endIndex - startIndex), "files processed. ")
+print(allMetaData.query("fileSizeKB > 0").fileSizeKB.count(),
+      "had data, but",
+      allMetaData.query("fileSizeKB > 0").errorMessage.count(),
+      "require attention, see", metadataFilePathName, "for details")
+
+print("The following errors were noted:",
+      allMetaData[allMetaData.errorMessage.notnull()].errorMessage.unique())
