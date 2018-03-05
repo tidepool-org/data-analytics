@@ -20,8 +20,6 @@ that are greater than 250 MB
 import pandas as pd
 import datetime as dt
 import os
-import json
-from pandas.io.json import json_normalize
 import sys
 import numpy as np
 import argparse
@@ -119,8 +117,8 @@ def tempRemoveFields(df):
                     "payload",
                     "suppressed"]
 
-    tempRemoveFields = list(set(data) & set(removeFields))
-    tempDf = data[tempRemoveFields]
+    tempRemoveFields = list(set(df) & set(removeFields))
+    tempDf = df[tempRemoveFields]
     df = df.drop(columns=tempRemoveFields)
 
     return df, tempDf
@@ -130,21 +128,24 @@ def tempRemoveFields(df):
 phiDateStamp = "PHI-" + args.dateStamp
 
 # input folder(s)
-donorFolder = os.path.join(args.dataPath, phiDateStamp + "-donor-data/")
+donorFolder = os.path.join(args.dataPath, phiDateStamp + "-donor-data")
 if not os.path.isdir(donorFolder):
     sys.exit("{0} is not a directory".format(donorFolder))
 
-donorJsonDataFolder = donorFolder + phiDateStamp + "-donorJsonData/"
+donorJsonDataFolder = os.path.join(donorFolder,
+                                   phiDateStamp + "-donorJsonData", "")
+
 if not os.path.isdir(donorJsonDataFolder):
     sys.exit("{0} is not a directory".format(donorJsonDataFolder))
 
 # create output folder(s)
-donorCsvFolder = os.path.join(donorFolder, phiDateStamp + "-donorCsvFolder/")
+donorCsvFolder = os.path.join(donorFolder, phiDateStamp + "-donorCsvFolder")
 if not os.path.exists(donorCsvFolder):
     os.makedirs(donorCsvFolder)
 
 # load in list of unique donors
-uniqueDonors = pd.read_csv(donorFolder + phiDateStamp + "-uniqueDonorList.csv",
+uniqueDonors = pd.read_csv(os.path.join(donorFolder,
+                                        phiDateStamp + "-uniqueDonorList.csv"),
                            index_col="dIndex")
 
 allMetaData = pd.DataFrame()
@@ -153,7 +154,7 @@ allMetaData = pd.DataFrame()
 startIndex, endIndex = defineStartAndEndIndex(args)
 
 metadataFilePathName = \
-    os.path.join(donorFolder, phiDateStamp + "-donorCsvFolder-metadata-") + \
+    os.path.join(donorCsvFolder + "-metadata-") + \
     str(startIndex) + "-" + str(endIndex-1) + ".csv"
 
 
@@ -166,7 +167,7 @@ for dIndex in range(startIndex, endIndex):
                                      "PHI-" + userID + ".json")
     fileSize = os.stat(inputFilePathName).st_size
     metadata["fileSizeKB"] = int(fileSize / 1000)
-    csvFilePathName = donorCsvFolder + "PHI-" + userID + ".csv"
+    csvFilePathName = os.path.join(donorCsvFolder, "PHI-" + userID + ".csv")
 
     # if the csv file already exists, do NOT process it again
     if not os.path.exists(csvFilePathName):
@@ -175,30 +176,27 @@ for dIndex in range(startIndex, endIndex):
                 metadata["errorMessage"] = \
                     "download manually until commandline tools are fixed"
 
-            with open(inputFilePathName, 'r') as f:
-                datastore = json.load(f)
+            # load json file
+            data = pd.read_json(inputFilePathName, orient="records")
 
-                # “Normalize” semi-structured JSON data into a flat table
-                data = json_normalize(datastore)
+            # remove fields that we don't want to flatten
+            data, holdData = tempRemoveFields(data)
 
-                # remove fields that we don't want to flatten
-                data, holdData = tempRemoveFields(data)
+            # remove [] from annotations field
+            data = removeBrackets(data, "annotations")
 
-                # remove [] from annotations field
-                data = removeBrackets(data, "annotations")
+            # flatten embedded json, if it exists
+            data = flattenJson(data)
 
-                # flatten embedded json, if it exists
-                data = flattenJson(data)
+            # add the fields that were removed back in
+            data = pd.concat([data, holdData], axis=1)
 
-                # add the fields that were removed back in
-                data = pd.concat([data, holdData], axis=1)
+            # get rid of any fields that have no data
+            data = data.dropna(axis=1, how="all")
 
-                # get rid of any fields that have no data
-                data = data.dropna(axis=1, how="all")
-
-                # save the flattened json file
-                data.index.name = "jsonRowIndex"
-                data.to_csv(csvFilePathName)
+            # save the flattened json file
+            data.index.name = "jsonRowIndex"
+            data.to_csv(csvFilePathName)
 
         else:
             metadata["errorMessage"] = "no data"
