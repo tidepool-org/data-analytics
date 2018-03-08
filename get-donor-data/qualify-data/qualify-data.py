@@ -9,20 +9,9 @@ dependencies:
     *
 license: BSD-2-Clause
 TODO:
-* [] account for 15 minute libre data, most likely change will be to change
-timeFreqMin to 15, but it could affect the number of
-boluses per day...HOWEVER, THIS CAN BE AVOIDED IF WE CHANGE FROM MERGING AT THE
-5 OR 15 MINUTE LEVEL, AND RATHER MERGE AT THE DAY LEVEL.
-* [] add version number to the qualification results so that we can keep track
-of which qualification scripts were used to qualify the datasets. Figure out
-how to get version number from the header
-* [] get the description from the header and add to argparse
-* [] add everything up to the contiguous data to the flatten-json script, and
-start this file at the point of loading the contiguous data, it should
-significantly speed up the qualification process
-* [] update variable names to be shorter and possibily more descriptive
-* [] update readme file
+* [] list moved to readme file
 """
+
 
 # %% REQUIRED LIBRARIES
 import pandas as pd
@@ -33,6 +22,7 @@ import sys
 import argparse
 import json
 
+
 # %% USER INPUTS
 codeDescription = "Qualify donated datasets"
 
@@ -42,8 +32,8 @@ parser.add_argument("-d",
                     "--date-stamp",
                     dest="dateStamp",
                     default=dt.datetime.now().strftime("%Y-%m-%d"),
-                    help="date in '%Y-%m-%d' format of unique donor list" +
-                    "(e.g., PHI-2018-03-02-uniqueDonorList)")
+                    help="date in '%Y-%m-%d' format needed to call unique " +
+                    "donor list (e.g., PHI-2018-03-02-uniqueDonorList)")
 
 parser.add_argument("-o",
                     "--output-data-path",

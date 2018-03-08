@@ -6,6 +6,7 @@ There is one main functions:
 * qualify.py
 
 ## dependencies:
+* get-donor-data virtual environment (see /data-analytics/readme.md for details)
 * requires that data is in the format output from the get-donor-data tools
 * requires a json file with qualifying criteria
 

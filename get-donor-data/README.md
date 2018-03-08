@@ -9,6 +9,7 @@ There are three main functions:
 * flatten-json-to-csvs.py
 
 ## dependencies:
+* set up get-donor-data virtual environment (see /data-analytics/readme.md)
 * requires that donors are accepted (currently a manual process)
 * requires a list of qa accounts on production to be ignored
 * requires environmental variables: import environmentalVariables.py
