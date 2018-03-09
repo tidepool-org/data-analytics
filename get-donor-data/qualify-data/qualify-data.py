@@ -134,6 +134,35 @@ def getStartAndEndTimes(df):
     return dfBeginDate, dfEndDate
 
 
+def getCalculatorCounts(calculatorData, metadata):
+    calculatorData["dayIndex"] = \
+        pd.DatetimeIndex(calculatorData["time"]).date
+
+    # get rid of duplicates
+    nBefore = len(calculatorData)
+    tempData = calculatorData.drop("jsonRowIndex", axis=1)
+    calculatorData = calculatorData.loc[~(tempData.duplicated())]
+    calculatorData = calculatorData.reset_index(drop=True)
+    nDuplicatesRemoved = nBefore - len(calculatorData)
+    metadata["calculator.duplicatesRemoved.count"] = nDuplicatesRemoved
+
+    # get start and end times
+    calculatorBeginDate = calculatorData.dayIndex.min()
+    calculatorEndDate = calculatorData.dayIndex.max()
+    metadata["calculator.beginDate"] = calculatorBeginDate
+    metadata["calculator.endDate"] = calculatorEndDate
+
+    # group by day and get number of calculator boluses
+    catDF = calculatorData.groupby(calculatorData["dayIndex"])
+    calculatorPerDay = pd.DataFrame()
+    calculatorPerDay["calculator.count"] = catDF.jsonRowIndex.count()
+    calculatorPerDay["date"] = calculatorPerDay.index
+    calculatorPerDay = calculatorPerDay.rename(
+            columns={"jsonRowIndex": "calculator.count"})
+
+    return calculatorPerDay, metadata
+
+
 def getListOfDexcomCGMDays(df):
     # search for dexcom cgms
     searchfor = ["Dex", "tan", "IR", "unk"]
@@ -145,7 +174,7 @@ def getListOfDexcomCGMDays(df):
     return df, percentDexcomCGM
 
 
-def getDayStats(df, closedLoopDF):
+def getDayStats(df, calculatorEventsDF, closedLoopDF):
     # group df by Day
     catDF = df.groupby(df["dayIndex"])
 
@@ -163,6 +192,10 @@ def getDayStats(df, closedLoopDF):
                             "cgm.dexcomOnly": dexcomOnlyPerDay})
 
     dfStats = dfStats.reset_index(drop=True)
+
+    # add in the calculator event data
+    dfStats = pd.merge(dfStats, calculatorEventsDF, on="date", how="left")
+    dfStats["calculator.count"] = dfStats["calculator.count"].fillna(0)
 
     # add in closedLoopDays
     dfStats = pd.merge(dfStats, closedLoopDF, how="left", on="date")
@@ -207,20 +240,20 @@ def getSummaryStats(df, dayStatsDF):
                                    numberContiguousDays) * 100, 1)
     df["qualifyingDays.percent"] = percentQualifyingDays
 
-    avgBolusRecordsQualfiyingDays = \
+    avgBolusCalculations = \
         round(dayStatsDF.loc[dayStatsDF.qualifyingDay == 1,
-                             "bolus.count"].mean(), 1)
+                             "calculator.count"].mean(), 1)
 
-    df["qualfiyingDays.avgBolusCount"] = avgBolusRecordsQualfiyingDays
+    df["qualfiyingDays.avgBolusCalculatorCount"] = avgBolusCalculations
 
     return df
 
 
 def getQualifyingTier(df, criteriaName, contDayCriteria,
-                      avgBolusCountCriteria, percQualDayCriteria,
+                      avgBolusCalculationsCriteria, percQualDayCriteria,
                       maxGapToContRatioCriteria):
 
-    tempDF = pd.DataFrame(columns=["avgBolusRecordsPerDay",
+    tempDF = pd.DataFrame(columns=["avgBolusCalculationsPerDay",
                                    "numberContiguousDays",
                                    "percentQualifyingDays",
                                    "maxGapToContiguousRatio",
@@ -233,8 +266,10 @@ def getQualifyingTier(df, criteriaName, contDayCriteria,
         numberContiguousDays = df["bolus.count"].iloc[i:tempIndex].count()
         tempDF.loc[i, "numberContiguousDays"] = numberContiguousDays
 
-        avgBolusRecordsPerDay = df["bolus.count"].iloc[i:tempIndex].mean()
-        tempDF.loc[i, "avgBolusRecordsPerDay"] = avgBolusRecordsPerDay
+        avgBolusCalculationsPerDay = \
+            df["calculator.count"].iloc[i:tempIndex].mean()
+        tempDF.loc[i, "avgBolusCalculationsPerDay"] = \
+            avgBolusCalculationsPerDay
 
         percentQualifyingDays = \
             df.qualifyingDay.iloc[i:tempIndex].sum() / contDayCriteria * 100
@@ -252,7 +287,7 @@ def getQualifyingTier(df, criteriaName, contDayCriteria,
         tempDF.loc[i, "maxGapToContiguousRatio"] = maxGapToContiguousRatio
 
         tier = (numberContiguousDays == contDayCriteria
-                and avgBolusRecordsPerDay >= avgBolusCountCriteria
+                and avgBolusCalculationsPerDay >= avgBolusCalculationsCriteria
                 and percentQualifyingDays >= percQualDayCriteria
                 and maxGapToContiguousRatio <= maxGapToContRatioCriteria)
 
@@ -292,7 +327,7 @@ def qualify(df, metaDF, q, idx):
             getQualifyingTier(df,
                               q["tierNames"][j],
                               q["minContiguousDays"][j],
-                              q["avgBolusesPerDay"][j],
+                              q["avgBolusCalcsPerDay"][j],
                               q["percentDaysQualifying"][j],
                               q["maxGapToContigRatio"][j])
 
@@ -432,6 +467,39 @@ for dIndex in range(startIndex, endIndex):
                                    "subType"]].rename(columns={
                                        "subType": "bolus"})
 
+            # %% CALCULATOR (AKA wizard data)
+            if "wizard" in data.type.unique():
+                # filter by calculator data and sort by time
+                calculatorData = filterAndSort(groupedData, "wizard", "time")
+                calculatorEventsPerDay, metadata = \
+                    getCalculatorCounts(calculatorData, metadata)
+            else:
+                calculatorEventsPerDay = \
+                    pd.DataFrame(columns=["calculator.count", "date"])
+
+#            calculatorData["dayIndex"] = \
+#                pd.DatetimeIndex(calculatorData["time"]).date
+#
+#            # get rid of duplicates
+#            nBefore = len(calculatorData)
+#            tempData = calculatorData.drop("jsonRowIndex", axis=1)
+#            calculatorData = calculatorData.loc[~(tempData.duplicated())]
+#            calculatorData = calculatorData.reset_index(drop=True)
+#            nDuplicatesRemoved = nBefore - len(calculatorData)
+#
+#            # get start and end times
+#            calculatorBeginDate = calculatorData.dayIndex.min()
+#            calculatorEndDate = calculatorData.dayIndex.max()
+#            metadata["calculator.beginDate"] = calculatorBeginDate
+#            metadata["calculator.endDate"] = calculatorEndDate
+#            catDF = calculatorData.groupby(calculatorData["dayIndex"])
+#            calculatorPerDay = pd.DataFrame()
+#            calculatorPerDay["calculator.count"] = catDF.jsonRowIndex.count()
+#            calculatorPerDay["date"] = calculatorPerDay.index
+#            calculatorPerDay = calculatorPerDay.rename(
+#                    columns={"jsonRowIndex": "calculator.count"})
+
+
             # %% CONTIGUOUS DATA
             # calculate the start and end of contiguous data
             contiguousBeginDate = max(cgmBeginDate, bolusBeginDate)
@@ -462,7 +530,13 @@ for dIndex in range(startIndex, endIndex):
 
                 # %% QUALIFICATION AT DAY LEVEL
                 # calculate day stats
-                dayStats = getDayStats(contiguousData, closedLoopDays)
+                dayStats = getDayStats(contiguousData,
+                                       calculatorEventsPerDay,
+                                       closedLoopDays)
+
+#                # merge in the calculator data
+#                dayStats = pd.merge(dayStats, calculatorEventsPerDay,
+#                                    on="date", how="left")
 
                 # dexcom specific qualification criteria
                 if qualCriteria["name"] == "dexcom":
