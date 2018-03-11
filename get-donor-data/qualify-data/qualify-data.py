@@ -9,7 +9,9 @@ dependencies:
     *
 license: BSD-2-Clause
 TODO:
-* [] todo-list moved to readme file
+* [] some of the todo-list moved to readme file
+* [] make saving the metadata optional, and by default to no
+* []
 """
 
 
@@ -595,7 +597,8 @@ for dIndex in range(startIndex, endIndex):
 allMetaData.index.name = "dIndex"
 uniqueDonors = pd.concat([uniqueDonors, allMetaData], axis=1)
 aMFileName = os.path.join(donorFolder,
-                          phiDateStamp + "-qualified-on-" + qualifiedOn +
+                          phiDateStamp + "-records-" + str(startIndex) + "-" +
+                          str(endIndex - 1) + "-qualified-on-" + qualifiedOn +
                           "-for-" + qualCriteria["name"] + "-metadata.csv")
 
 uniqueDonors.to_csv(aMFileName)
