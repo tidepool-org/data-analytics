@@ -415,22 +415,6 @@ for dIndex in range(startIndex, endIndex):
             # group data by type
             groupedData = data.groupby(by="type")
 
-            # %% BASAL
-            # filter by basal data and sort by time
-            if "basal" in data.type.unique():
-                basalData = filterAndSort(groupedData, "basal", "time")
-
-                # get closed loop days
-                nTB = qualCriteria["nTempBasalsPerDayIsClosedLoop"]
-                closedLoopDays, nClosedLoopDays = getClosedLoopDays(basalData,
-                                                                    nTB)
-
-            else:
-                closedLoopDays = np.nan
-                nClosedLoopDays = np.nan
-
-            metadata["basal.closedLoopDays.count"] = nClosedLoopDays
-
             # %% CGM
             # filter by cgm and sort by time
             cgmData = filterAndSort(groupedData, "cbg", "time")
@@ -487,6 +471,22 @@ for dIndex in range(startIndex, endIndex):
             # %% CALCULATOR (AKA wizard data)
             calculatorEventsPerDay, metadata = \
                 getCalculatorCounts(groupedData, metadata)
+
+            # %% BASAL
+            # filter by basal data and sort by time
+            if "basal" in data.type.unique():
+                basalData = filterAndSort(groupedData, "basal", "time")
+
+                # get closed loop days
+                nTB = qualCriteria["nTempBasalsPerDayIsClosedLoop"]
+                closedLoopDays, nClosedLoopDays = getClosedLoopDays(basalData,
+                                                                    nTB)
+
+            else:
+                closedLoopDays = np.nan
+                nClosedLoopDays = np.nan
+
+            metadata["basal.closedLoopDays.count"] = nClosedLoopDays
 
             # %% CONTIGUOUS DATA
             # calculate the start and end of contiguous data
