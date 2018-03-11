@@ -143,29 +143,37 @@ def getStartAndEndTimes(df, dateTimeField):
     return dfBeginDate, dfEndDate
 
 
-def getCalculatorCounts(calculatorData, metadata):
-    calculatorData["dayIndex"] = \
-        pd.DatetimeIndex(calculatorData["time"]).date
+def getCalculatorCounts(groupedData, metadata):
+    if "wizard" in groupedData.type.unique():
+        # filter by calculator data and sort by time
+        calculatorData = filterAndSort(groupedData, "wizard", "time")
 
-    # get rid of duplicates
-    df, nDuplicatesRemoved = \
-        removeDuplicates(calculatorData,
-                         calculatorData.drop("jsonRowIndex", axis=1))
-    metadata["calculator.duplicatesRemoved.count"] = nDuplicatesRemoved
+        # add dayIndex
+        calculatorData["dayIndex"] = \
+            pd.DatetimeIndex(calculatorData["time"]).date
 
-    # get start and end times
-    calculatorBeginDate = calculatorData.dayIndex.min()
-    calculatorEndDate = calculatorData.dayIndex.max()
-    metadata["calculator.beginDate"] = calculatorBeginDate
-    metadata["calculator.endDate"] = calculatorEndDate
+        # get rid of duplicates
+        calculatorData, nDuplicatesRemoved = \
+            removeDuplicates(calculatorData,
+                             calculatorData.drop("jsonRowIndex", axis=1))
+        metadata["calculator.duplicatesRemoved.count"] = nDuplicatesRemoved
 
-    # group by day and get number of calculator boluses
-    catDF = calculatorData.groupby(calculatorData["dayIndex"])
-    calculatorPerDay = pd.DataFrame()
-    calculatorPerDay["calculator.count"] = catDF.jsonRowIndex.count()
-    calculatorPerDay["date"] = calculatorPerDay.index
-    calculatorPerDay = calculatorPerDay.rename(
-            columns={"jsonRowIndex": "calculator.count"})
+        # get start and end times
+        calculatorBeginDate, calculatorEndDate = \
+            getStartAndEndTimes(calculatorData, "dayIndex")
+        metadata["calculator.beginDate"] = calculatorBeginDate
+        metadata["calculator.endDate"] = calculatorEndDate
+
+        # group by day and get number of calculator boluses
+        catDF = calculatorData.groupby(calculatorData["dayIndex"])
+        calculatorPerDay = pd.DataFrame()
+        calculatorPerDay["calculator.count"] = catDF.jsonRowIndex.count()
+        calculatorPerDay["date"] = calculatorPerDay.index
+        calculatorPerDay = calculatorPerDay.rename(
+                columns={"jsonRowIndex": "calculator.count"})
+
+    else:
+        calculatorPerDay = pd.DataFrame(columns=["calculator.count", "date"])
 
     return calculatorPerDay, metadata
 
@@ -477,14 +485,8 @@ for dIndex in range(startIndex, endIndex):
                                        "subType": "bolus"})
 
             # %% CALCULATOR (AKA wizard data)
-            if "wizard" in data.type.unique():
-                # filter by calculator data and sort by time
-                calculatorData = filterAndSort(groupedData, "wizard", "time")
-                calculatorEventsPerDay, metadata = \
-                    getCalculatorCounts(calculatorData, metadata)
-            else:
-                calculatorEventsPerDay = \
-                    pd.DataFrame(columns=["calculator.count", "date"])
+            calculatorEventsPerDay, metadata = \
+                getCalculatorCounts(groupedData, metadata)
 
             # %% CONTIGUOUS DATA
             # calculate the start and end of contiguous data
