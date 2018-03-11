@@ -134,10 +134,6 @@ def roundTimeAndDropDups(df, timeInterval):
         pd.DatetimeIndex(df["time"]).round(str(timeInterval) + "min")
 
     df, nDuplicatesRemoved = removeDuplicates(df, df["roundedTime"])
-#    nBefore = len(df)
-#    df = df.loc[~df["roundedTime"].duplicated()]
-#    df = df.reset_index(drop=True)
-#    nDuplicatesRemoved = nBefore - len(df)
     return df, nDuplicatesRemoved
 
 
@@ -155,12 +151,6 @@ def getCalculatorCounts(calculatorData, metadata):
     df, nDuplicatesRemoved = \
         removeDuplicates(calculatorData,
                          calculatorData.drop("jsonRowIndex", axis=1))
-
-#    nBefore = len(calculatorData)
-#    tempData = calculatorData.drop("jsonRowIndex", axis=1)
-#    calculatorData = calculatorData.loc[~(tempData.duplicated())]
-#    calculatorData = calculatorData.reset_index(drop=True)
-#    nDuplicatesRemoved = nBefore - len(calculatorData)
     metadata["calculator.duplicatesRemoved.count"] = nDuplicatesRemoved
 
     # get start and end times
@@ -496,29 +486,6 @@ for dIndex in range(startIndex, endIndex):
                 calculatorEventsPerDay = \
                     pd.DataFrame(columns=["calculator.count", "date"])
 
-#            calculatorData["dayIndex"] = \
-#                pd.DatetimeIndex(calculatorData["time"]).date
-#
-#            # get rid of duplicates
-#            nBefore = len(calculatorData)
-#            tempData = calculatorData.drop("jsonRowIndex", axis=1)
-#            calculatorData = calculatorData.loc[~(tempData.duplicated())]
-#            calculatorData = calculatorData.reset_index(drop=True)
-#            nDuplicatesRemoved = nBefore - len(calculatorData)
-#
-#            # get start and end times
-#            calculatorBeginDate = calculatorData.dayIndex.min()
-#            calculatorEndDate = calculatorData.dayIndex.max()
-#            metadata["calculator.beginDate"] = calculatorBeginDate
-#            metadata["calculator.endDate"] = calculatorEndDate
-#            catDF = calculatorData.groupby(calculatorData["dayIndex"])
-#            calculatorPerDay = pd.DataFrame()
-#            calculatorPerDay["calculator.count"] = catDF.jsonRowIndex.count()
-#            calculatorPerDay["date"] = calculatorPerDay.index
-#            calculatorPerDay = calculatorPerDay.rename(
-#                    columns={"jsonRowIndex": "calculator.count"})
-
-
             # %% CONTIGUOUS DATA
             # calculate the start and end of contiguous data
             contiguousBeginDate = max(cgmBeginDate, bolusBeginDate)
@@ -552,10 +519,6 @@ for dIndex in range(startIndex, endIndex):
                 dayStats = getDayStats(contiguousData,
                                        calculatorEventsPerDay,
                                        closedLoopDays)
-
-#                # merge in the calculator data
-#                dayStats = pd.merge(dayStats, calculatorEventsPerDay,
-#                                    on="date", how="left")
 
                 # dexcom specific qualification criteria
                 if qualCriteria["name"] == "dexcom":
