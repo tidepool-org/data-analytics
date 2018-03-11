@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-description: qualify donated datasets
+description: Qualify Tidepool datasets
 version: 0.0.1
 created: 2018-02-21
 author: Ed Nykaza
@@ -9,7 +9,7 @@ dependencies:
     *
 license: BSD-2-Clause
 TODO:
-* [] list moved to readme file
+* [] todo-list moved to readme file
 """
 
 
@@ -24,7 +24,7 @@ import json
 
 
 # %% USER INPUTS
-codeDescription = "Qualify donated datasets"
+codeDescription = "Qualify Tidepool datasets"
 
 parser = argparse.ArgumentParser(description=codeDescription)
 
@@ -111,26 +111,37 @@ def getClosedLoopDays(df, nTempBasalsPerDayIsClosedLoop):
 
 def removeInvalidCgmValues(df):
     nBefore = len(df)
+    # remove values < 38 and > 402 mg/dL
     df = df.query("(value >= 2.109284236597303) and" +
                   "(value <= 22.314006924003046)")
     nRemoved = nBefore - len(df)
     return df, nRemoved
 
 
+def removeDuplicates(df, criteriaDF):
+    nBefore = len(df)
+    df = df.loc[~(criteriaDF.duplicated())]
+    df = df.reset_index(drop=True)
+    nDuplicatesRemoved = nBefore - len(df)
+
+    return df, nDuplicatesRemoved
+
+
 def roundTimeAndDropDups(df, timeInterval):
     df["roundedTime"] = \
         pd.DatetimeIndex(df["time"]).round(str(timeInterval) + "min")
 
-    nBefore = len(df)
-    df = df.loc[~df["roundedTime"].duplicated()]
-    df = df.reset_index(drop=True)
-    nDuplicatesRemoved = nBefore - len(df)
+    df, nDuplicatesRemoved = removeDuplicates(df, df["roundedTime"])
+#    nBefore = len(df)
+#    df = df.loc[~df["roundedTime"].duplicated()]
+#    df = df.reset_index(drop=True)
+#    nDuplicatesRemoved = nBefore - len(df)
     return df, nDuplicatesRemoved
 
 
-def getStartAndEndTimes(df):
-    dfBeginDate = df.roundedTime.min()
-    dfEndDate = df.roundedTime.max()
+def getStartAndEndTimes(df, dateTimeField):
+    dfBeginDate = df[dateTimeField].min()
+    dfEndDate = df[dateTimeField].max()
     return dfBeginDate, dfEndDate
 
 
@@ -139,11 +150,15 @@ def getCalculatorCounts(calculatorData, metadata):
         pd.DatetimeIndex(calculatorData["time"]).date
 
     # get rid of duplicates
-    nBefore = len(calculatorData)
-    tempData = calculatorData.drop("jsonRowIndex", axis=1)
-    calculatorData = calculatorData.loc[~(tempData.duplicated())]
-    calculatorData = calculatorData.reset_index(drop=True)
-    nDuplicatesRemoved = nBefore - len(calculatorData)
+    df, nDuplicatesRemoved = \
+        removeDuplicates(calculatorData,
+                         calculatorData.drop("jsonRowIndex", axis=1))
+
+#    nBefore = len(calculatorData)
+#    tempData = calculatorData.drop("jsonRowIndex", axis=1)
+#    calculatorData = calculatorData.loc[~(tempData.duplicated())]
+#    calculatorData = calculatorData.reset_index(drop=True)
+#    nDuplicatesRemoved = nBefore - len(calculatorData)
     metadata["calculator.duplicatesRemoved.count"] = nDuplicatesRemoved
 
     # get start and end times
@@ -432,7 +447,8 @@ for dIndex in range(startIndex, endIndex):
             metadata["cgm.duplicatesRemoved.count"] = nDuplicates
 
             # get start and end times
-            cgmBeginDate, cgmEndDate = getStartAndEndTimes(cgmData)
+            cgmBeginDate, cgmEndDate = getStartAndEndTimes(cgmData,
+                                                           "roundedTime")
             metadata["cgm.beginDate"] = cgmBeginDate
             metadata["cgm.endDate"] = cgmEndDate
 
@@ -458,7 +474,8 @@ for dIndex in range(startIndex, endIndex):
             metadata["bolus.duplicatesRemoved.count"] = nDuplicates
 
             # get start and end times
-            bolusBeginDate, bolusEndDate = getStartAndEndTimes(bolusData)
+            bolusBeginDate, bolusEndDate = getStartAndEndTimes(bolusData,
+                                                               "roundedTime")
             metadata["bolus.beginDate"] = bolusBeginDate
             metadata["bolus.endDate"] = bolusEndDate
 
