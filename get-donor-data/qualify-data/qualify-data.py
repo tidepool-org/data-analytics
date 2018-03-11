@@ -95,20 +95,33 @@ def filterAndSort(groupedDF, filterByField, sortByField):
     return filterDF
 
 
-def getClosedLoopDays(df, nTempBasalsPerDayIsClosedLoop):
+def getClosedLoopDays(groupedData, qualCriteria, metadata):
+    # filter by basal data and sort by time
+    if "basal" in groupedData.type.unique():
+        basalData = filterAndSort(groupedData, "basal", "time")
 
-    tbDataFrame = df.loc[df.deliveryType == "temp", ["time"]]
-    tbDataFrame.index = pd.to_datetime(tbDataFrame["time"])
-    tbDataFrame = tbDataFrame.drop(["time"], axis=1)
-    tbDataFrame["basal.temp.count"] = 1
-    nTempBasalsPerDay = tbDataFrame.resample("D").sum()
-    closedLoopDF = pd.DataFrame(nTempBasalsPerDay,
-                                index=nTempBasalsPerDay.index.date)
-    closedLoopDF["date"] = nTempBasalsPerDay.index.date
-    closedLoopDF["basal.closedLoopDays"] = \
-        closedLoopDF["basal.temp.count"] >= nTempBasalsPerDayIsClosedLoop
+        # get closed loop days
+        nTB = qualCriteria["nTempBasalsPerDayIsClosedLoop"]
 
-    return closedLoopDF, closedLoopDF["basal.closedLoopDays"].sum()
+        tbDataFrame = basalData.loc[basalData.deliveryType == "temp", ["time"]]
+        tbDataFrame.index = pd.to_datetime(tbDataFrame["time"])
+        tbDataFrame = tbDataFrame.drop(["time"], axis=1)
+        tbDataFrame["basal.temp.count"] = 1
+        nTempBasalsPerDay = tbDataFrame.resample("D").sum()
+        closedLoopDF = pd.DataFrame(nTempBasalsPerDay,
+                                    index=nTempBasalsPerDay.index.date)
+        closedLoopDF["date"] = nTempBasalsPerDay.index.date
+        closedLoopDF["basal.closedLoopDays"] = \
+            closedLoopDF["basal.temp.count"] >= nTB
+        nClosedLoopDays = closedLoopDF["basal.closedLoopDays"].sum()
+
+    else:
+        closedLoopDF = np.nan
+        nClosedLoopDays = 0
+
+    metadata["basal.closedLoopDays.count"] = nClosedLoopDays
+
+    return closedLoopDF, metadata
 
 
 def removeInvalidCgmValues(df):
@@ -468,25 +481,28 @@ for dIndex in range(startIndex, endIndex):
                                    "subType"]].rename(columns={
                                        "subType": "bolus"})
 
-            # %% CALCULATOR (AKA wizard data)
+            # %% GET CALCULATOR DATA (AKA WIZARD DATA)
             calculatorEventsPerDay, metadata = \
                 getCalculatorCounts(groupedData, metadata)
 
-            # %% BASAL
-            # filter by basal data and sort by time
-            if "basal" in data.type.unique():
-                basalData = filterAndSort(groupedData, "basal", "time")
+            # %% GET CLOSED LOOP DAYS WITH TEMP BASAL DATA
+            isClosedLoopDay, metadata = \
+                getClosedLoopDays(groupedData, qualCriteria, metadata)
 
-                # get closed loop days
-                nTB = qualCriteria["nTempBasalsPerDayIsClosedLoop"]
-                closedLoopDays, nClosedLoopDays = getClosedLoopDays(basalData,
-                                                                    nTB)
-
-            else:
-                closedLoopDays = np.nan
-                nClosedLoopDays = np.nan
-
-            metadata["basal.closedLoopDays.count"] = nClosedLoopDays
+#            # filter by basal data and sort by time
+#            if "basal" in data.type.unique():
+#                basalData = filterAndSort(groupedData, "basal", "time")
+#
+#                # get closed loop days
+#                nTB = qualCriteria["nTempBasalsPerDayIsClosedLoop"]
+#                closedLoopDays, nClosedLoopDays = getClosedLoopDays(basalData,
+#                                                                    nTB)
+#
+#            else:
+#                closedLoopDays = np.nan
+#                nClosedLoopDays = np.nan
+#
+#            metadata["basal.closedLoopDays.count"] = nClosedLoopDays
 
             # %% CONTIGUOUS DATA
             # calculate the start and end of contiguous data
