@@ -18,7 +18,6 @@ TODO:
 # %% REQUIRED LIBRARIES
 import pandas as pd
 import datetime as dt
-import numpy as np
 import os
 import sys
 import argparse
@@ -116,7 +115,7 @@ def getClosedLoopDays(groupedData, qualCriteria, metadata):
         nClosedLoopDays = closedLoopDF["basal.closedLoopDays"].sum()
 
     else:
-        closedLoopDF = np.nan
+        closedLoopDF = pd.DataFrame(columns=["basal.closedLoopDays", "date"])
         nClosedLoopDays = 0
 
     metadata["basal.closedLoopDays.count"] = nClosedLoopDays
@@ -262,7 +261,7 @@ def getQualifyingTier(df, criteriaName, contDayCriteria,
 
         tempIndex = min(i+contDayCriteria, len(df))
 
-        numberContiguousDays = df["bolus.count"].iloc[i:tempIndex].count()
+        numberContiguousDays = df["date"].iloc[i:tempIndex].count()
         tempDF.loc[i, "numberContiguousDays"] = numberContiguousDays
 
         avgBolusCalculationsPerDay = \
@@ -493,9 +492,14 @@ for dIndex in range(startIndex, endIndex):
             contiguousData = pd.merge(contiguousData, isClosedLoopDay,
                                       on="date", how="left")
 
+            # fill in nan's with 0s
+            for dataType in ["bolus", "cgm", "calculator", "basal.temp"]:
+                contiguousData[dataType + ".count"] = \
+                    contiguousData[dataType + ".count"].fillna(0)
+
             if ((len(contiguousData) > 0) &
-               (contiguousData["cgm.count"].count() > 0) &
-               (contiguousData["bolus.count"].count() > 0)):
+               (sum(contiguousData["cgm.count"] > 0) > 0) &
+               (sum(contiguousData["bolus.count"] > 0) > 0)):
 
                 # create an output folder
                 userQualifyFolder = os.path.join(donorQualifyFolder, userID)
