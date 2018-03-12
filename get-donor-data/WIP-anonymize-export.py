@@ -284,14 +284,11 @@ def exportPrettyJson(df, exportFolder, fileName, csvExportFolder):
                                           low_memory=False,
                                           index_col="jsonRowIndex")])
     # then sort
-
-    # then export as json
-
-
+    bigTable = bigTable.sort_values("time")
 
     # make a hidden file
     hiddenJsonFile = exportFolder + "." + fileName + ".json"
-    df.to_json(hiddenJsonFile, orient='records')
+    bigTable.to_json(hiddenJsonFile, orient='records')
     # make a pretty json file for export
     jsonExportFileName = exportFolder + fileName + ".json"
     os.system("jq '.' " + hiddenJsonFile + " > " + jsonExportFileName)
@@ -456,18 +453,20 @@ data = hashWithSalt(data, hashSaltFields, args.salt, userID)
 # %% sort and save data
 # sort data by time
 data = data.sort_values("time")
+
+# all exports are based off of csv table
 csvExportFolder = exportCsvFiles(data, exportFolder, userID)
 
 if args.exportFormat in ["json", "all"]:
     exportPrettyJson(data, exportFolder, userID, csvExportFolder)
 
-#if args.exportFormat in ["csv"]:
-#    # unhide the csv files
-#    unhiddenCsvExportFolder = \
-#        os.path.join(exportFolder, userID + "-csvs", "")
-#    os.rename(csvExportFolder, unhiddenCsvExportFolder)
-#else:
-#    shutil.rmtree(csvExportFolder)
+if args.exportFormat in ["csv", "all"]:
+    # unhide the csv files
+    unhiddenCsvExportFolder = \
+        os.path.join(exportFolder, userID + "-csvs", "")
+    os.rename(csvExportFolder, unhiddenCsvExportFolder)
+else:
+    shutil.rmtree(csvExportFolder)
 
 
 
