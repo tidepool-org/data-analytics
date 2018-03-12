@@ -6,10 +6,11 @@ version: 0.0.1
 created: 2018-02-21
 author: Ed Nykaza
 dependencies:
-    *
+    * requires get-donor-data virtual environment (see readme for instructions)
 license: BSD-2-Clause
 TODO:
 * [] move code that is used by multiple scripts to a utility folder/library
+* [] make sure that jq library is added to the virtual environment
 * []
 """
 
@@ -267,15 +268,35 @@ def hashWithSalt(df, hashSaltFields, salt, userID):
     return df
 
 
-def exportPrettyJson(exportFolder, fileName):
+def exportPrettyJson(df, exportFolder, fileName):
     # make a hidden file
     hiddenJsonFile = exportFolder + "." + fileName + ".json"
-    data.to_json(hiddenJsonFile, orient='records')
+    df.to_json(hiddenJsonFile, orient='records')
     # make a pretty json file for export
     jsonExportFileName = exportFolder + fileName + ".json"
     os.system("jq '.' " + hiddenJsonFile + " > " + jsonExportFileName)
     # delete the hidden file
     os.remove(hiddenJsonFile)
+
+    return
+
+
+def filterAndSort(groupedDF, filterByField, sortByField):
+    filterDF = groupedDF.get_group(filterByField).dropna(axis=1, how="all")
+    filterDF = filterDF.sort_values(sortByField)
+    return filterDF
+
+
+def exportCsvFiles(df, exportFolder, fileName):
+    csvExportFolder = os.path.join(exportFolder, fileName + "-csvs", "")
+    if not os.path.exists(csvExportFolder):
+        os.makedirs(csvExportFolder)
+
+    groupedData = df.groupby(by="type")
+    for dataType in set(df[df.type.notnull()].type):
+        csvData = filterAndSort(groupedData, dataType, "time")
+        csvData.index.name = "jsonRowIndex"
+        csvData.to_csv(csvExportFolder + dataType + ".csv")
 
     return
 
@@ -335,9 +356,14 @@ data, numberOfTandemAndPayloadCalReadings = tslimCalibrationFix(data)
 data = hashWithSalt(data, hashSaltFields, args.salt, userID)
 
 # %% sort and save data
-if args.exportFormat is "json":
-    exportPrettyJson(exportFolder, userID)
+# sort data by time
+data = data.sort_values("time")
 
+if args.exportFormat in ["json", "all"]:
+    exportPrettyJson(data, exportFolder, userID)
+
+if args.exportFormat in ["csv", "xlsx", "all"]:
+    exportCsvFiles(data, exportFolder, userID)
 
 
 
