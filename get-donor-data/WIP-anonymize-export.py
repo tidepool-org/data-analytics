@@ -20,6 +20,7 @@ import datetime as dt
 import numpy as np
 import os
 import sys
+import shutil
 import argparse
 import hashlib
 
@@ -362,7 +363,7 @@ def mergeWizardWithBolus(df, csvExportFolder):
 
 
 def exportCsvFiles(df, exportFolder, fileName):
-    csvExportFolder = os.path.join(exportFolder, fileName + "-csvs", "")
+    csvExportFolder = os.path.join(exportFolder, "." + fileName + "-csvs", "")
     if not os.path.exists(csvExportFolder):
         os.makedirs(csvExportFolder)
 
@@ -379,7 +380,7 @@ def exportCsvFiles(df, exportFolder, fileName):
     if os.path.exists(csvExportFolder + "wizard.csv"):
         os.remove(csvExportFolder + "wizard.csv")
 
-    return
+    return csvExportFolder
 
 
 # %% GLOBAL VARIABLES
@@ -439,12 +440,20 @@ data = hashWithSalt(data, hashSaltFields, args.salt, userID)
 # %% sort and save data
 # sort data by time
 data = data.sort_values("time")
+csvExportFolder = exportCsvFiles(data, exportFolder, userID)
+
 
 if args.exportFormat in ["json", "all"]:
     exportPrettyJson(data, exportFolder, userID)
 
-if args.exportFormat in ["csv", "xlsx", "all"]:
-    exportCsvFiles(data, exportFolder, userID)
+if args.exportFormat in ["csv"]:
+    # unhide the csv files
+    unhiddenCsvExportFolder = \
+        os.path.join(exportFolder, userID + "-csvs", "")
+    os.rename(csvExportFolder, unhiddenCsvExportFolder)
+else:
+    shutil.rmtree(csvExportFolder)
+
 
 
 
