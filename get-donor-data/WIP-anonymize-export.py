@@ -54,6 +54,12 @@ parser.add_argument("-o",
                     default=os.path.join(".", "example-data", "export", ""),
                     help="the path where the data is exported")
 
+parser.add_argument("--output-format",
+                    dest="exportFormat",
+                    default="json",
+                    help="the format of the exported data")
+
+
 parser.add_argument("--start-date",
                     dest="startDate",
                     default="1900-01-01",
@@ -261,6 +267,19 @@ def hashWithSalt(df, hashSaltFields, salt, userID):
     return df
 
 
+def exportPrettyJson(exportFolder, fileName):
+    # make a hidden file
+    hiddenJsonFile = exportFolder + "." + fileName + ".json"
+    data.to_json(hiddenJsonFile, orient='records')
+    # make a pretty json file for export
+    jsonExportFileName = exportFolder + fileName + ".json"
+    os.system("jq '.' " + hiddenJsonFile + " > " + jsonExportFileName)
+    # delete the hidden file
+    os.remove(hiddenJsonFile)
+
+    return
+
+
 # %% GLOBAL VARIABLES
 # input folder(s)
 jsonFilePath = args.inputPath
@@ -313,10 +332,11 @@ data, numberOfInvalidCgmValues = removeInvalidCgmValues(data)
 data, numberOfTandemAndPayloadCalReadings = tslimCalibrationFix(data)
 
 # %% hash the required data/fields
-# hash + salt required fields
 data = hashWithSalt(data, hashSaltFields, args.salt, userID)
 
 # %% sort and save data
+if args.exportFormat is "json":
+    exportPrettyJson(exportFolder, userID)
 
 
 

@@ -6,6 +6,6 @@
 .DS_Store
 work-record-archive/
 data/
-PHI-jill-jellyfish.json
+*jill-jellyfish*
 # Python
 __pycache__/
