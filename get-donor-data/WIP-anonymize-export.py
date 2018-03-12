@@ -57,7 +57,7 @@ parser.add_argument("-o",
 
 parser.add_argument("--output-format",
                     dest="exportFormat",
-                    default="json",
+                    default="csv",
                     help="the format of the exported data")
 
 
@@ -290,6 +290,77 @@ def filterAndSort(groupedDF, filterByField, sortByField):
     return filterDF
 
 
+def removeManufacturersFromAnnotationsCode(df):
+
+    # remove manufacturer from annotations.code
+    manufacturers = ["animas/",
+                     "bayer/",
+                     "carelink/",
+                     "insulet/",
+                     "medtronic/",
+                     "tandem/"]
+
+    annotationFields = [
+        "annotations.code",
+        "suppressed.annotations.code",
+        "suppressed.suppressed.annotations.code"
+        ]
+
+    for annotationField in annotationFields:
+        if annotationField in df.columns.values:
+            if sum(df[annotationField].notnull()) > 0:
+                df[annotationField] = \
+                    df[annotationField].str. \
+                    replace("|".join(manufacturers), "")
+
+    return df
+
+
+def mergeWizardWithBolus(df, csvExportFolder):
+
+    if (("bolus" in set(df.type)) and ("wizard" in set(df.type))):
+        bolusData = pd.read_csv(csvExportFolder + "bolus.csv",
+                                low_memory=False)
+        wizardData = pd.read_csv(csvExportFolder + "wizard.csv",
+                                 low_memory=False)
+
+        # remove manufacturer from annotations.code
+        wizardData = removeManufacturersFromAnnotationsCode(wizardData)
+
+        # merge the wizard data with the bolus data
+        wizardData["calculatorId"] = wizardData["id"]
+        wizardDataFields = [
+            "bgInput",
+            "bgTarget.high",
+            "bgTarget.low",
+            "bgTarget.range",
+            "bgTarget.target",
+            "bolus",
+            "carbInput",
+            "calculatorId",
+            "insulinCarbRatio",
+            "insulinOnBoard",
+            "insulinSensitivity",
+            "recommended.carb",
+            "recommended.correction",
+            "recommended.net",
+            "units",
+        ]
+        keepTheseWizardFields = \
+            set(wizardDataFields).intersection(list(wizardData))
+        bolusData = pd.merge(bolusData,
+                             wizardData[list(keepTheseWizardFields)],
+                             how="left",
+                             left_on="id",
+                             right_on="bolus")
+
+        mergedBolusData = bolusData.drop("bolus", axis=1)
+    else:
+        mergedBolusData = pd.DataFrame()
+
+    return mergedBolusData
+
+
 def exportCsvFiles(df, exportFolder, fileName):
     csvExportFolder = os.path.join(exportFolder, fileName + "-csvs", "")
     if not os.path.exists(csvExportFolder):
@@ -300,6 +371,13 @@ def exportCsvFiles(df, exportFolder, fileName):
         csvData = filterAndSort(groupedData, dataType, "time")
         csvData.index.name = "jsonRowIndex"
         csvData.to_csv(csvExportFolder + dataType + ".csv")
+
+    # merge wizard data with bolus data, and delete wizard data
+    bolusWithWizardData = mergeWizardWithBolus(df, csvExportFolder)
+    if len(bolusWithWizardData) > 0:
+        bolusWithWizardData.to_csv(csvExportFolder + "bolus.csv", index=False)
+    if os.path.exists(csvExportFolder + "wizard.csv"):
+        os.remove(csvExportFolder + "wizard.csv")
 
     return
 
@@ -355,7 +433,7 @@ data, numberOfInvalidCgmValues = removeInvalidCgmValues(data)
 # Tslim calibration bug fix
 data, numberOfTandemAndPayloadCalReadings = tslimCalibrationFix(data)
 
-# %% hash the required data/fields
+# % hash the required data/fields
 data = hashWithSalt(data, hashSaltFields, args.salt, userID)
 
 # %% sort and save data
@@ -367,8 +445,6 @@ if args.exportFormat in ["json", "all"]:
 
 if args.exportFormat in ["csv", "xlsx", "all"]:
     exportCsvFiles(data, exportFolder, userID)
-
-
 
 
 
