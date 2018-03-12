@@ -260,7 +260,10 @@ def hashWithSalt(df, hashSaltFields, salt, userID):
 
     for hashSaltField in hashSaltFields:
         if hashSaltField in df.columns.values:
-            df = hashData(df, hashSaltField, 8, salt, userID)
+            df.loc[df[hashSaltField].notnull(), hashSaltField] = \
+                hashData(pd.DataFrame(df.loc[df[hashSaltField].notnull(),
+                                             hashSaltField]),
+                         hashSaltField, 8, salt, userID)
 
     # also hash the schedule names
     df = hashScheduleNames(df, salt, userID)
