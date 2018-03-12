@@ -59,9 +59,9 @@ parser.add_argument("-o",
 
 parser.add_argument("--output-format",
                     dest="exportFormat",
-                    default="csv",
-                    help="the format of the exported data")
-
+                    default="all",
+                    help="the format of the exported data. Export options " +
+                         "include 'json', 'xlsx', 'csv', and 'all'")
 
 parser.add_argument("--start-date",
                     dest="startDate",
@@ -396,6 +396,21 @@ def exportCsvFiles(df, exportFolder, fileName):
     return csvExportFolder
 
 
+def exportExcelFile(csvExportFolder, exportFolder, fileName):
+    writer = pd.ExcelWriter(exportFolder + fileName + ".xlsx")
+    csvFiles = sorted(os.listdir(csvExportFolder))
+    for csvFile in csvFiles:
+        dataName = csvFile[:-4]
+        tempCsvData = pd.read_csv(os.path.join(csvExportFolder,
+                                               dataName + ".csv"),
+                                  low_memory=False,
+                                  index_col="jsonRowIndex")
+        tempCsvData.to_excel(writer, dataName)
+    writer.save()
+
+    return
+
+
 # %% GLOBAL VARIABLES
 # input folder(s)
 jsonFilePath = args.inputPath
@@ -450,7 +465,7 @@ data, numberOfTandemAndPayloadCalReadings = tslimCalibrationFix(data)
 # % hash the required data/fields
 data = hashWithSalt(data, hashSaltFields, args.salt, userID)
 
-# %% sort and save data
+# %% sort and export data
 # sort data by time
 data = data.sort_values("time")
 
@@ -460,6 +475,9 @@ csvExportFolder = exportCsvFiles(data, exportFolder, userID)
 if args.exportFormat in ["json", "all"]:
     exportPrettyJson(data, exportFolder, userID, csvExportFolder)
 
+if args.exportFormat in ["xlsx", "all"]:
+    exportExcelFile(csvExportFolder, exportFolder, userID)
+
 if args.exportFormat in ["csv", "all"]:
     # unhide the csv files
     unhiddenCsvExportFolder = \
@@ -467,43 +485,3 @@ if args.exportFormat in ["csv", "all"]:
     os.rename(csvExportFolder, unhiddenCsvExportFolder)
 else:
     shutil.rmtree(csvExportFolder)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
