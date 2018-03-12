@@ -7,11 +7,12 @@ created: 2018-02-21
 author: Ed Nykaza
 dependencies:
     * requires get-donor-data virtual environment (see readme for instructions)
+    * requires Tidepool json data (e.g., PHI-jill-jellyfish.json)
+    * requires commandline tool 'jq' for making the pretty json file
 license: BSD-2-Clause
 TODO:
 * [] move code that is used by multiple scripts to a utility folder/library
-* [] make sure that jq library is added to the virtual environment
-* []
+* [] pull in jill-jellyfish.json dataset from AWS if no file is given
 """
 
 # %% REQUIRED LIBRARIES
