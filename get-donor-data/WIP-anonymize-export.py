@@ -21,6 +21,7 @@ import numpy as np
 import os
 import sys
 import shutil
+import glob
 import argparse
 import hashlib
 
@@ -135,7 +136,8 @@ def flattenJson(df, requiredDataFields):
             df.loc[jsonBlob.index, colHead] = np.nan
 
             # turn jsonBlog to dataframe
-            newDataFrame = pd.DataFrame(jsonBlob.tolist())
+            newDataFrame = pd.DataFrame(jsonBlob.tolist(),
+                                        index=jsonBlob.index)
             newDataFrame = newDataFrame.add_prefix(colHead + '.')
             newColHeadings = list(newDataFrame)
 
@@ -272,7 +274,21 @@ def hashWithSalt(df, hashSaltFields, salt, userID):
     return df
 
 
-def exportPrettyJson(df, exportFolder, fileName):
+def exportPrettyJson(df, exportFolder, fileName, csvExportFolder):
+    # first load in all csv files
+    csvFiles = glob.glob(csvExportFolder + "*.csv")
+    bigTable = pd.DataFrame()
+    for csvFile in csvFiles:
+        bigTable = pd.concat([bigTable,
+                              pd.read_csv(csvFile,
+                                          low_memory=False,
+                                          index_col="jsonRowIndex")])
+    # then sort
+
+    # then export as json
+
+
+
     # make a hidden file
     hiddenJsonFile = exportFolder + "." + fileName + ".json"
     df.to_json(hiddenJsonFile, orient='records')
@@ -442,17 +458,16 @@ data = hashWithSalt(data, hashSaltFields, args.salt, userID)
 data = data.sort_values("time")
 csvExportFolder = exportCsvFiles(data, exportFolder, userID)
 
-
 if args.exportFormat in ["json", "all"]:
-    exportPrettyJson(data, exportFolder, userID)
+    exportPrettyJson(data, exportFolder, userID, csvExportFolder)
 
-if args.exportFormat in ["csv"]:
-    # unhide the csv files
-    unhiddenCsvExportFolder = \
-        os.path.join(exportFolder, userID + "-csvs", "")
-    os.rename(csvExportFolder, unhiddenCsvExportFolder)
-else:
-    shutil.rmtree(csvExportFolder)
+#if args.exportFormat in ["csv"]:
+#    # unhide the csv files
+#    unhiddenCsvExportFolder = \
+#        os.path.join(exportFolder, userID + "-csvs", "")
+#    os.rename(csvExportFolder, unhiddenCsvExportFolder)
+#else:
+#    shutil.rmtree(csvExportFolder)
 
 
 
