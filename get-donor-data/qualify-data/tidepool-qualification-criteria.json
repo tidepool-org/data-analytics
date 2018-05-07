@@ -1,0 +1,13 @@
+{
+"name": "tidepool",
+"nTempBasalsPerDayIsClosedLoop": 30,
+"timeFreqMin": 5,
+"bolusesPerDay": 1,
+"cgmPercentPerDay": 0.5,
+"tierAbbr": "T",
+"tierNames": ["T1", "T2", "T3", "T4", "T5"],
+"minContiguousDays": [30, 100, 200, 365, 730],
+"avgBolusCalcsPerDay": [0, 0, 0, 0, 0],
+"percentDaysQualifying": [80, 80, 80, 80, 80],
+"maxGapToContigRatio": [10, 10, 10, 10, 10]
+}
