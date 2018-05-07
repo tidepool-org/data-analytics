@@ -1,13 +1,14 @@
-# get-donor-data
+# get-qualify-export-donor-data
 
 Python code for getting a current list of donors, and for pulling
 their json files.
 
-Here are the main functions:
+Here are the main functions, which are typically run in this order:
 * get-donor-list.py
 * get-donor-json-files.py
 * flatten-json-to-csvs.py
-* anonymized-export.py
+* qualify-data.py
+* anonymize-and-export.py
 
 ## dependencies:
 * set up get-donor-data virtual environment (see /data-analytics/readme.md)
@@ -16,7 +17,7 @@ Here are the main functions:
 * requires environmental variables: import environmentalVariables.py
 * requires https://github.com/tidepool-org/command-line-data-tools
 * anonymized-export requires:
-    * Tidepool json data (e.g., PHI-jill-jellyfish.json)
+    * Tidepool json data (e.g., jill-jellyfish.json)
     * commandline tool 'jq' for making a pretty json file
 
 ## TODO:

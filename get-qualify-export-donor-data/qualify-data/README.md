@@ -1,12 +1,11 @@
 # qualify-data
-
 Python code for qualifying donated data
 
 There is one main functions:
 * qualify.py
 
 ## dependencies:
-* get-donor-data virtual environment (see /data-analytics/readme.md for details)
+* get-donor-data virtual environment (see /data-analytics/get-qualify-export-donor-data/readme.md for details)
 * requires that data is in the format output from the get-donor-data tools
 * requires a json file with qualifying criteria. For Tidepool Employees looking for
 data partner qualifying criteria see Big Data Valut in 1PSWD.
