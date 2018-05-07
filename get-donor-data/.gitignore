@@ -6,5 +6,7 @@
 .DS_Store
 work-record-archive/
 data/
+*csvs/
+*jill-jellyfish*
 # Python
 __pycache__/
