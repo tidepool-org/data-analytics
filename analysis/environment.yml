@@ -1,0 +1,11 @@
+name: analysis-env
+channels:
+  - conda-forge
+dependencies:
+- python=3
+- python-dotenv
+- pandas
+- requests
+- pylint
+- spyder
+- openpyxl
