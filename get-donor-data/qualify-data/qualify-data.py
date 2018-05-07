@@ -527,7 +527,7 @@ for dIndex in range(startIndex, endIndex):
                 # %% SAVE RESULTS
                 contiguousData.index.name = "dayIndex"
                 dSFileName = os.path.join(
-                    userQualifyFolder, userID + "-" + "qualified-as-" +
+                    userQualifyFolder, userID + "-qualified-as-" +
                     metadata[qualCriteria["tierAbbr"] + ".topTier"].values[0] +
                     "-on-" + qualifiedOn + "-for-" + qualCriteria["name"] +
                     "-dayStats.csv")
