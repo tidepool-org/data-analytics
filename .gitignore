@@ -8,3 +8,4 @@ work-record-archive/
 get-donor-data/data
 # Python
 __pycache__/
+data/
