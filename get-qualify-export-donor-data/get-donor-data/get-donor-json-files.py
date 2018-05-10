@@ -19,8 +19,38 @@ import pandas as pd
 import datetime as dt
 import os
 import sys
-import subprocess as sub
 import argparse
+import requests
+import json
+
+
+# %% define functions
+def get_user_data(email, password, userid, outputFilePathName):
+
+    url1 = "https://api.tidepool.org/auth/login"
+    myResponse = requests.post(url1, auth=(email, password))
+
+    if(myResponse.ok):
+        xtoken = myResponse.headers["x-tidepool-session-token"]
+        url2 = "https://api.tidepool.org/data/" + userid
+        headers = {
+            "x-tidepool-session-token": xtoken,
+            "Content-Type": "application/json"
+            }
+
+        myResponse2 = requests.get(url2, headers=headers)
+        if(myResponse2.ok):
+
+            usersData = json.loads(myResponse2.content.decode())
+            with open(outputFilePathName, 'w') as outfile:
+                json.dump(usersData, outfile)
+
+        else:
+            print(donorGroup, "ERROR", myResponse2.status_code)
+    else:
+        print(donorGroup, "ERROR", myResponse.status_code)
+
+    return
 
 
 # %% user inputs (choices to be made in order to run the code)
@@ -38,7 +68,7 @@ parser.add_argument("-d",
 parser.add_argument("-o",
                     "--output-data-path",
                     dest="dataPath",
-                    default="./data",
+                    default="../data",
                     help="the output path where the data is stored")
 
 args = parser.parse_args()
@@ -82,23 +112,7 @@ for userID, donorGroup in zip(uniqueDonors.userID, uniqueDonors.donorGroup):
             environmentalVariables.get_environmental_variables(donorGroup)
 
         # get json data
-        p = sub.Popen(["getdata",
-                       email,
-                       userID,
-                       "-p",
-                       password,
-                       "-o",
-                       outputFilePathName,
-                       "-v"], stdout=sub.PIPE, stderr=sub.PIPE)
-
-        output, errors = p.communicate()
-        output = output.decode("utf-8")
-        errors = errors.decode("utf-8")
-
-        if output.startswith("Successful login.\nSuccessful") is False:
-            sys.exit("ERROR with" + email +
-                     " ouput: " + output +
-                     " errorMessage: " + errors)
+        get_user_data(email, password, userID, outputFilePathName)
 
         print(userID, "complete")
 

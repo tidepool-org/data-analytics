@@ -57,7 +57,7 @@ parser.add_argument("-i",
 parser.add_argument("-o",
                     "--output-data-path",
                     dest="dataPath",
-                    default="./data",
+                    default="../data",
                     help="the output path where the data is stored")
 
 parser.add_argument("--ignore-accounts",
