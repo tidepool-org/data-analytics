@@ -5,6 +5,6 @@
 # General
 .DS_Store
 work-record-archive/
-get-donor-data/data
+data
 # Python
 __pycache__/
