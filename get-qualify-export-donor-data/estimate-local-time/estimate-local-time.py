@@ -6,12 +6,9 @@ version: 0.0.2
 created: 2018-04-30
 author: Ed Nykaza
 dependencies:
+    * tidepool-data-env (install using anaconda, see readme for details)
     * wikipediaDeprecatedTimezonesAliases2018_04_28.csv
 license: BSD-2-Clause
-
-TODO this version:
-    [] add a readme file
-    [X] write as a function
 
 TODO in next version:
 * [] write a function that compares whether two timezones are
@@ -45,8 +42,8 @@ parser = argparse.ArgumentParser(description=codeDescription)
 parser.add_argument("-i",
                     "--input-data-file",
                     dest="inputFilePathAndName",
-                    default="PHI-3722684537.json",  # "example.csv",
-                    help="a .csv or .json file that contains Tidepool data")
+                    default="example-csv.csv",
+                    help="a csv, xlsx, or json file that contains Tidepool data")
 
 parser.add_argument("--deprecated-timezone-list",
                     dest="timezoneAliasesFilePathAndName",
@@ -80,6 +77,7 @@ def filterByDates(df, startDate, endDate):
            (df.time <= (endDate + "T23:59:59"))]
 
     return df
+
 
 def convertDeprecatedTimezoneToAlias(df, tzAlias):
     if "timezone" in df:
@@ -122,7 +120,7 @@ def createContiguousDaySeries(df):
     rng = pd.date_range(firstDay, lastDay).date
     contiguousDaySeries = \
         pd.DataFrame(rng, columns=["date"]).sort_values("date",
-                    ascending=False).reset_index(drop=True)
+        ascending=False).reset_index(drop=True)
 
     return contiguousDaySeries
 
@@ -251,8 +249,6 @@ def imputeUploadRecords(df, contDays, deviceTypeName):
                 tzo = \
                     getTimezoneOffset(pd.to_datetime(daySeries.loc[i, "date"]),
                                       tz)
-#                tzo = int(tz.localize(pd.to_datetime(daySeries.loc[i, "date"])
-#                    + timedelta(days=1)).strftime("%z"))/100 * 60.
                 daySeries.loc[i, deviceTypeName + ".timezoneOffset"] = tzo
 
             if pd.notnull(daySeries[deviceTypeName + ".timeProcessing"][i-1]):
