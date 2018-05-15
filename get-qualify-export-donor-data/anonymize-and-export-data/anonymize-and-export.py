@@ -223,7 +223,7 @@ def hashScheduleNames(df, salt, userID):
     for scheduleName in scheduleNames:
         # if scheduleName exists, find the rows that have the scheduleName
         if scheduleName in list(df):
-            scheduleNameDataFrame = df[df[scheduleName].notnull()]
+            scheduleNameDataFrame = df[df[scheduleName].notnull()].copy()
             scheduleNameRows = scheduleNameDataFrame[scheduleName].index
             # loop through each schedule name row
             uniqueScheduleNames = []
