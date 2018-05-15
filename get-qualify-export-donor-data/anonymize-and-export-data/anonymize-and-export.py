@@ -38,11 +38,6 @@ parser.add_argument("-i",
                     default=os.path.join("..",
                                          "example-data",
                                          "PHI-jill-jellyfish.json"),
-#                    default=os.path.abspath(os.path.join(
-#                            os.path.curdir,
-#                            "..",
-#                            "example-data",
-#                            "PHI-jill-jellyfish.json")),
                     help="path of .json data to be anonymized and exported")
 
 parser.add_argument("--data-field-list",
@@ -195,11 +190,9 @@ def tslimCalibrationFix(df):
     searchfor = ['tan']
     tandemDataIndex = ((df.deviceId.str.contains('|'.join(searchfor))) &
                        (df.type == "deviceEvent"))
-#    nTandemData = sum(tandemDataIndex)
 
     if "payload.calibration_reading" in list(df):
         payloadCalReadingIndex = df["payload.calibration_reading"].notnull()
-#        nPayloadCalReadings = sum(payloadCalReadingIndex)
 
         nTandemAndPayloadCalReadings = sum(tandemDataIndex &
                                            payloadCalReadingIndex)
