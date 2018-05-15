@@ -10,15 +10,8 @@ dependencies:
     * wikipediaDeprecatedTimezonesAliases2018_04_28.csv
 license: BSD-2-Clause
 
-TODO in next version:
-* [] write a function that compares whether two timezones are
-equlivalent on a given day
-* [] current version does not account for cases where pump and cgm
-device tzo are different, which may be indicative of a larger problem with the
-underlying data
-* [] change variable names
-* [] apply a clock drift correction
-* [] DRY the code up in general
+TODO:
+* [] see readme file
 """
 
 
