@@ -35,14 +35,19 @@ parser = argparse.ArgumentParser(description=codeDescription)
 parser.add_argument("-i",
                     "--input-file-path",
                     dest="inputPath",
-                    default=os.path.join(".",
+                    default=os.path.join("..",
                                          "example-data",
                                          "PHI-jill-jellyfish.json"),
+#                    default=os.path.abspath(os.path.join(
+#                            os.path.curdir,
+#                            "..",
+#                            "example-data",
+#                            "PHI-jill-jellyfish.json")),
                     help="path of .json data to be anonymized and exported")
 
 parser.add_argument("--data-field-list",
                     dest="dataFieldExportList",
-                    default=os.path.join(".",
+                    default=os.path.join("..",
                                          "example-data",
                                          "dataFieldExportList.csv"),
                     help="a csv file that contains a list of fields to export")
@@ -55,7 +60,9 @@ parser.add_argument("--salt",
 parser.add_argument("-o",
                     "--output-data-path",
                     dest="exportPath",
-                    default=os.path.join(".", "example-data", "export", ""),
+                    default=os.path.join("..",
+                                         "example-data",
+                                         "export", ""),
                     help="the path where the data is exported")
 
 parser.add_argument("--output-format",
