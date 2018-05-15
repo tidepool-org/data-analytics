@@ -7,13 +7,15 @@ Python code for estimating the local time.
 * requires wikipediaDeprecatedTimezonesAliases2018_04_28.csv
 
 ### TODO:
-- [] write a function that compares whether two timezones are
+- [ ] write a function that compares whether two time zones are
 equivalent on a given day
-- [] current version does not account for cases where pump and cgm
+- [ ] current version does not account for cases where pump and cgm
 device tzo are different, which may be indicative of a larger problem with the
 underlying data
-- [] apply a clock drift correction
-- [] unit tests
+- [ ] apply a clock drift correction
+- [ ] there are cases where the time zone offset is an increment of 15, 30, or 
+45, but that amount of time zone offset does not exist for the given time zone
+- [ ] unit tests
 
 ## local-time-estimate algorithm
 
