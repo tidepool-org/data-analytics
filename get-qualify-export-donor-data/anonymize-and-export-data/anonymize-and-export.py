@@ -64,7 +64,7 @@ parser.add_argument("--output-format",
                     dest="exportFormat",
                     default="all",
                     help="the format of the exported data. Export options " +
-                         "include 'json', 'xlsx', 'csv', and 'all'")
+                         "include json, xlsx, csv, csvs, or all")
 
 parser.add_argument("--start-date",
                     dest="startDate",
@@ -275,28 +275,7 @@ def hashWithSalt(df, hashSaltFields, salt, userID):
     return df
 
 
-def exportPrettyJson(df, exportFolder, fileName, csvExportFolder):
-    # first load in all csv files
-    csvFiles = glob.glob(csvExportFolder + "*.csv")
-    bigTable = pd.DataFrame()
-    for csvFile in csvFiles:
-        bigTable = pd.concat([bigTable,
-                              pd.read_csv(csvFile,
-                                          low_memory=False,
-                                          index_col="jsonRowIndex")])
-    # then sort
-    bigTable = bigTable.sort_values("time")
 
-    # make a hidden file
-    hiddenJsonFile = exportFolder + "." + fileName + ".json"
-    bigTable.to_json(hiddenJsonFile, orient='records')
-    # make a pretty json file for export
-    jsonExportFileName = exportFolder + fileName + ".json"
-    os.system("jq '.' " + hiddenJsonFile + " > " + jsonExportFileName)
-    # delete the hidden file
-    os.remove(hiddenJsonFile)
-
-    return
 
 
 def filterAndSort(groupedDF, filterByField, sortByField):
@@ -397,6 +376,37 @@ def exportCsvFiles(df, exportFolder, fileName):
     return csvExportFolder
 
 
+def exportSingleCsv(df, exportFolder, fileName, csvExportFolder):
+    # first load in all csv files
+    csvFiles = glob.glob(csvExportFolder + "*.csv")
+    bigTable = pd.DataFrame()
+    for csvFile in csvFiles:
+        bigTable = pd.concat([bigTable,
+                              pd.read_csv(csvFile,
+                                          low_memory=False,
+                                          index_col="jsonRowIndex")])
+    # then sort
+    bigTable = bigTable.sort_values("time")
+    bigTable.to_csv(os.path.join(exportFolder, userID + ".csv"))
+
+    return bigTable
+
+
+def exportPrettyJson(df, exportFolder, fileName, csvExportFolder):
+
+    # make a hidden file
+    hiddenJsonFile = exportFolder + "." + fileName + ".json"
+    df.to_json(hiddenJsonFile, orient='records')
+    # make a pretty json file for export
+    jsonExportFileName = exportFolder + fileName + ".json"
+    os.system("jq '.' " + hiddenJsonFile + " > " + jsonExportFileName)
+    # delete the hidden file
+    os.remove(hiddenJsonFile)
+
+    return
+
+
+
 def exportExcelFile(csvExportFolder, exportFolder, fileName):
     writer = pd.ExcelWriter(exportFolder + fileName + ".xlsx")
     csvFiles = sorted(os.listdir(csvExportFolder))
@@ -470,16 +480,20 @@ data = hashWithSalt(data, hashSaltFields, args.salt, userID)
 # sort data by time
 data = data.sort_values("time")
 
-# all exports are based off of csv table
+# all of the exports are based off of csvs table, as they separate the
+# bolus and wizard data
 csvExportFolder = exportCsvFiles(data, exportFolder, userID)
 
+if args.exportFormat in ["csv", "json", "all"]:
+    allData = exportSingleCsv(data, exportFolder, userID, csvExportFolder)
+
 if args.exportFormat in ["json", "all"]:
-    exportPrettyJson(data, exportFolder, userID, csvExportFolder)
+    exportPrettyJson(allData, exportFolder, userID, csvExportFolder)
 
 if args.exportFormat in ["xlsx", "all"]:
     exportExcelFile(csvExportFolder, exportFolder, userID)
 
-if args.exportFormat in ["csv", "all"]:
+if args.exportFormat in ["csvs", "all"]:
     # unhide the csv files
     unhiddenCsvExportFolder = \
         os.path.join(exportFolder, userID + "-csvs", "")
