@@ -40,7 +40,7 @@ parser.add_argument("-d",
 parser.add_argument("-o",
                     "--output-data-path",
                     dest="dataPath",
-                    default="./data",
+                    default="../data",
                     help="the output path where the data is stored")
 
 parser.add_argument("-s",
@@ -172,9 +172,9 @@ for dIndex in range(startIndex, endIndex):
     # if the csv file already exists, do NOT process it again
     if not os.path.exists(csvFilePathName):
         if fileSize > 1000:
-            if fileSize > 250E6:  # flag condition where download is > 250MB
-                metadata["errorMessage"] = \
-                    "download manually until commandline tools are fixed"
+#            if fileSize > 250E6:  # flag condition where download is > 250MB
+#                metadata["errorMessage"] = \
+#                    "download manually until commandline tools are fixed"
 
             # load json file
             data = pd.read_json(inputFilePathName, orient="records")
