@@ -170,7 +170,7 @@ def removeNegativeDurations(df):
         if nNegativeDurations > 0:
             df = df[~(df.duration < 0)]
 
-    return df, nNegativeDurations
+    return df
 
 
 def removeInvalidCgmValues(df):
@@ -479,7 +479,7 @@ data = filterByRequiredDataFields(data, requiredDataFields)
 
 # %% clean up data
 # remove negative durations
-data, numberOfNegativeDurations = removeNegativeDurations(data)
+data = removeNegativeDurations(data)
 
 # get rid of cgm values too low/high (< 38 & > 402 mg/dL)
 data, numberOfInvalidCgmValues = removeInvalidCgmValues(data)

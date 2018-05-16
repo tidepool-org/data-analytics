@@ -888,4 +888,5 @@ data.to_csv(os.path.join(args.outputPath, fileName + ".csv"))
 
 # save the day series data
 if pd.notnull(args.daySeriesOutputPath):
-    cDays.to_csv(os.path.join(args.daySeriesOutputPath, fileName + ".csv"))
+    cDays.to_csv(os.path.join(args.daySeriesOutputPath,
+                              fileName + "-daySeries.csv"))
