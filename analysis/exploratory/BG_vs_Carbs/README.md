@@ -18,16 +18,17 @@ install.packages('hexbin')
 
 ### Options
 
-Before running, set your working directory and preferred blood glucose value units. The code can be run as a whole, or line by line. 
+Before running, set your working directory and preferred blood glucose value units.  
+The code can be run as a whole, or line by line. 
 
 ### Output Variables
 
 The following variables are collected for analysis:
 
-`total_daily_carbs`: A vector of the sums of total carbs recorded for each day
-`meanBG`: A vector of the average blood glucose values for each day
-`medianBG`: A vector of the median blood glucose values for each day
-`stddevBG`: A vector of the standard deviation of blood glucose values for each day
+`total_daily_carbs`: A vector of the sums of total carbs recorded for each day  
+`meanBG`: A vector of the average blood glucose values for each day  
+`medianBG`: A vector of the median blood glucose values for each day  
+`stddevBG`: A vector of the standard deviation of blood glucose values for each day  
 
 ### Graphical Output
 
