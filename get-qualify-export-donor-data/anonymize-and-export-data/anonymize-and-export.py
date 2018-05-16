@@ -355,6 +355,15 @@ def mergeWizardWithBolus(df, csvExportFolder):
     return mergedBolusData
 
 
+def hashUserId(userID, salt):
+
+    usr_string = userID + salt
+    hash_user = hashlib.sha256(usr_string.encode())
+    hashID = hash_user.hexdigest()
+
+    return hashID
+
+
 def exportCsvFiles(df, exportFolder, fileName):
     csvExportFolder = os.path.join(exportFolder, "." + fileName + "-csvs", "")
     if not os.path.exists(csvExportFolder):
@@ -387,7 +396,7 @@ def exportSingleCsv(df, exportFolder, fileName, csvExportFolder):
                                           index_col="jsonRowIndex")])
     # then sort
     bigTable = bigTable.sort_values("time")
-    bigTable.to_csv(os.path.join(exportFolder, userID + ".csv"))
+    bigTable.to_csv(os.path.join(exportFolder, fileName + ".csv"))
 
     return bigTable
 
@@ -428,9 +437,14 @@ jsonFilePath = args.inputPath
 if not os.path.isfile(jsonFilePath):
     sys.exit("{0} is not a valid file path".format(jsonFilePath))
 
-userID = jsonFilePath[
-        (jsonFilePath.find("PHI-") + 4):
-        (jsonFilePath.find(".json"))]
+allInstancesOfPHI = \
+    [i for i in range(len(jsonFilePath)) if jsonFilePath.startswith('PHI-', i)]
+
+phiUserId = jsonFilePath[max(allInstancesOfPHI):]
+if "PHI" not in phiUserId:
+    sys. exit("{0} must have PHI in the file name".format(phiUserId))
+
+userID = phiUserId[4:-5]
 
 dataFieldPath = args.dataFieldExportList
 if not os.path.isfile(dataFieldPath):
@@ -473,7 +487,7 @@ data, numberOfInvalidCgmValues = removeInvalidCgmValues(data)
 # Tslim calibration bug fix
 data, numberOfTandemAndPayloadCalReadings = tslimCalibrationFix(data)
 
-# % hash the required data/fields
+# % hash the required data fields
 data = hashWithSalt(data, hashSaltFields, args.salt, userID)
 
 # %% sort and export data
@@ -482,21 +496,22 @@ data = data.sort_values("time")
 
 # all of the exports are based off of csvs table, as they separate the
 # bolus and wizard data
-csvExportFolder = exportCsvFiles(data, exportFolder, userID)
+hashID = hashUserId(userID, args.salt)
+csvExportFolder = exportCsvFiles(data, exportFolder, hashID)
 
 if args.exportFormat in ["csv", "json", "all"]:
-    allData = exportSingleCsv(data, exportFolder, userID, csvExportFolder)
+    allData = exportSingleCsv(data, exportFolder, hashID, csvExportFolder)
 
 if args.exportFormat in ["json", "all"]:
-    exportPrettyJson(allData, exportFolder, userID, csvExportFolder)
+    exportPrettyJson(allData, exportFolder, hashID, csvExportFolder)
 
 if args.exportFormat in ["xlsx", "all"]:
-    exportExcelFile(csvExportFolder, exportFolder, userID)
+    exportExcelFile(csvExportFolder, exportFolder, hashID)
 
 if args.exportFormat in ["csvs", "all"]:
     # unhide the csv files
     unhiddenCsvExportFolder = \
-        os.path.join(exportFolder, userID + "-csvs", "")
+        os.path.join(exportFolder, hashID + "-csvs", "")
     os.rename(csvExportFolder, unhiddenCsvExportFolder)
 else:
     shutil.rmtree(csvExportFolder)
