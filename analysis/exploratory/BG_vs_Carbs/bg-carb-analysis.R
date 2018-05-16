@@ -6,35 +6,49 @@ library(ggplot2)
 library(hexbin)
 
 #Set working directory to folder containing xlsx data
-setwd("YOUR_WORKING_DIRECTORY")
+setwd("C:/YOUR_WORKING_DIRECTORY")
 xlsx_files = dir()
 
 #Create empty elements to fill from each file
 total_daily_carbs = c()
+all_carb_entries = c()
 meanBG = c()
 medianBG = c()
 stddevBG = c()
 
-#Run time tracking for computing console time-to-complete estimate
+#Run time tracking for console time-to-complete estimate
 run_time = c()
 
-#Start tracking entire real run time of code
+#Loop through each file collecting all data and appending to respecting elements.
 real_run_start = Sys.time()
 
 #Keep track of skipped files
 skipped_files = c()
+no_carb_files = 0
+no_bg_files = 0
 
-#Start file data parsing (Run Time =~15 minutes / 100 xlsx files)
+#Keep track of total number of days with carbs and bg entries for each user
+user_days_count = c()
+total_days_analyzed = 0
+total_sets_analyzed = 0
+
+
 for(file_number in 1:length(xlsx_files)){
-#for(file_number in 1:1){
   #Start time tracking for each file's processing time
   start_time <- Sys.time()
   carb_data = tryCatch(read_excel(xlsx_files[file_number],sheet="bolus"), error=function(e) NA)
   bg_data = tryCatch(read_excel(xlsx_files[file_number],sheet="cbg"), error=function(e) NA)
   
   #Skip current file if missing sheet resulted in an "NA"
-  if(length(carb_data)==1 | length(bg_data)==1){
+  if(length(carb_data)==1){
     skipped_files = c(skipped_files,xlsx_files[file_number])
+    no_carb_files = no_carb_files + 1
+    next
+  }
+  
+  if(length(bg_data)==1){
+    skipped_files = c(skipped_files,xlsx_files[file_number])
+    no_bg_files = no_bg_files + 1
     next
   }
   
@@ -47,6 +61,7 @@ for(file_number in 1:length(xlsx_files)){
   #Skip current file if no carb input is available
   if(nrow(carb_data)<=1){
     skipped_files = c(skipped_files,xlsx_files[file_number])
+    no_carb_files = no_carb_files + 1
     next
   }
   
@@ -65,6 +80,7 @@ for(file_number in 1:length(xlsx_files)){
   
   #Check each BG for appropriate units, and convert if needed
   bg_data$value[which(bg_data$units!=units)]=bg_data$value[which(bg_data$units!=units)]*multiplier
+  carb_data$insulinSensitivity[which(carb_data$units!=units)]=carb_data$insulinSensitivity[which(carb_data$units!=units)]*multiplier
   
   #Add a "day" column to BG data and carb data
   timestamp_vec = unlist(strsplit(bg_data$est.localTime," "))
@@ -77,18 +93,31 @@ for(file_number in 1:length(xlsx_files)){
   unique_bg_days = unique(bg_data$day)
   unique_carb_days = unique(carb_data$day)
   days_to_analyze = unique_bg_days[unique_bg_days %in% unique_carb_days]
+  user_days_count = c(user_days_count, length(days_to_analyze))
+  
+  #Store all carb events for this user
+  all_carb_entries = c(all_carb_entries, carb_data$carbInput)
+    
+  #Set limit of how many days to take from each data set
+  if(length(days_to_analyze)>90){
+    limited_days = 90
+  } else {
+    limited_days = length(days_to_analyze)
+  }
   
   #Fill elements for data frame of daily carb intake and mean BG 
   # (add additional metrics as needed)
   
-  for(i in 1:length(days_to_analyze)){
+  for(i in 1:limited_days){
     
     total_daily_carbs = c(total_daily_carbs, sum(carb_data$carbInput[which(carb_data$day==days_to_analyze[i])]))
     meanBG = c(meanBG,mean(bg_data$value[which(bg_data$day==days_to_analyze[i])]))
     medianBG = c(medianBG,median(bg_data$value[which(bg_data$day==days_to_analyze[i])]))
     stddevBG = c(stddevBG,sd(bg_data$value[which(bg_data$day==days_to_analyze[i])]))
-    
   }
+  
+  total_days_analyzed = total_days_analyzed + limited_days
+  total_sets_analyzed = total_sets_analyzed + 1
   
   #Calculate and print estimate time remaining
   end_time = Sys.time()
@@ -97,17 +126,13 @@ for(file_number in 1:length(xlsx_files)){
   if(file_number%%100==0 | file_number==1){
     cat(paste("Files complete: ", toString(file_number), "/", toString(length(xlsx_files))," -- ", sep=""))
     cat(paste("Estimated time remaining: ", toString(round(mean(run_time)*sum(file.info(xlsx_files[file_number:length(xlsx_files)])$size))), " min\n", sep="" ))
-  }
+    }
 }
 real_run_end = Sys.time()
 cat(paste("Total Run Time: ", toString(round(difftime(real_run_end,real_run_start,units="mins"))), " minutes",sep=""))
   
 #Bind all elements into dataframe
 df = data.frame(cbind(total_daily_carbs,meanBG,medianBG))
-
-
-
-
 
 #######
 # Optional Code to run
@@ -118,17 +143,17 @@ df = data.frame(cbind(total_daily_carbs,meanBG,medianBG))
 
 #Basic histogram
 ggplot(data=df) + 
-  geom_histogram(aes(medianBG),bins=60)+
+  geom_histogram(aes(total_daily_carbs),bins=60)+
   theme_classic()+
   xlab("Daily Median Blood Glucose (mg/dL)")+
   ylab("Count")+ 
   labs(title="Daily Median Blood Glucose Histogram")+
-  scale_x_continuous(breaks=seq(0,400,25))
+  scale_x_continuous(breaks=seq(0,max(total_daily_carbs),50))
 
 #Density Scatterplot
-d = densCols(df$total_daily_carbs, df$stddevBG, colramp = colorRampPalette(rev(rainbow(10, end = 4/6))))
+d = densCols(df$total_daily_carbs, df$medianBG, colramp = colorRampPalette(rev(rainbow(10, end = 4/6))))
 ggplot(data=df) +
-  geom_point(aes(x=total_daily_carbs, y=stddevBG,colour=as.factor(d)), size = 1) +
+  geom_point(aes(x=total_daily_carbs, y=medianBG,colour=as.factor(d)), size = 1) +
   scale_color_identity()+
   theme_classic()+
   xlab("Total Daily Carb Intake (g)")+
@@ -147,7 +172,7 @@ ggplot(data=df)+
   scale_x_continuous(breaks=seq(0,800,50))
 
 #Bin elements of each carb section and make binned boxplot
-df$bin_type = cut(df$total_daily_carbs,breaks=seq(0,1000,10))
+df$bin_type = cut(df$total_daily_carbs,breaks=seq(0,500,50))
 
 ggplot(data=df) + 
   geom_boxplot(aes(x=bin_type,y=stddevBG)) + 
