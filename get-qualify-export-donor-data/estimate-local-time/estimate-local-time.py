@@ -125,8 +125,6 @@ def getAndPreprocessUploadRecords(df):
     ud = df[df.type == "upload"].copy()
     # define a device type (e.g., pump, cgm, or healthkit)
     ud["deviceType"] = np.nan
-    # convert deviceTags list to string
-#    ud["deviceTags"] = ud.deviceTags.apply(', '.join)
     ud.loc[ud.deviceTags.str.contains("pump"), ["deviceType"]] = "pump"
 
     # this is for non-healthkit cgm records only
@@ -751,12 +749,20 @@ def checkInputFile(inputFile):
     return inputData, fileName
 
 
-def correctEstimatesAroundDst(df, cDF):
+def getListOfDSTChangeDays(cDF):
 
     # get a list of DST change days for the home time zone
     dstChangeDays = \
         cDF[abs(cDF["home.imputed.timezoneOffset"] -
                 cDF["home.imputed.timezoneOffset"].shift(-1)) > 0].date
+
+    return dstChangeDays
+
+
+def correctEstimatesAroundDst(df, cDF):
+
+    # get a list of DST change days for the home time zone
+    dstChangeDays = getListOfDSTChangeDays(cDF)
 
     # loop through the df within 2 days of a daylight savings time change
     for d in dstChangeDays:
