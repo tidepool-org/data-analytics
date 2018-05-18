@@ -297,6 +297,28 @@ def estimateTzAndTzoWithDeviceRecords(cDF):
 
         cDF = compareDeviceTzoToPrevDayTzo(cDF, sIndices, deviceType)
 
+    # 2C. after 2A and 2B, check the DEVICE estiamtes to make sure that the
+    # pump and cgm tzo do not differ by more than 60 minutes. If they differ
+    # by more that 60 minutes, then mark the estimate as UNCERTAIN. Also, we
+    # allow the estimates to be off by 60 minutes as there are a lot of cases
+    # where the devices are off because the user changes the time for DST,
+    # at different times
+    sIndices = cDF[((cDF["est.type"] == "DEVICE") &
+                    (cDF["pump.timezoneOffset"].notnull()) &
+                    (cDF["cgm.timezoneOffset"].notnull()) &
+                    (cDF["pump.timezoneOffset"] != cDF["cgm.timezoneOffset"])
+                    )].index
+
+    tzoDiffGT60 = abs(cDF.loc[sIndices, "cgm.timezoneOffset"] -
+                      cDF.loc[sIndices, "pump.timezoneOffset"]) > 60
+
+    idx = tzoDiffGT60.index[tzoDiffGT60]
+
+    cDF.loc[idx, ["est.type"]] = "UNCERTAIN"
+    for i in idx:
+        print(i)
+        cDF = addAnnotation(cDF, i, "pump-cgm-tzo-mismatch")
+
     return cDF
 
 
