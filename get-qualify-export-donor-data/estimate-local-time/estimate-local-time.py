@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 description: Estimate local time
-version: 0.0.2
+version: 0.0.3
 created: 2018-04-30
 author: Ed Nykaza
 dependencies:
@@ -28,7 +28,7 @@ import argparse
 
 # %% USER INPUTS
 codeDescription = "Estimate local time for each data point in the dataset"
-codeVersion = "0.0.2"
+codeVersion = "0.0.3"
 
 parser = argparse.ArgumentParser(description=codeDescription)
 
@@ -470,7 +470,7 @@ def compareDeviceTzoToPrevDayTzo(df, sIdx, device):
             timeDiff = abs((df.loc[i, device + ".timezoneOffset"]) -
                            df.loc[i-1, "est.timezoneOffset"])
 
-            # next see if the previous record as a tz
+            # next see if the previous record has a tz
             if (pd.notnull(df.loc[i-1, "est.timezone"])):
 
                 if timeDiff == 0:
