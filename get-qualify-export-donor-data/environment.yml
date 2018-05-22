@@ -10,3 +10,4 @@ dependencies:
 - spyder
 - openpyxl
 - xlrd
+- xlsxwriter
