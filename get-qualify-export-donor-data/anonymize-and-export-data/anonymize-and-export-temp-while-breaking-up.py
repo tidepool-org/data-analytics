@@ -28,7 +28,7 @@ import glob
 import argparse
 import hashlib
 import ast
-import pdb
+
 
 # %% USER INPUTS
 codeDescription = "Anonymize and export Tidepool data"
@@ -62,6 +62,12 @@ parser.add_argument("-o",
                                          "example-data",
                                          "export", ""),
                     help="the path where the data is exported")
+
+parser.add_argument("--merge-wizard-data",
+                    dest="mergeWizardDataWithBolusData",
+                    default=True,
+                    help="option to merge wizard data with bolus data, " +
+                         "default, is true")
 
 parser.add_argument("--output-format",
                     dest="exportFormat",
@@ -422,7 +428,7 @@ def mergeWizardWithBolus(df, exportDirectory):
     return mergedBolusData
 
 
-def exportCsvFiles(df, exportFolder, fileName):
+def exportCsvFiles(df, exportFolder, fileName, mergeCalculatorData):
     unhiddenCsvExportFolder = os.path.join(exportFolder,
                                            fileName + "-csvs", "")
     hiddenCsvExportFolder = os.path.join(exportFolder,
@@ -444,12 +450,13 @@ def exportCsvFiles(df, exportFolder, fileName):
         csvData.to_csv(hiddenCsvExportFolder + dataType + ".csv")
 
     # merge wizard data with bolus data, and delete wizard data
-    bolusWithWizardData = mergeWizardWithBolus(df, hiddenCsvExportFolder)
-    if len(bolusWithWizardData) > 0:
-        bolusWithWizardData.to_csv(hiddenCsvExportFolder + "bolus.csv",
-                                   index=False)
-    if os.path.exists(hiddenCsvExportFolder + "wizard.csv"):
-        os.remove(hiddenCsvExportFolder + "wizard.csv")
+    if mergeCalculatorData:
+        bolusWithWizardData = mergeWizardWithBolus(df, hiddenCsvExportFolder)
+        if len(bolusWithWizardData) > 0:
+            bolusWithWizardData.to_csv(hiddenCsvExportFolder + "bolus.csv",
+                                       index=False)
+        if os.path.exists(hiddenCsvExportFolder + "wizard.csv"):
+            os.remove(hiddenCsvExportFolder + "wizard.csv")
 
     return hiddenCsvExportFolder
 
@@ -507,7 +514,7 @@ def readXlsxData(xlsxPathAndFileName):
     return cdf
 
 
-def exportData(df, fileName, fileType, exportDirectory):
+def exportData(df, fileName, fileType, exportDirectory, mergeCalculatorData):
     # create output folder(s)
     if not os.path.exists(exportDirectory):
         os.makedirs(exportDirectory)
@@ -517,7 +524,8 @@ def exportData(df, fileName, fileType, exportDirectory):
 
     # all of the exports are based off of csvs table, which are needed to
     # merge the bolus and wizard (AKA calculator) data
-    csvExportFolder = exportCsvFiles(df, exportDirectory, fileName)
+    csvExportFolder = exportCsvFiles(df, exportDirectory,
+                                     fileName, mergeCalculatorData)
 
     if fileType in ["csv", "json", "all"]:
         allData = exportSingleCsv(df, exportDirectory,
@@ -581,4 +589,5 @@ if 'hashID' in locals():
 else:
     outputName = "PHI-" + userID
 
-exportData(data, outputName, args.exportFormat, args.exportPath)
+exportData(data, outputName, args.exportFormat,
+           args.exportPath, args.mergeWizardDataWithBolusData)
