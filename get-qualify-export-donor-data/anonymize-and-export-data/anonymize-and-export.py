@@ -457,20 +457,34 @@ def mergeWizardWithBolus(df, exportDirectory):
     return mergedBolusData
 
 
-def exportCsvFiles(df, exportFolder, fileName, mergeCalculatorData):
-    unhiddenCsvExportFolder = os.path.join(exportFolder,
-                                           fileName + "-csvs", "")
+def cleanDiretory(exportFolder, fileName):
+
+    # if there is a failure during an export, you will want to clear out
+    # the remnants before trying to export again, so delete files if they exist
     hiddenCsvExportFolder = os.path.join(exportFolder,
                                          "." + fileName + "-csvs", "")
+    if os.path.exists(hiddenCsvExportFolder):
+        shutil.rmtree(hiddenCsvExportFolder)
+
+    os.makedirs(hiddenCsvExportFolder)
+
+    unhiddenCsvExportFolder = os.path.join(exportFolder,
+                                           fileName + "-csvs", "")
+
+    for fType in ["xlsx", "json", "csv"]:
+        fName = os.path.join(exportFolder, fileName + "." + fType)
+        if os.path.exists(fName):
+            os.remove(fName)
 
     # if unhiddenCsvExportFolder folder exists, delete it
     if os.path.exists(unhiddenCsvExportFolder):
         shutil.rmtree(unhiddenCsvExportFolder)
 
-    if os.path.exists(hiddenCsvExportFolder):
-        shutil.rmtree(hiddenCsvExportFolder)
-    else:
-        os.makedirs(hiddenCsvExportFolder)
+    return hiddenCsvExportFolder
+
+
+def exportCsvFiles(df, exportFolder, fileName, mergeCalculatorData):
+    hiddenCsvExportFolder = cleanDiretory(exportFolder, fileName)
 
     groupedData = df.groupby(by="type")
     for dataType in set(df[df.type.notnull()].type):
