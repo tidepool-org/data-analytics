@@ -66,9 +66,11 @@ parser.add_argument("--merge-wizard-data",
 
 parser.add_argument("--output-format",
                     dest="exportFormat",
-                    default="all",
+                    default=["all"],
                     help="the format of the exported data. Export options " +
-                         "include json, xlsx, csv, csvs, or all")
+                         "include json, xlsx, csv, csvs, or all" +
+                         "NOTE: you can include multiple formats in a " +
+                         "list (e.g., ['json', 'csv'])")
 
 parser.add_argument("--start-date",
                     dest="startDate",
@@ -603,18 +605,17 @@ def exportData(df, fileName, fileType, exportDirectory, mergeCalculatorData):
     csvExportFolder = exportCsvFiles(df, exportDirectory,
                                      fileName, mergeCalculatorData)
 
-    if fileType in ["csv", "json", "all"]:
+    if (("csv" in fileType) | ("json" in fileType) | ("all" in fileType)):
         allData = exportSingleCsv(df, exportDirectory,
                                   fileName, csvExportFolder, fileType)
 
-    if fileType in ["json", "all"]:
+    if (("json" in fileType) | ("all" in fileType)):
         exportPrettyJson(allData, exportDirectory, fileName, csvExportFolder)
 
-
-    if fileType in ["xlsx", "all"]:
+    if (("xlsx" in fileType) | ("all" in fileType)):
         exportExcelFile(csvExportFolder, exportDirectory, fileName)
 
-    if fileType in ["csvs", "all"]:
+    if (("csvs" in fileType) | ("all" in fileType)):
         # unhide the csv files
         unhiddenCsvExportFolder = \
             os.path.join(exportDirectory, fileName + "-csvs", "")
