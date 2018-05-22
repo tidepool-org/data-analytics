@@ -81,7 +81,49 @@ parser.add_argument("--end-date",
 args = parser.parse_args()
 
 
-# %% FUNCTIONS
+# %% LOAD DATA FUNCTIONS
+def checkInputFile(inputFile):
+    if os.path.isfile(inputFile):
+        if os.stat(inputFile).st_size > 2:
+            if inputFile[-4:] == "json":
+                inputData = pd.read_json(inputFile, orient="records")
+                fileName = os.path.split(inputFile)[-1][:-5]
+            elif inputFile[-4:] == "xlsx":
+                inputData = readXlsxData(inputFile)
+                fileName = os.path.split(inputFile)[-1][:-5]
+            elif inputFile[-3:] == "csv":
+                inputData = pd.read_csv(inputFile, low_memory=False)
+                fileName = os.path.split(inputFile)[-1][:-4]
+            else:
+                sys.exit("{0} is not a json, xlsx, or csv".format(inputFile))
+        else:
+            sys.exit("{0} contains too little data".format(inputFile))
+    else:
+        sys.exit("{0} does not exist".format(inputFile))
+
+    # if fileName has PHI in it, remove PHI to get userID
+    if "PHI" in fileName.upper():
+        fileName = fileName[4:]
+
+    return inputData, fileName
+
+
+# %% FILTER DATA FUNCTIONS
+def checkDataFieldList(dataFieldPath):
+    if not os.path.isfile(dataFieldPath):
+        sys.exit("{0} is not a valid file path".format(dataFieldPath))
+
+    dataFieldExportList = pd.read_csv(dataFieldPath)
+    approvedDataFields = \
+        list(dataFieldExportList.loc[dataFieldExportList.include.fillna(False),
+                                     "dataFieldList"])
+
+    hashSaltFields = list(dataFieldExportList.loc[
+            dataFieldExportList.hashNeeded.fillna(False), "dataFieldList"])
+
+    return approvedDataFields, hashSaltFields
+
+
 def filterByDates(df, startDate, endDate):
 
     # filter by qualified start & end date, and sort
@@ -106,6 +148,14 @@ def tempRemoveFields(df):
     df = df.drop(columns=tempRemoveFields)
 
     return df, tempDf
+
+
+def removeBrackets(df, fieldName):
+    if fieldName in list(df):
+        df.loc[df[fieldName].notnull(), fieldName] = \
+            df.loc[df[fieldName].notnull(), fieldName].str[0]
+
+    return df
 
 
 def flattenJson(df, dataFieldsForExport):
@@ -161,14 +211,7 @@ def filterByApprovedDataFields(df, dataFieldsForExport):
     return dfExport
 
 
-def removeBrackets(df, fieldName):
-    if fieldName in list(df):
-        df.loc[df[fieldName].notnull(), fieldName] = \
-            df.loc[df[fieldName].notnull(), fieldName].str[0]
-
-    return df
-
-
+# %% CLEAN DATA FUNCTIONS
 def removeNegativeDurations(df):
     if "duration" in list(df):
         nNegativeDurations = sum(df.duration < 0)
@@ -217,6 +260,7 @@ def tslimCalibrationFix(df):
     return df, nTandemAndPayloadCalReadings
 
 
+# %% ANONYMIZE DATA FUNCTIONS
 def hashScheduleNames(df, salt, userID):
 
     scheduleNames = ["basalSchedules",
@@ -281,6 +325,16 @@ def anonymizeData(df, hashSaltFields, salt, userID):
     return df
 
 
+def hashUserId(userID, salt):
+
+    usr_string = userID + salt
+    hash_user = hashlib.sha256(usr_string.encode())
+    hashID = hash_user.hexdigest()
+
+    return hashID
+
+
+# %% EXPORT DATA FUNCTIONS
 def filterAndSort(groupedDF, filterByField, sortByField):
     filterDF = groupedDF.get_group(filterByField).dropna(axis=1, how="all")
     filterDF = filterDF.sort_values(sortByField)
@@ -358,15 +412,6 @@ def mergeWizardWithBolus(df, exportDirectory):
     return mergedBolusData
 
 
-def hashUserId(userID, salt):
-
-    usr_string = userID + salt
-    hash_user = hashlib.sha256(usr_string.encode())
-    hashID = hash_user.hexdigest()
-
-    return hashID
-
-
 def exportCsvFiles(df, exportFolder, fileName):
     unhiddenCsvExportFolder = os.path.join(exportFolder,
                                            fileName + "-csvs", "")
@@ -416,7 +461,6 @@ def exportSingleCsv(df, exportFolder, fileName, exportDirectory):
 
 
 def exportPrettyJson(df, exportFolder, fileName, exportDirectory):
-
     # make a hidden file
     hiddenJsonFile = exportFolder + "." + fileName + ".json"
     df.to_json(hiddenJsonFile, orient='records')
@@ -453,49 +497,7 @@ def readXlsxData(xlsxPathAndFileName):
     return cdf
 
 
-def checkInputFile(inputFile):
-    if os.path.isfile(inputFile):
-        if os.stat(inputFile).st_size > 2:
-            if inputFile[-4:] == "json":
-                inputData = pd.read_json(inputFile, orient="records")
-                fileName = os.path.split(inputFile)[-1][:-5]
-            elif inputFile[-4:] == "xlsx":
-                inputData = readXlsxData(inputFile)
-                fileName = os.path.split(inputFile)[-1][:-5]
-            elif inputFile[-3:] == "csv":
-                inputData = pd.read_csv(inputFile, low_memory=False)
-                fileName = os.path.split(inputFile)[-1][:-4]
-            else:
-                sys.exit("{0} is not a json, xlsx, or csv".format(inputFile))
-        else:
-            sys.exit("{0} contains too little data".format(inputFile))
-    else:
-        sys.exit("{0} does not exist".format(inputFile))
-
-    # if fileName has PHI in it, remove PHI to get userID
-    if "PHI" in fileName.upper():
-        fileName = fileName[4:]
-
-    return inputData, fileName
-
-
-def checkDataFieldList(dataFieldPath):
-    if not os.path.isfile(dataFieldPath):
-        sys.exit("{0} is not a valid file path".format(dataFieldPath))
-
-    dataFieldExportList = pd.read_csv(dataFieldPath)
-    approvedDataFields = \
-        list(dataFieldExportList.loc[dataFieldExportList.include.fillna(False),
-                                     "dataFieldList"])
-
-    hashSaltFields = list(dataFieldExportList.loc[
-            dataFieldExportList.hashNeeded.fillna(False), "dataFieldList"])
-
-    return approvedDataFields, hashSaltFields
-
-
 def exportData(df, fileName, fileType, exportDirectory):
-
     # create output folder(s)
     if not os.path.exists(exportDirectory):
         os.makedirs(exportDirectory)
@@ -508,7 +510,8 @@ def exportData(df, fileName, fileType, exportDirectory):
     csvExportFolder = exportCsvFiles(df, exportDirectory, fileName)
 
     if fileType in ["csv", "json", "all"]:
-        allData = exportSingleCsv(df, exportDirectory, fileName, csvExportFolder)
+        allData = exportSingleCsv(df, exportDirectory,
+                                  fileName, csvExportFolder)
 
     if fileType in ["json", "all"]:
         exportPrettyJson(allData, exportDirectory, fileName, csvExportFolder)
@@ -527,17 +530,16 @@ def exportData(df, fileName, fileType, exportDirectory):
     return
 
 
-# %% GLOBAL VARIABLES
-
+# %% LOAD DATA
 # check input file and load data. File must be bigger than 2 bytes,
 # and in either json, xlsx, or csv format
 data, userID = checkInputFile(args.inputFilePathAndName)
 
+
+# %% FILTER DATA
 # check export/approved data field list
 outputFields, anonymizeFields = checkDataFieldList(args.dataFieldExportList)
 
-
-# %% FILTER DATA
 # remove data between start and end dates
 data = filterByDates(data, args.startDate, args.endDate)
 
