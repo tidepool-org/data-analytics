@@ -522,15 +522,39 @@ def exportPrettyJson(df, exportFolder, fileName, exportDirectory):
 
 
 def exportExcelFile(exportDirectory, exportFolder, fileName):
-    writer = pd.ExcelWriter(exportFolder + fileName + ".xlsx")
+    mylen = np.vectorize(len)
+    writer = pd.ExcelWriter(exportFolder + fileName + ".xlsx",
+                            engine='xlsxwriter')
+
+    workbook = writer.book
+    header_format = workbook.add_format({'bold': True,
+                                         'valign': 'center',
+                                         'border': False,
+                                         'align': 'center'})
+
+    cell_format = workbook.add_format({'align': 'center'})
+
     csvFiles = sorted(os.listdir(exportDirectory))
     for csvFile in csvFiles:
         dataName = csvFile[:-4]
-        tempCsvData = pd.read_csv(os.path.join(exportDirectory,
-                                               dataName + ".csv"),
-                                  low_memory=False,
-                                  index_col="jsonRowIndex")
-        tempCsvData.to_excel(writer, dataName)
+
+        tempCsvData = pd.read_csv(
+                os.path.join(exportDirectory, dataName + ".csv"),
+                low_memory=False)
+
+        tempCsvData.to_excel(writer, dataName, startrow=1, header=False,
+                             index=False, freeze_panes=(1, 1))
+
+        worksheet = writer.sheets[dataName]
+        workbook.add_format({'align': 'center'})
+
+        # Write the column headers with the defined format
+        for col_num, value in enumerate(tempCsvData.columns.values):
+            worksheet.write(0, col_num, value, header_format)
+            colWidth = max(len(value),
+                       max(mylen(tempCsvData.iloc[:, col_num].astype(str))))
+            worksheet.set_column(col_num, col_num, colWidth, cell_format)
+
     writer.save()
 
     return
