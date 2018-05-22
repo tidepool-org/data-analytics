@@ -314,12 +314,12 @@ def removeManufacturersFromAnnotationsCode(df):
     return df
 
 
-def mergeWizardWithBolus(df, csvExportFolder):
+def mergeWizardWithBolus(df, exportDirectory):
 
     if (("bolus" in set(df.type)) and ("wizard" in set(df.type))):
-        bolusData = pd.read_csv(csvExportFolder + "bolus.csv",
+        bolusData = pd.read_csv(exportDirectory + "bolus.csv",
                                 low_memory=False)
-        wizardData = pd.read_csv(csvExportFolder + "wizard.csv",
+        wizardData = pd.read_csv(exportDirectory + "wizard.csv",
                                  low_memory=False)
 
         # remove manufacturer from annotations.code
@@ -369,29 +369,39 @@ def hashUserId(userID, salt):
 
 
 def exportCsvFiles(df, exportFolder, fileName):
-    csvExportFolder = os.path.join(exportFolder, "." + fileName + "-csvs", "")
-    if not os.path.exists(csvExportFolder):
-        os.makedirs(csvExportFolder)
+    unhiddenCsvExportFolder = os.path.join(exportFolder,
+                                           fileName + "-csvs", "")
+    hiddenCsvExportFolder = os.path.join(exportFolder,
+                                         "." + fileName + "-csvs", "")
+
+    # if unhiddenCsvExportFolder folder exists, delete it
+    if os.path.exists(unhiddenCsvExportFolder):
+        shutil.rmtree(unhiddenCsvExportFolder)
+
+    if os.path.exists(hiddenCsvExportFolder):
+        shutil.rmtree(hiddenCsvExportFolder)
+    else:
+        os.makedirs(hiddenCsvExportFolder)
 
     groupedData = df.groupby(by="type")
     for dataType in set(df[df.type.notnull()].type):
         csvData = filterAndSort(groupedData, dataType, "time")
         csvData.index.name = "jsonRowIndex"
-        csvData.to_csv(csvExportFolder + dataType + ".csv")
+        csvData.to_csv(hiddenCsvExportFolder + dataType + ".csv")
 
     # merge wizard data with bolus data, and delete wizard data
-    bolusWithWizardData = mergeWizardWithBolus(df, csvExportFolder)
+    bolusWithWizardData = mergeWizardWithBolus(df, hiddenCsvExportFolder)
     if len(bolusWithWizardData) > 0:
-        bolusWithWizardData.to_csv(csvExportFolder + "bolus.csv", index=False)
-    if os.path.exists(csvExportFolder + "wizard.csv"):
-        os.remove(csvExportFolder + "wizard.csv")
+        bolusWithWizardData.to_csv(hiddenCsvExportFolder + "bolus.csv", index=False)
+    if os.path.exists(hiddenCsvExportFolder + "wizard.csv"):
+        os.remove(hiddenCsvExportFolder + "wizard.csv")
 
-    return csvExportFolder
+    return hiddenCsvExportFolder
 
 
-def exportSingleCsv(df, exportFolder, fileName, csvExportFolder):
+def exportSingleCsv(df, exportFolder, fileName, exportDirectory):
     # first load in all csv files
-    csvFiles = glob.glob(csvExportFolder + "*.csv")
+    csvFiles = glob.glob(exportDirectory + "*.csv")
     bigTable = pd.DataFrame()
     for csvFile in csvFiles:
         bigTable = pd.concat([bigTable,
@@ -405,7 +415,7 @@ def exportSingleCsv(df, exportFolder, fileName, csvExportFolder):
     return bigTable
 
 
-def exportPrettyJson(df, exportFolder, fileName, csvExportFolder):
+def exportPrettyJson(df, exportFolder, fileName, exportDirectory):
 
     # make a hidden file
     hiddenJsonFile = exportFolder + "." + fileName + ".json"
@@ -419,12 +429,12 @@ def exportPrettyJson(df, exportFolder, fileName, csvExportFolder):
     return
 
 
-def exportExcelFile(csvExportFolder, exportFolder, fileName):
+def exportExcelFile(exportDirectory, exportFolder, fileName):
     writer = pd.ExcelWriter(exportFolder + fileName + ".xlsx")
-    csvFiles = sorted(os.listdir(csvExportFolder))
+    csvFiles = sorted(os.listdir(exportDirectory))
     for csvFile in csvFiles:
         dataName = csvFile[:-4]
-        tempCsvData = pd.read_csv(os.path.join(csvExportFolder,
+        tempCsvData = pd.read_csv(os.path.join(exportDirectory,
                                                dataName + ".csv"),
                                   low_memory=False,
                                   index_col="jsonRowIndex")
