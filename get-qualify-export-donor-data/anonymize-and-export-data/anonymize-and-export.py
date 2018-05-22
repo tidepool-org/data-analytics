@@ -80,6 +80,13 @@ parser.add_argument("--end-date",
                     default=dt.datetime.now().strftime("%Y-%m-%d"),
                     help="filter data by startDate and EndDate")
 
+parser.add_argument("--filterByDatesExceptUploadsAndSettings",
+                    dest="filterByDatesExceptUploadsAndSettings",
+                    default=True,
+                    help="upload and settings data can occur before and " +
+                         "after start and end dates, so include ALL " +
+                         "upload and settings data in export")
+
 args = parser.parse_args()
 
 
@@ -132,6 +139,31 @@ def filterByDates(df, startDate, endDate):
     df = \
         df[(df.time >= startDate) &
            (df.time <= (endDate + "T23:59:59"))]
+
+    return df
+
+
+def filterByDatesExceptUploadsAndSettings(df, startDate, endDate):
+
+    # filter by qualified start & end date, and sort
+    uploadEventsSettings = df[((df.type == "upload") |
+                               (df.type == "deviceEvent") |
+                               (df.type == "pumpSettings"))]
+
+    theRest = df[~((df.type == "upload") |
+                 (df.type == "deviceEvent") |
+                 (df.type == "pumpSettings"))]
+
+    if "est.localTime" in list(df):
+
+        theRest = theRest[(theRest["est.localTime"] >= startDate) &
+                          (theRest["est.localTime"] <=
+                           (endDate + "T23:59:59"))]
+    else:
+        theRest = theRest[(theRest["time"] >= startDate) &
+                          (theRest["time"] <= (endDate + "T23:59:59"))]
+
+    df = pd.concat([uploadEventsSettings, theRest])
 
     return df
 
@@ -554,7 +586,12 @@ data, userID = checkInputFile(args.inputFilePathAndName)
 outputFields, anonymizeFields = checkDataFieldList(args.dataFieldExportList)
 
 # remove data between start and end dates
-data = filterByDates(data, args.startDate, args.endDate)
+if args.filterByDatesExceptUploadsAndSettings:
+    data = filterByDatesExceptUploadsAndSettings(data,
+                                                 args.startDate,
+                                                 args.endDate)
+else:
+    data = filterByDates(data, args.startDate, args.endDate)
 
 # only keep the data fields that are approved
 data = filterByApprovedDataFields(data, outputFields)
