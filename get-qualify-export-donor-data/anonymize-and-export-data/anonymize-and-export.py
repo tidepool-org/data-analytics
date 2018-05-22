@@ -512,7 +512,9 @@ def exportPrettyJson(df, exportFolder, fileName, exportDirectory):
     df.to_json(hiddenJsonFile, orient='records')
     # make a pretty json file for export
     jsonExportFileName = exportFolder + fileName + ".json"
-    os.system("jq '.' " + hiddenJsonFile + " > " + jsonExportFileName)
+    # export pretty and remove nulls
+    os.system("jq 'del(.[][] | nulls)' " +
+              hiddenJsonFile + " > " + jsonExportFileName)
     # delete the hidden file
     os.remove(hiddenJsonFile)
 
