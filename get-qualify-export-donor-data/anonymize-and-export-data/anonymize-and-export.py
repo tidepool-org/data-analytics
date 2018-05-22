@@ -504,7 +504,7 @@ def exportCsvFiles(df, exportFolder, fileName, mergeCalculatorData):
     return hiddenCsvExportFolder
 
 
-def exportSingleCsv(df, exportFolder, fileName, exportDirectory):
+def exportSingleCsv(df, exportFolder, fileName, exportDirectory, fileType):
     # first load in all csv files
     csvFiles = glob.glob(exportDirectory + "*.csv")
     bigTable = pd.DataFrame()
@@ -515,7 +515,8 @@ def exportSingleCsv(df, exportFolder, fileName, exportDirectory):
 
     # then sort
     bigTable = bigTable.sort_values("time")
-    bigTable.to_csv(os.path.join(exportFolder, fileName + ".csv"))
+    if "csv" in fileType:
+        bigTable.to_csv(os.path.join(exportFolder, fileName + ".csv"))
 
     return bigTable
 
@@ -604,10 +605,11 @@ def exportData(df, fileName, fileType, exportDirectory, mergeCalculatorData):
 
     if fileType in ["csv", "json", "all"]:
         allData = exportSingleCsv(df, exportDirectory,
-                                  fileName, csvExportFolder)
+                                  fileName, csvExportFolder, fileType)
 
     if fileType in ["json", "all"]:
         exportPrettyJson(allData, exportDirectory, fileName, csvExportFolder)
+
 
     if fileType in ["xlsx", "all"]:
         exportExcelFile(csvExportFolder, exportDirectory, fileName)
