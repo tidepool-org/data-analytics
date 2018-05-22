@@ -23,7 +23,6 @@ import glob
 import argparse
 import hashlib
 import ast
-import pdb
 
 
 # %% USER INPUTS
@@ -553,7 +552,7 @@ def exportExcelFile(exportDirectory, exportFolder, fileName):
         for col_num, value in enumerate(tempCsvData.columns.values):
             worksheet.write(0, col_num, value, header_format)
             colWidth = max(len(value),
-                       max(mylen(tempCsvData.iloc[:, col_num].astype(str))))
+                           max(mylen(tempCsvData.iloc[:, col_num].astype(str))))
             worksheet.set_column(col_num, col_num, colWidth, cell_format)
 
     writer.save()
