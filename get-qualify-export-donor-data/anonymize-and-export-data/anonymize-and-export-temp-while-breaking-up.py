@@ -27,7 +27,8 @@ import shutil
 import glob
 import argparse
 import hashlib
-import pdb  # pdb.set_trace()
+import ast
+import pdb
 
 # %% USER INPUTS
 codeDescription = "Anonymize and export Tidepool data"
@@ -277,8 +278,17 @@ def hashScheduleNames(df, salt, userID):
             # loop through each schedule name row
             uniqueScheduleNames = []
             for scheduleNameRow in scheduleNameRows:
-                scheduleNameKeys = list(scheduleNameDataFrame[scheduleName]
-                                        [scheduleNameRow].keys())
+                # TODO: come up with a better work around
+                # work-around if input file is json vs. csv format
+                try: # this is the json version
+                    scheduleNameKeys = \
+                        list(scheduleNameDataFrame[scheduleName]
+                        [scheduleNameRow].keys())
+                except: # this is the csv version
+                    scheduleNameKeys = \
+                        list(ast.literal_eval(scheduleNameDataFrame[scheduleName]
+                        [scheduleNameRow]).keys())
+
                 uniqueScheduleNames = list(set(uniqueScheduleNames +
                                                scheduleNameKeys))
             # loop through each unique schedule name and create a hash
