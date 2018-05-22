@@ -35,14 +35,6 @@ codeDescription = "Anonymize and export Tidepool data"
 
 parser = argparse.ArgumentParser(description=codeDescription)
 
-#parser.add_argument("-i",
-#                    "--input-file-path",
-#                    dest="inputFilePathAndName",
-#                    default=os.path.join("..",
-#                                         "example-data",
-#                                         "PHI-jill-jellyfish.json"),
-#                    help="path of .json data to be anonymized and exported")
-
 parser.add_argument("-i",
                     "--input-tidepool-data",
                     dest="inputFilePathAndName",
@@ -50,7 +42,6 @@ parser.add_argument("-i",
                                          "example-data",
                                          "PHI-jill-jellyfish-lite.json"),
                     help="a csv, xlsx, or json file that contains Tidepool data")
-
 
 parser.add_argument("--data-field-list",
                     dest="dataFieldExportList",
@@ -102,17 +93,6 @@ def filterByDates(df, startDate, endDate):
     return df
 
 
-def filterByRequiredDataFields(df, requiredDataFields):
-
-    dfExport = pd.DataFrame()
-    for fIndex in range(0, len(requiredDataFields)):
-        if requiredDataFields[fIndex] in df.columns.values:
-            dfExport = pd.concat([dfExport, df[requiredDataFields[fIndex]]],
-                                 axis=1)
-
-    return dfExport
-
-
 def tempRemoveFields(df):
     removeFields = ["basalSchedules",
                     "bgTarget",
@@ -129,7 +109,7 @@ def tempRemoveFields(df):
     return df, tempDf
 
 
-def flattenJson(df, requiredDataFields):
+def flattenJson(df, dataFieldsForExport):
 
     # remove fields that we don't want to flatten
     df, holdData = tempRemoveFields(df)
@@ -158,7 +138,7 @@ def flattenJson(df, requiredDataFields):
 
             # put df back into the main dataframe
             for newColHeading in list(set(newColHeadings) &
-                                      set(requiredDataFields)):
+                                      set(dataFieldsForExport)):
                 tempDataFrame = newDataFrame[newColHeading]
                 df = pd.concat([df, tempDataFrame], axis=1)
 
@@ -166,6 +146,20 @@ def flattenJson(df, requiredDataFields):
     df = pd.concat([df, holdData], axis=1)
 
     return df
+
+
+def filterByapprovedDataFields(df, dataFieldsForExport):
+
+    # flatten embedded json, if it exists
+    df = flattenJson(df, dataFieldsForExport)
+
+    dfExport = pd.DataFrame()
+    for fIndex in range(0, len(dataFieldsForExport)):
+        if dataFieldsForExport[fIndex] in df.columns.values:
+            dfExport = pd.concat([dfExport, df[dataFieldsForExport[fIndex]]],
+                                 axis=1)
+
+    return dfExport
 
 
 def removeBrackets(df, fieldName):
@@ -257,9 +251,10 @@ def hashScheduleNames(df, salt, userID):
 
             # drop and reattach the new data
             df = df.drop(columns=scheduleName)
-            df = pd.merge(df, scheduleNameDataFrame.loc[:, ["time",
-                                                            scheduleName]],
-                          how="left", on="time")
+            df = pd.merge(df,
+                          scheduleNameDataFrame.loc[:,
+                                                    ["time", scheduleName]],
+                                                    how="left", on="time")
     return df
 
 
@@ -476,25 +471,12 @@ def checkInputFile(inputFile):
 
 # %% GLOBAL VARIABLES
 
-# check inputs and load data. File must be bigger than 1 KB, and in either
+# check inputs and load data. File must be bigger than 2 bytes, and in either
 # json, xlsx, or csv format
 data, userID = checkInputFile(args.inputFilePathAndName)
 
 #pdb.set_trace()
 
-## input folder(s)
-#jsonFilePath = args.inputFilePathAndName
-#if not os.path.isfile(jsonFilePath):
-#    sys.exit("{0} is not a valid file path".format(jsonFilePath))
-#
-#allInstancesOfPHI = \
-#    [i for i in range(len(jsonFilePath)) if jsonFilePath.startswith('PHI-', i)]
-#
-#phiUserId = jsonFilePath[max(allInstancesOfPHI):]
-#if "PHI" not in phiUserId:
-#    sys. exit("{0} must have PHI in the file name".format(phiUserId))
-#
-#userID = phiUserId[4:-5]
 
 dataFieldPath = args.dataFieldExportList
 if not os.path.isfile(dataFieldPath):
@@ -506,7 +488,7 @@ if not os.path.exists(exportFolder):
     os.makedirs(exportFolder)
 
 dataFieldExportList = pd.read_csv(dataFieldPath)
-requiredDataFields = \
+approvedDataFields = \
     list(dataFieldExportList.loc[dataFieldExportList.include.fillna(False),
                                  "dataFieldList"])
 
@@ -514,20 +496,15 @@ hashSaltFields = list(dataFieldExportList.loc[
         dataFieldExportList.hashNeeded.fillna(False), "dataFieldList"])
 
 
-# %% START OF CODE
-## load json file
-#data = pd.read_json(jsonFilePath, orient="records")
-
+# %% FILTER DATA
 # remove data between start and end dates
 data = filterByDates(data, args.startDate, args.endDate)
 
-# flatten embedded json, if it exists
-data = flattenJson(data, requiredDataFields)
-
 # only keep the data fields that are approved
-data = filterByRequiredDataFields(data, requiredDataFields)
+data = filterByapprovedDataFields(data, approvedDataFields)
 
-# %% clean up data
+
+# %% CLEAN DATA
 # remove negative durations
 data = removeNegativeDurations(data)
 
@@ -539,6 +516,7 @@ data, numberOfTandemAndPayloadCalReadings = tslimCalibrationFix(data)
 
 # % hash the required data fields
 data = hashWithSalt(data, hashSaltFields, args.salt, userID)
+
 
 # %% sort and export data
 # sort data by time
