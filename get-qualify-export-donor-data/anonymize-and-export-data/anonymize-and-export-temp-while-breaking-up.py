@@ -494,7 +494,7 @@ def checkDataFieldList(dataFieldPath):
     return approvedDataFields, hashSaltFields
 
 
-def exportData(df, fileName, salt, fileType, exportDirectory):
+def exportData(df, fileName, fileType, exportDirectory):
 
     # create output folder(s)
     if not os.path.exists(exportDirectory):
@@ -503,24 +503,23 @@ def exportData(df, fileName, salt, fileType, exportDirectory):
     # sort data by time
     df = df.sort_values("time")
 
-    # all of the exports are based off of csvs table, as they separate the
-    # bolus and wizard data
-    hashID = hashUserId(fileName, salt)
-    csvExportFolder = exportCsvFiles(df, exportDirectory, hashID)
+    # all of the exports are based off of csvs table, which are needed to
+    # merge the bolus and wizard (AKA calculator) data
+    csvExportFolder = exportCsvFiles(df, exportDirectory, fileName)
 
     if fileType in ["csv", "json", "all"]:
-        allData = exportSingleCsv(df, exportDirectory, hashID, csvExportFolder)
+        allData = exportSingleCsv(df, exportDirectory, fileName, csvExportFolder)
 
     if fileType in ["json", "all"]:
-        exportPrettyJson(allData, exportDirectory, hashID, csvExportFolder)
+        exportPrettyJson(allData, exportDirectory, fileName, csvExportFolder)
 
     if fileType in ["xlsx", "all"]:
-        exportExcelFile(csvExportFolder, exportDirectory, hashID)
+        exportExcelFile(csvExportFolder, exportDirectory, fileName)
 
     if fileType in ["csvs", "all"]:
         # unhide the csv files
         unhiddenCsvExportFolder = \
-            os.path.join(exportDirectory, hashID + "-csvs", "")
+            os.path.join(exportDirectory, fileName + "-csvs", "")
         os.rename(csvExportFolder, unhiddenCsvExportFolder)
     else:
         shutil.rmtree(csvExportFolder)
@@ -560,7 +559,14 @@ data, numberOfTandemAndPayloadCalReadings = tslimCalibrationFix(data)
 # %% ANONYMIZE DATA
 # hash the required data fields
 data = hashWithSalt(data, anonymizeFields, args.salt, userID)
+hashID = hashUserId(userID, args.salt)
 
 
 # %% EXPORT DATA
-exportData(data, userID, args.salt, args.exportFormat, args.exportPath)
+# if a hashID is defined, then use the hashID, if not use the PHI userID
+if 'hashID' in locals():
+    outputName = hashID
+else:
+    outputName = "PHI-" + userID
+
+exportData(data, outputName, args.exportFormat, args.exportPath)
