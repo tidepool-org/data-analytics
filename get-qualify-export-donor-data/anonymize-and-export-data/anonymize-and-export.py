@@ -23,6 +23,7 @@ import glob
 import argparse
 import hashlib
 import ast
+import pdb
 
 
 # %% USER INPUTS
@@ -495,10 +496,10 @@ def exportSingleCsv(df, exportFolder, fileName, exportDirectory):
     csvFiles = glob.glob(exportDirectory + "*.csv")
     bigTable = pd.DataFrame()
     for csvFile in csvFiles:
-        bigTable = pd.concat([bigTable,
-                              pd.read_csv(csvFile,
-                                          low_memory=False,
-                                          index_col="jsonRowIndex")])
+        bigTable = \
+            pd.concat([bigTable, pd.read_csv(csvFile, low_memory=False,
+                      index_col="jsonRowIndex")], sort=False)
+
     # then sort
     bigTable = bigTable.sort_values("time")
     bigTable.to_csv(os.path.join(exportFolder, fileName + ".csv"))
