@@ -27,8 +27,7 @@ import shutil
 import glob
 import argparse
 import hashlib
-import pdb
-
+import pdb  # pdb.set_trace()
 
 # %% USER INPUTS
 codeDescription = "Anonymize and export Tidepool data"
@@ -41,7 +40,7 @@ parser.add_argument("-i",
                     default=os.path.join("..",
                                          "example-data",
                                          "PHI-jill-jellyfish-lite.json"),
-                    help="a csv, xlsx, or json file that contains Tidepool data")
+                    help="csv, xlsx, or json file that contains Tidepool data")
 
 parser.add_argument("--data-field-list",
                     dest="dataFieldExportList",
@@ -148,7 +147,7 @@ def flattenJson(df, dataFieldsForExport):
     return df
 
 
-def filterByapprovedDataFields(df, dataFieldsForExport):
+def filterByApprovedDataFields(df, dataFieldsForExport):
 
     # flatten embedded json, if it exists
     df = flattenJson(df, dataFieldsForExport)
@@ -392,7 +391,8 @@ def exportCsvFiles(df, exportFolder, fileName):
     # merge wizard data with bolus data, and delete wizard data
     bolusWithWizardData = mergeWizardWithBolus(df, hiddenCsvExportFolder)
     if len(bolusWithWizardData) > 0:
-        bolusWithWizardData.to_csv(hiddenCsvExportFolder + "bolus.csv", index=False)
+        bolusWithWizardData.to_csv(hiddenCsvExportFolder + "bolus.csv",
+                                   index=False)
     if os.path.exists(hiddenCsvExportFolder + "wizard.csv"):
         os.remove(hiddenCsvExportFolder + "wizard.csv")
 
@@ -479,31 +479,63 @@ def checkInputFile(inputFile):
     return inputData, fileName
 
 
+def checkDataFieldList(dataFieldPath):
+    if not os.path.isfile(dataFieldPath):
+        sys.exit("{0} is not a valid file path".format(dataFieldPath))
+
+    dataFieldExportList = pd.read_csv(dataFieldPath)
+    approvedDataFields = \
+        list(dataFieldExportList.loc[dataFieldExportList.include.fillna(False),
+                                     "dataFieldList"])
+
+    hashSaltFields = list(dataFieldExportList.loc[
+            dataFieldExportList.hashNeeded.fillna(False), "dataFieldList"])
+
+    return approvedDataFields, hashSaltFields
+
+
+def exportData(df, fileName, salt, fileType, exportDirectory):
+
+    # create output folder(s)
+    if not os.path.exists(exportDirectory):
+        os.makedirs(exportDirectory)
+
+    # sort data by time
+    df = df.sort_values("time")
+
+    # all of the exports are based off of csvs table, as they separate the
+    # bolus and wizard data
+    hashID = hashUserId(fileName, salt)
+    csvExportFolder = exportCsvFiles(df, exportDirectory, hashID)
+
+    if fileType in ["csv", "json", "all"]:
+        allData = exportSingleCsv(df, exportDirectory, hashID, csvExportFolder)
+
+    if fileType in ["json", "all"]:
+        exportPrettyJson(allData, exportDirectory, hashID, csvExportFolder)
+
+    if fileType in ["xlsx", "all"]:
+        exportExcelFile(csvExportFolder, exportDirectory, hashID)
+
+    if fileType in ["csvs", "all"]:
+        # unhide the csv files
+        unhiddenCsvExportFolder = \
+            os.path.join(exportDirectory, hashID + "-csvs", "")
+        os.rename(csvExportFolder, unhiddenCsvExportFolder)
+    else:
+        shutil.rmtree(csvExportFolder)
+
+    return
+
+
 # %% GLOBAL VARIABLES
 
-# check inputs and load data. File must be bigger than 2 bytes, and in either
-# json, xlsx, or csv format
+# check input file and load data. File must be bigger than 2 bytes,
+# and in either json, xlsx, or csv format
 data, userID = checkInputFile(args.inputFilePathAndName)
 
-#pdb.set_trace()
-
-
-dataFieldPath = args.dataFieldExportList
-if not os.path.isfile(dataFieldPath):
-    sys.exit("{0} is not a valid file path".format(dataFieldPath))
-
-# create output folder(s)
-exportFolder = args.exportPath
-if not os.path.exists(exportFolder):
-    os.makedirs(exportFolder)
-
-dataFieldExportList = pd.read_csv(dataFieldPath)
-approvedDataFields = \
-    list(dataFieldExportList.loc[dataFieldExportList.include.fillna(False),
-                                 "dataFieldList"])
-
-hashSaltFields = list(dataFieldExportList.loc[
-        dataFieldExportList.hashNeeded.fillna(False), "dataFieldList"])
+# check export/approved data field list
+outputFields, anonymizeFields = checkDataFieldList(args.dataFieldExportList)
 
 
 # %% FILTER DATA
@@ -511,7 +543,7 @@ hashSaltFields = list(dataFieldExportList.loc[
 data = filterByDates(data, args.startDate, args.endDate)
 
 # only keep the data fields that are approved
-data = filterByapprovedDataFields(data, approvedDataFields)
+data = filterByApprovedDataFields(data, outputFields)
 
 
 # %% CLEAN DATA
@@ -524,32 +556,11 @@ data, numberOfInvalidCgmValues = removeInvalidCgmValues(data)
 # Tslim calibration bug fix
 data, numberOfTandemAndPayloadCalReadings = tslimCalibrationFix(data)
 
-# % hash the required data fields
-data = hashWithSalt(data, hashSaltFields, args.salt, userID)
+
+# %% ANONYMIZE DATA
+# hash the required data fields
+data = hashWithSalt(data, anonymizeFields, args.salt, userID)
 
 
-# %% sort and export data
-# sort data by time
-data = data.sort_values("time")
-
-# all of the exports are based off of csvs table, as they separate the
-# bolus and wizard data
-hashID = hashUserId(userID, args.salt)
-csvExportFolder = exportCsvFiles(data, exportFolder, hashID)
-
-if args.exportFormat in ["csv", "json", "all"]:
-    allData = exportSingleCsv(data, exportFolder, hashID, csvExportFolder)
-
-if args.exportFormat in ["json", "all"]:
-    exportPrettyJson(allData, exportFolder, hashID, csvExportFolder)
-
-if args.exportFormat in ["xlsx", "all"]:
-    exportExcelFile(csvExportFolder, exportFolder, hashID)
-
-if args.exportFormat in ["csvs", "all"]:
-    # unhide the csv files
-    unhiddenCsvExportFolder = \
-        os.path.join(exportFolder, hashID + "-csvs", "")
-    os.rename(csvExportFolder, unhiddenCsvExportFolder)
-else:
-    shutil.rmtree(csvExportFolder)
+# %% EXPORT DATA
+exportData(data, userID, args.salt, args.exportFormat, args.exportPath)
