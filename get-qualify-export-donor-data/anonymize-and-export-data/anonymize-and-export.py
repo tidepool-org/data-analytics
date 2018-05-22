@@ -542,6 +542,12 @@ def exportExcelFile(exportDirectory, exportFolder, fileName):
                 os.path.join(exportDirectory, dataName + ".csv"),
                 low_memory=False)
 
+        # put the date time columns in an excel interpretable format
+        for col_heading in list(tempCsvData):
+            if "time" in col_heading.lower()[-4:]:
+                tempCsvData[col_heading] = \
+                    pd.to_datetime(tempCsvData[col_heading])
+
         tempCsvData.to_excel(writer, dataName, startrow=1, header=False,
                              index=False, freeze_panes=(1, 1))
 
