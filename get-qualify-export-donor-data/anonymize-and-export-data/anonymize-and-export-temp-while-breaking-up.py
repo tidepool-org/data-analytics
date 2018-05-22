@@ -266,7 +266,7 @@ def hashData(df, columnHeading, lengthOfHash, salt, userID):
     return df
 
 
-def hashWithSalt(df, hashSaltFields, salt, userID):
+def anonymizeData(df, hashSaltFields, salt, userID):
 
     for hashSaltField in hashSaltFields:
         if hashSaltField in df.columns.values:
@@ -558,7 +558,7 @@ data, numberOfTandemAndPayloadCalReadings = tslimCalibrationFix(data)
 
 # %% ANONYMIZE DATA
 # hash the required data fields
-data = hashWithSalt(data, anonymizeFields, args.salt, userID)
+data = anonymizeData(data, anonymizeFields, args.salt, userID)
 hashID = hashUserId(userID, args.salt)
 
 
