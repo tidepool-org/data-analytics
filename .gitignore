@@ -5,6 +5,7 @@
 # General
 .DS_Store
 work-record-archive/
+export/
 data
 # Python
 __pycache__/
