@@ -148,10 +148,12 @@ def filterByDatesExceptUploadsAndSettings(df, startDate, endDate):
     # filter by qualified start & end date, and sort
     uploadEventsSettings = df[((df.type == "upload") |
                                (df.type == "deviceEvent") |
+                               (df.type == "cgmSettings") |
                                (df.type == "pumpSettings"))]
 
     theRest = df[~((df.type == "upload") |
                  (df.type == "deviceEvent") |
+                 (df.type == "cgmSettings") |
                  (df.type == "pumpSettings"))]
 
     if "est.localTime" in list(df):
