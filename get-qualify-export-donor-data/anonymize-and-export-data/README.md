@@ -5,10 +5,10 @@ There is one main functions:
 * anonymize-and-export.py
 
 ## dependencies:
-* get-donor-data virtual environment (see /data-analytics/get-qualify-export-donor-data/readme.md for details)
-* requires that data is in the format output from the get-donor-data tools
-* requires a json file with qualifying criteria. For Tidepool Employees looking for
-data partner qualifying criteria see Big Data Valut in 1PSWD.
+* requires tidepool-data-env (see repository readme for instructions)
+* requires Tidepool data (e.g., PHI-jill-jellyfish.json)
+* requires commandline tool 'jq' for making the pretty json file
 
 ## TODO:
-- [ ] the format of the xlsx files could/should be improved 
+- [ ] break script into separate load, filter, clean, anonymize, and export funtions
+- [ ] the format of the xlsx files could/should be improved

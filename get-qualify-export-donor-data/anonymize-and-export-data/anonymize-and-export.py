@@ -6,15 +6,10 @@ version: 0.0.2
 created: 2018-05-22
 author: Ed Nykaza
 dependencies:
-    * requires get-donor-data virtual environment (see readme for instructions)
-    * requires Tidepool json data (e.g., PHI-jill-jellyfish.json)
+    * requires tidepool-data-env (see readme for instructions)
+    * requires Tidepool data (e.g., PHI-jill-jellyfish.json)
     * requires commandline tool 'jq' for making the pretty json file
 license: BSD-2-Clause
-TODO:
-* [] create a phi-jill-jellish-lite.xlsx
-* [] first update this script with the new functinonailty
-* [] then move them over to a module
-* [] pull in jill-jellyfish.json dataset from AWS if no file is given
 """
 
 # %% REQUIRED LIBRARIES
