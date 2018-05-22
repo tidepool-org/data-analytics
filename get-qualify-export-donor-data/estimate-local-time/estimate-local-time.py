@@ -147,7 +147,7 @@ def getAndPreprocessNonDexApiCgmRecords(df):
                 (~df.isDexcomAPI.fillna(False))].copy()
 
     else:
-        cd = data[(df.type == "cbg") & (df.timezoneOffset.notnull())]
+        cd = df[(df.type == "cbg") & (df.timezoneOffset.notnull())]
 
     return cd
 
@@ -316,7 +316,6 @@ def estimateTzAndTzoWithDeviceRecords(cDF):
 
     cDF.loc[idx, ["est.type"]] = "UNCERTAIN"
     for i in idx:
-        print(i)
         cDF = addAnnotation(cDF, i, "pump-cgm-tzo-mismatch")
 
     return cDF
