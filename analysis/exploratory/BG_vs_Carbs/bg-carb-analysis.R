@@ -15,6 +15,15 @@ all_carb_entries = c()
 meanBG = c()
 medianBG = c()
 stddevBG = c()
+daily_range = c()
+daily_25_75_IQR = c()
+daily_CV = c()
+
+#These elements will be used to verify quality of data
+daily_cgm_events = c()
+file_tracker = c()
+day_tracker = c()
+mean_insulin_sensitivity = c()
 
 #Run time tracking for console time-to-complete estimate
 run_time = c()
@@ -32,9 +41,10 @@ user_days_count = c()
 total_days_analyzed = 0
 total_sets_analyzed = 0
 
-#for(file_number in 1:300){
+############## START FILE PROCESSING ##################
+
 for(file_number in 1:length(files)){
-#for(file_number in 1:1){
+
   #Start time tracking for each file's processing time
   start_time <- Sys.time()
   
@@ -62,16 +72,34 @@ for(file_number in 1:length(files)){
   #  next
   #}
   
+  ############################################################
+  
   #Load data
   data = read.csv(files[file_number], stringsAsFactors = FALSE)
+  
+  if(!is.null(data$deviceTime)){
+    data$deviceTime[which(data$deviceTime=="")]= "XTY"
+  
+    #Add a "day" column from deviceTime
+    timestamp_vec = unlist(strsplit(data$deviceTime,"T"))
+    data$day = timestamp_vec[seq(1,length(timestamp_vec),2)]
+  }
+  
+  #Isolate carb, bg data
   carb_data = data[which(data$type=="bolus"),]
   bg_data = data[which(data$type=="cbg"),]
+  
+
+  
+  #Remove duplicated timestamps
+  #Use either deviceTime, time, utcTime, or est.localTime
+  carb_data = carb_data[which(!duplicated(carb_data$deviceTime)),]
+  bg_data = bg_data[which(!duplicated(bg_data$deviceTime)),]
   
   #Remove rows with empty/0 Carbs and BG
   carb_data = carb_data[!is.na(carb_data$carbInput),]
   carb_data = carb_data[carb_data$carbInput>0,]
   bg_data = bg_data[!is.na(bg_data$value),]
-  
   
   #Skip current file if no carb input is available
   if(nrow(carb_data)<=1){
@@ -104,16 +132,9 @@ for(file_number in 1:length(files)){
   bg_data$value[which(bg_data$units!=units)]=bg_data$value[which(bg_data$units!=units)]*multiplier
   #carb_data$insulinSensitivity[which(carb_data$units!=units)]=carb_data$insulinSensitivity[which(carb_data$units!=units)]*multiplier
   
-  #Add a "day" column to BG data and carb data
-  #timestamp_vec = unlist(strsplit(bg_data$est.localTime," "))
-  #bg_data$day = timestamp_vec[seq(1,length(timestamp_vec),2)]
-  
-  #timestamp_vec = unlist(strsplit(carb_data$est.localTime," "))
-  #carb_data$day = timestamp_vec[seq(1,length(timestamp_vec),2)]
-  
   #Find days where both carbs and BG data is available
-  unique_bg_days = unique(bg_data$date)
-  unique_carb_days = unique(carb_data$date)
+  unique_bg_days = unique(bg_data$day)
+  unique_carb_days = unique(carb_data$day)
   days_to_analyze = unique_bg_days[unique_bg_days %in% unique_carb_days]
   user_days_count = c(user_days_count, length(days_to_analyze))
   
@@ -132,14 +153,30 @@ for(file_number in 1:length(files)){
   
   for(i in 1:limited_days){
     
-    total_daily_carbs = c(total_daily_carbs, sum(carb_data$carbInput[which(carb_data$date==days_to_analyze[i])]))
-    meanBG = c(meanBG,mean(bg_data$value[which(bg_data$date==days_to_analyze[i])]))
-    medianBG = c(medianBG,median(bg_data$value[which(bg_data$date==days_to_analyze[i])]))
-    stddevBG = c(stddevBG,sd(bg_data$value[which(bg_data$date==days_to_analyze[i])]))
+    #Skip if there is bg data longer than 1 day or less than 2/3 of the day
+    if(length(which(bg_data$day==days_to_analyze[i]))>288 | length(which(bg_data$day==days_to_analyze[i]))<192){
+      next
+    }
+    
+    #Skip if < 3 meals in the day
+    if(length(carb_data$carbInput[which(carb_data$day==days_to_analyze[i])])<3){
+      next
+    }
+    
+    daily_cgm_events = c(daily_cgm_events, length(which(bg_data$day==days_to_analyze[i])))
+    file_tracker = c(file_tracker, files[file_number])
+    day_tracker = c(day_tracker, days_to_analyze[i])
+    total_daily_carbs = c(total_daily_carbs, sum(carb_data$carbInput[which(carb_data$day==days_to_analyze[i])]))
+    meanBG = c(meanBG,mean(bg_data$value[which(bg_data$day==days_to_analyze[i])]))
+    medianBG = c(medianBG,median(bg_data$value[which(bg_data$day==days_to_analyze[i])]))
+    stddevBG = c(stddevBG,sd(bg_data$value[which(bg_data$day==days_to_analyze[i])]))
+    daily_range = c(daily_range, max(bg_data$value[which(bg_data$day==days_to_analyze[i])])-min(bg_data$value[which(bg_data$day==days_to_analyze[i])]))
+    daily_25_75_IQR = c(daily_25_75_IQR, quantile(bg_data$value[which(bg_data$day==days_to_analyze[i])])[3]-quantile(bg_data$value[which(bg_data$day==days_to_analyze[i])])[2])
+    daily_CV = c(daily_CV, 100*sd(bg_data$value[which(bg_data$day==days_to_analyze[i])])/mean(bg_data$value[which(bg_data$day==days_to_analyze[i])]))
+    
+    total_days_analyzed = total_days_analyzed + 1
+    
   }
-  
-  total_days_analyzed = total_days_analyzed + limited_days
-  total_sets_analyzed = total_sets_analyzed + 1
   
   #Calculate and print estimate time remaining
   end_time = Sys.time()
@@ -150,11 +187,12 @@ for(file_number in 1:length(files)){
     cat(paste("Estimated time remaining: ", toString(round(mean(run_time)*sum(file.info(files[file_number:length(files)])$size))), " min\n", sep="" ))
     }
 }
+total_sets_analyzed = length(unique(file_tracker))
 real_run_end = Sys.time()
 cat(paste("Total Run Time: ", toString(round(difftime(real_run_end,real_run_start,units="mins"))), " minutes",sep=""))
   
 #Bind all elements into dataframe
-df = data.frame(cbind(total_daily_carbs,meanBG,medianBG))
+df = data.frame(cbind(total_daily_carbs,meanBG,medianBG,stddevBG,daily_range,daily_25_75_IQR,daily_CV))
 
 
 
@@ -183,7 +221,7 @@ ggplot(data=df) +
   xlab("Total Daily Carb Intake (g)")+
   ylab("Count")+ 
   labs(title="Daily Carb Intake Histogram")+
-  scale_x_continuous(breaks=seq(0,max(total_daily_carbs),50), limits=c(500,1000))
+  scale_x_continuous(breaks=seq(0,max(total_daily_carbs),50))
 
 
 #Density Scatterplot
@@ -195,25 +233,27 @@ ggplot(data=df) +
   xlab("Total Daily Carb Intake (g)")+
   ylab("Median BG (mg/dL)")+ 
   labs(title="Carb Intake vs of Median Blood Glucose Level")+
-  scale_x_continuous(breaks=seq(0,800,50), limits=c(0,400))
+  scale_x_continuous(breaks=seq(0,800,50))
 
 #Hexbin Density Plot
 ggplot(data=df)+
-  geom_hex(aes(x=total_daily_carbs, y=stddevBG), bins=45,color="black")+
+  geom_hex(aes(x=total_daily_carbs, y=stddevBG), bins=100,color="black")+
   theme_classic()+
   scale_fill_gradientn("Density", colours = rev(rainbow(10, end = 4/6)))+
   xlab("Total Daily Carb Intake (g)")+
   ylab("BG Standard Deviation (mg/dL)")+ 
   labs(title="Carb Intake vs of Blood Glucose SD")+
-  scale_x_continuous(breaks=seq(0,800,50))
+  scale_x_continuous(breaks=seq(0,800,50), limits=c(0,800))
 
 #Bin elements of each carb section and make binned boxplot
 df$bin_type = cut(df$total_daily_carbs,breaks=seq(0,500,50))
 
 ggplot(data=df) + 
-  geom_boxplot(aes(x=bin_type,y=stddevBG)) + 
+  geom_boxplot(aes(x=bin_type,y=meanBG)) + 
   theme_classic() + 
   xlab("Total Daily Carb Intake Range (g)")+
   ylab("BG Standard Deviation (mg/dL)")+ 
   labs(title="Carb Intake vs Blood Glucose SD (10g bins)")+
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+hist(as.Date(day_tracker),breaks=200,format = "%b %Y")
