@@ -1,29 +1,60 @@
-# local-time-estimate.py
+# estimate-local-time.py
 Python code for estimating the local time.
 
 
 ### dependencies:
 * set up tidepool-data-env (see /data-analytics/readme.md)
-* requires wikipediaDeprecatedTimezonesAliases2018_04_28.csv
+* requires wikipedia-timezone-aliases-2018-04-28.csv (in github repository)
 
 ### TODO:
 - [ ] write a function that compares whether two time zones are
 equivalent on a given day
-- [ ] current version does not account for cases where pump and cgm
-device tzo are different, which may be indicative of a larger problem with the
-underlying data
 - [ ] apply a clock drift correction
 - [ ] there are cases where the time zone offset is an increment of 15, 30, or 
 45, but that amount of time zone offset does not exist for the given time zone
 - [ ] unit tests
+- [ ] assess the accuracy of the estimates
 
-## local-time-estimate algorithm
+## the algorithm
+The goal of the algorithm is to estimate the local time for each data point in
+user's dataset. However and given that all Tidepool data has an estimate of the UTC
+time, our real goal is to estimate the time zone (TZ) and time zone offset (TZO), so
+we can convert UTC time to the local time.  
 
 ### overview
-This algorithm is still in beta.
+The estimate-local-time algorithm is still in beta. This document reflects the 
+logic in version 0.0.3 of the algorithm. The general approach is to estimate
+the most likely TZ the Tidepool user was in on a given day, spanning the
+entire date range of their data. We found that estimating the TZ on a 
+given day was more tractable problem than trying to estimate the TZ the 
+user was in for each second, minute, or hour on a given day.
+
+There are three different approaches or methods that we use to estimate the 
+TZ and TZO, which are explained in more detail in the logic section:
+
+1. Use upload records to estimate the TZ and TZO
+2. Use device TZO to estimate the TZO
+3. Impute (AKA infer) the TZ and TZO using the results from methods 1 and 2
+
+After util
+
+### assumptions, caveats, and notes
+* trying to estimate the TZ and TZO for each data point in a dataset that can
+take millions of data points from diabetes devices that keep track of time in 
+different ways is a very challenging problem. Though, this problem really should
+not exist in our modern, connected, "flattened", internet of things world.
+* we assume that the bootstrapping-to-utc algorithm is able to accurately
+estimate the UTC time from the device's time. We know this is not 100% true,
+as many of the edge cases and pitfalls are documeneted in the [BtUTC documentation] (http://developer.tidepool.org/chrome-uploader/docs/BootstrappingToUTC.html).
+* we only make local time estimates using donated datasets, where the user has opted
+in to share their data.
+* 
 
 ### logic
-
+We heavily rely on the user's upload records to estimate the time zone that the 
+user was in on each day. Uploads can come from the Tidepool uploader, Tidepool 
+Mobile via Healthkit, or through device manufacturer's APIs, which are linked to
+the Tidepooler's account.
 
 ### data fields
 When you look at datasets, that include a local time estimate, you will find the following fields:
@@ -35,7 +66,7 @@ When you look at datasets, that include a local time estimate, you will find the
 * _est.timeProcessing_: "utc-bootstrapping",
 * _est.annotations_: "tz-inferred-from-pump.upload.imputed",
 * _est.gapSize_: null,
-* _est.version_: 0.0.2
+* _est.version_: 0.0.3
 
 These new fields, which are not in our data model, all begin with "est",
 as these are our best estimate of the local time. Here are the definitions of the

@@ -7,7 +7,7 @@ created: 2018-04-30
 author: Ed Nykaza
 dependencies:
     * tidepool-data-env (install using anaconda, see readme for details)
-    * wikipediaDeprecatedTimezonesAliases2018_04_28.csv
+    * wikipedia-timezone-aliases-2018-04-28.csv
 license: BSD-2-Clause
 
 TODO:
@@ -36,11 +36,11 @@ parser.add_argument("-i",
                     "--input-data-file",
                     dest="inputFilePathAndName",
                     default="example-csv.csv",
-                    help="a csv, xlsx, or json file that contains Tidepool data")
+                    help="csv, xlsx, or json file that contains Tidepool data")
 
 parser.add_argument("--deprecated-timezone-list",
                     dest="timezoneAliasesFilePathAndName",
-                    default="wikipediaDeprecatedTimezonesAliases2018_04_28.csv",
+                    default="wikipedia-timezone-aliases-2018-04-28.csv",
                     help="a .csv file that contains a list of deprecated " +
                     "timezones and their alias")
 
@@ -53,7 +53,7 @@ parser.add_argument("-o",
 
 parser.add_argument("--day-series-output-path",
                     dest="daySeriesOutputPath",
-                    default=os.path.join("output", "daySeriesData"),  # np.nan,
+                    default=os.path.join("output", "daySeriesData"),
                     help="optional path to store the contiguous day series" +
                     "data. If no path is specified, then data is not saved")
 
@@ -112,8 +112,8 @@ def createContiguousDaySeries(df):
     lastDay = df.date.max()
     rng = pd.date_range(firstDay, lastDay).date
     contiguousDaySeries = \
-        pd.DataFrame(rng, columns=["date"]).sort_values("date",
-        ascending=False).reset_index(drop=True)
+        pd.DataFrame(rng, columns=["date"]).sort_values(
+                "date", ascending=False).reset_index(drop=True)
 
     return contiguousDaySeries
 
@@ -203,12 +203,14 @@ def addDeviceDaySeries(df, dfContDays, deviceTypeName):
         if "upload" in deviceTypeName:
             if "timezone" in df:
                 if dfDayGroups.timezone.count().values[0] > 0:
-                    dfDaySeries["timezone"] = dfDayGroups.timezone.describe()["top"]
+                    dfDaySeries["timezone"] = \
+                        dfDayGroups.timezone.describe()["top"]
                     # get the timezone offset for the timezone
                     for i in dfDaySeries.index:
                         if pd.notnull(dfDaySeries.loc[i, "timezone"]):
-                            tzo = getTimezoneOffset(pd.to_datetime(i),
-                                                    dfDaySeries.loc[i, "timezone"])
+                            tzo = getTimezoneOffset(
+                                    pd.to_datetime(i),
+                                    dfDaySeries.loc[i, "timezone"])
                             dfDaySeries.loc[i, ["timezoneOffset"]] = tzo
 
                     dfDaySeries["timeProcessing"] = \
@@ -425,8 +427,8 @@ def compareDeviceTzoToImputedSeries(df, sIdx, device):
                             assignTzoFromImputedSeries(df, i, imputedSeries)
 
                             df = addAnnotation(df, i, "dst-change-day")
-                            df = addAnnotation(df, i,
-                                   "tz-inferred-from-" + imputedSeries)
+                            df = addAnnotation(
+                                    df, i, "tz-inferred-from-" + imputedSeries)
 
     return df
 
@@ -817,9 +819,9 @@ def applyLocalTimeEstimates(df, cDF):
     return df
 
 
-# %% GLOBAL VARIABLES
-# check inputs and load data. File must be bigger than 1 KB, and in either
-# json, xlsx, or csv format
+# %% CHECK INPUTS AND OUTPUTS
+# check inputs and load data. File must be bigger than 1 KB,
+# and in either json, xlsx, or csv format
 data, fileName = checkInputFile(args.inputFilePathAndName)
 
 if os.path.isfile(args.timezoneAliasesFilePathAndName):
@@ -837,7 +839,7 @@ if pd.notnull(args.daySeriesOutputPath):
         os.makedirs(args.daySeriesOutputPath)
 
 
-# %% PREPROCESS DATA: FILTER AND CORRECT DATA
+# %% PREPROCESS DATA: FILTER, CLEAN, & CORRECT DATA
 
 # get rid of data that does not have a UTC time
 data = data[data.time.notnull()]
