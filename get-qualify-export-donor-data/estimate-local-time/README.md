@@ -45,7 +45,7 @@ different ways is a very challenging problem. Though, this problem really should
 not exist in our modern, connected, "flattened", internet of things world.
 * we assume that the bootstrapping-to-utc algorithm is able to accurately
 estimate the UTC time from the device's time. We know this is not 100% true,
-as many of the edge cases and pitfalls are documeneted in the [BtUTC documentation] (http://developer.tidepool.org/chrome-uploader/docs/BootstrappingToUTC.html).
+as many of the edge cases and pitfalls are documeneted in the [BtUTC documentation](http://developer.tidepool.org/chrome-uploader/docs/BootstrappingToUTC.html).
 * we only make local time estimates using donated datasets, where the user has opted
 in to share their data.
 * 
