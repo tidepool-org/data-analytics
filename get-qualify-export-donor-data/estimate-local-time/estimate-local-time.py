@@ -291,15 +291,17 @@ def estimateTzAndTzoWithDeviceRecords(cDF):
         # compare the device TZO to the imputed series to infer time zone
         cDF = compareDeviceTzoToImputedSeries(cDF, sIndices, deviceType)
 
-    # 2B. if method 2A fails, see if the device TZO is equal to the previous
-    # TZO
+    # 2B. if the TZ cannot be inferred with 2A, then see if the TZ can be
+    # inferred from the previous day's TZO. If the device TZO is equal to the
+    # previous day's TZO, AND if the previous day has a TZ estimate, use the
+    # previous day's TZ estimate for the current day's TZ estimate
     for deviceType in ["pump", "cgm"]:
         sIndices = cDF[((cDF["est.timezoneOffset"].isnull()) &
                         (cDF[deviceType + ".timezoneOffset"].notnull()))].index
 
         cDF = compareDeviceTzoToPrevDayTzo(cDF, sIndices, deviceType)
 
-    # 2C. after 2A and 2B, check the DEVICE estiamtes to make sure that the
+    # 2C. after 2A and 2B, check the DEVICE estimates to make sure that the
     # pump and cgm tzo do not differ by more than 60 minutes. If they differ
     # by more that 60 minutes, then mark the estimate as UNCERTAIN. Also, we
     # allow the estimates to be off by 60 minutes as there are a lot of cases
@@ -630,6 +632,9 @@ def imputeByTimezone(df, currentDay, prevDaywData, nextDaywData):
                 df = addAnnotation(df, i, "gap=" + str(gapSize))
                 df.loc[i, ["est.gapSize"]] = gapSize
 
+        # TODO: this logic should be updated to handle the edge case
+        # where the day before and after the gap have differing TZ, but
+        # the same TZO. In that case the gap should be marked as UNCERTAIN
         elif df.loc[prevDaywData, "est.timezoneOffset"] == \
           df.loc[nextDaywData, "est.timezoneOffset"]:
 
