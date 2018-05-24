@@ -192,11 +192,60 @@ real_run_end = Sys.time()
 cat(paste("Total Run Time: ", toString(round(difftime(real_run_end,real_run_start,units="mins"))), " minutes",sep=""))
   
 #Bind all elements into dataframe
-df = data.frame(cbind(total_daily_carbs,meanBG,medianBG,stddevBG,daily_range,daily_25_75_IQR,daily_CV))
+df = data.frame(total_daily_carbs,meanBG,medianBG,stddevBG,daily_range,daily_25_75_IQR,daily_CV)
 
 
+#Import file metadata
+metaData = read.csv("metaData.csv", stringsAsFactors = FALSE)
+metaData$hashID = paste(metaData$hashID, ".csv",sep="")
+analyzedFile_metaData = which(metaData$hashID %in% unique(file_tracker))
+metaData$age = as.integer(round(difftime(Sys.time(),as.Date(metaData$bDay))/365))
 
+#Metadata details for analyzed files
+count_type1 = which(metaData$diagnosisType[analyzedFile_metaData]=="type1")
+count_type2 = which(metaData$diagnosisType[analyzedFile_metaData]=="type2")
+count_lada = which(metaData$diagnosisType[analyzedFile_metaData]=="lada")
+count_gestational = which(metaData$diagnosisType[analyzedFile_metaData]=="gestational")
+count_prediabetes = which(metaData$diagnosisType[analyzedFile_metaData]=="prediabetes")
+count_other = which(metaData$diagnosisType[analyzedFile_metaData]=="other")
+count_blank = which(metaData$diagnosisType[analyzedFile_metaData]=="")
 
+types = c("Type 1", "Type 2", "LADA", "Gestational", "Prediabetes", "Other")
+type_counts = c(length(count_type1),length(count_type2),length(count_lada),length(count_gestational),length(count_prediabetes), length(count_other))
+type_counts_df = data.frame(types, type_counts)
+ggplot(data=type_counts_df,aes(x=types,y=type_counts))+
+  geom_bar(stat = "identity",fill="grey",color="black")+
+  scale_x_discrete(limits=type_counts_df$types)+
+  theme_classic()+
+  xlab("Diabetes Diagnosis Type")+
+  ylab("Count Analyzed")+ 
+  labs(title="Data Sets Analyzed by Diabetes Type")
+
+count_age_1_5 = which(metaData$age[analyzedFile_metaData]>=1 & metaData$age[analyzedFile_metaData] <=5)
+count_age_6_8 = which(metaData$age[analyzedFile_metaData]>=6 & metaData$age[analyzedFile_metaData] <=8)
+count_age_9_11 = which(metaData$age[analyzedFile_metaData]>=9 & metaData$age[analyzedFile_metaData] <=11)
+count_age_12_14 = which(metaData$age[analyzedFile_metaData]>=12 & metaData$age[analyzedFile_metaData] <=14)
+count_age_15_17 = which(metaData$age[analyzedFile_metaData]>=15 & metaData$age[analyzedFile_metaData] <=17)
+count_age_18_20 = which(metaData$age[analyzedFile_metaData]>=18 & metaData$age[analyzedFile_metaData] <=20)
+count_age_21_24 = which(metaData$age[analyzedFile_metaData]>=21 & metaData$age[analyzedFile_metaData] <=24)
+count_age_25_29 = which(metaData$age[analyzedFile_metaData]>=25 & metaData$age[analyzedFile_metaData] <=29)
+count_age_30_34 = which(metaData$age[analyzedFile_metaData]>=30 & metaData$age[analyzedFile_metaData] <=34)
+count_age_35_39 = which(metaData$age[analyzedFile_metaData]>=35 & metaData$age[analyzedFile_metaData] <=39)
+count_age_40_49 = which(metaData$age[analyzedFile_metaData]>=40 & metaData$age[analyzedFile_metaData] <=49)
+count_age_50_59 = which(metaData$age[analyzedFile_metaData]>=50 & metaData$age[analyzedFile_metaData] <=59)
+count_age_60_69 = which(metaData$age[analyzedFile_metaData]>=60 & metaData$age[analyzedFile_metaData] <=69)
+count_age_70_88 = which(metaData$age[analyzedFile_metaData]>=70 & metaData$age[analyzedFile_metaData] <=88)
+
+ages = c("1-5","6-8","9-11","12-14","15-17","18-20","21-24","25-29","30-34","35-39","40-49","50-59","60-69","70-88")
+age_counts = c(length(count_age_1_5), length(count_age_6_8), length(count_age_9_11), length(count_age_12_14), length(count_age_15_17), length(count_age_18_20), length(count_age_21_24), length(count_age_25_29), length(count_age_30_34), length(count_age_35_39), length(count_age_40_49), length(count_age_50_59), length(count_age_60_69), length(count_age_70_88))
+age_counts_df = data.frame(ages,age_counts)
+ggplot(data=age_counts_df,aes(x=ages,y=age_counts))+
+  geom_bar(stat = "identity",fill="grey",color="black")+
+  scale_x_discrete(limits=age_counts_df$ages)+
+  theme_classic()+
+  xlab("Age")+
+  ylab("Count Analyzed")+ 
+  labs(title="Data Sets Analyzed by Age")
 
 #######
 # Optional Code to run
@@ -257,3 +306,28 @@ ggplot(data=df) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 hist(as.Date(day_tracker),breaks=200,format = "%b %Y")
+
+##### Special age-defined scatterplots
+
+#Density Scatterplot
+d = densCols(total_daily_carbs[which(file_tracker %in% metaData$hashID[count_type1])], medianBG[which(file_tracker %in% metaData$hashID[count_type1])], colramp = colorRampPalette(rev(rainbow(10, end = 4/6))))
+ggplot() +
+  geom_point(aes(x=total_daily_carbs[which(file_tracker %in% metaData$hashID[count_type1])], y=medianBG[which(file_tracker %in% metaData$hashID[count_type1])],colour=as.factor(d)), size = 1) +
+  scale_color_identity()+
+  theme_classic()+
+  xlab("Total Daily Carb Intake (g)")+
+  ylab("Median BG (mg/dL)")+ 
+  labs(title="Carb Intake vs of Median Blood Glucose Level")+
+  scale_x_continuous(breaks=seq(0,800,50))
+
+  #Bin elements of each carb section and make binned boxplot
+  bin_type = cut(total_daily_carbs[which(file_tracker %in% metaData$hashID[count_type1])],breaks=seq(0,500,50))
+
+ggplot() + 
+  geom_boxplot(aes(x=bin_type,y=medianBG[which(file_tracker %in% metaData$hashID[count_type1])])) + 
+  theme_classic() + 
+  xlab("Total Daily Carb Intake Range (g)")+
+  ylab("BG Median (mg/dL)")+ 
+  labs(title="Carb Intake vs Blood Glucose Median (50g bins)")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+ 
