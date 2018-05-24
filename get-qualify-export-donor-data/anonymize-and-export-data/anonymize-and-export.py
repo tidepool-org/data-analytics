@@ -422,8 +422,7 @@ def mergeWizardWithBolus(df, exportDirectory):
         wizardData = pd.read_csv(exportDirectory + "wizard.csv",
                                  low_memory=False)
 
-        # remove manufacturer from annotations.code
-        wizardData = removeManufacturersFromAnnotationsCode(wizardData)
+
 
         # merge the wizard data with the bolus data
         wizardData["calculatorId"] = wizardData["id"]
@@ -660,6 +659,10 @@ data, numberOfTandemAndPayloadCalReadings = tslimCalibrationFix(data)
 
 
 # %% ANONYMIZE DATA
+
+# remove manufacturer from annotations.code
+data = removeManufacturersFromAnnotationsCode(data)
+
 # hash the required data fields
 data = anonymizeData(data, anonymizeFields, args.salt, userID)
 hashID = hashUserId(userID, args.salt)
