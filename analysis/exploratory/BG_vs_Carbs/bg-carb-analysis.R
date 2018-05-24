@@ -153,7 +153,7 @@ for(file_number in 1:length(files)){
   
   for(i in 1:limited_days){
     
-    #Skip if there is bg data longer than 1 day or less than 2/3 of the day
+    #Skip if there is bg data longer (indicates duplicated data) than 1 day or less than 2/3 of the day
     if(length(which(bg_data$day==days_to_analyze[i]))>288 | length(which(bg_data$day==days_to_analyze[i]))<192){
       next
     }
@@ -201,14 +201,17 @@ metaData$hashID = paste(metaData$hashID, ".csv",sep="")
 analyzedFile_metaData = which(metaData$hashID %in% unique(file_tracker))
 metaData$age = as.integer(round(difftime(Sys.time(),as.Date(metaData$bDay))/365))
 
+#Filter metadata to only include files from the analysis
+filtered_metaData = metaData[analyzedFile_metaData,]
+
 #Metadata details for analyzed files
-count_type1 = which(metaData$diagnosisType[analyzedFile_metaData]=="type1")
-count_type2 = which(metaData$diagnosisType[analyzedFile_metaData]=="type2")
-count_lada = which(metaData$diagnosisType[analyzedFile_metaData]=="lada")
-count_gestational = which(metaData$diagnosisType[analyzedFile_metaData]=="gestational")
-count_prediabetes = which(metaData$diagnosisType[analyzedFile_metaData]=="prediabetes")
-count_other = which(metaData$diagnosisType[analyzedFile_metaData]=="other")
-count_blank = which(metaData$diagnosisType[analyzedFile_metaData]=="")
+count_type1 = which(filtered_metaData$diagnosisType=="type1")
+count_type2 = which(filtered_metaData$diagnosisType=="type2")
+count_lada = which(filtered_metaData$diagnosisType=="lada")
+count_gestational = which(filtered_metaData$diagnosisType=="gestational")
+count_prediabetes = which(filtered_metaData$diagnosisType=="prediabetes")
+count_other = which(filtered_metaData$diagnosisType=="other")
+count_blank = which(filtered_metaData$diagnosisType=="")
 
 types = c("Type 1", "Type 2", "LADA", "Gestational", "Prediabetes", "Other")
 type_counts = c(length(count_type1),length(count_type2),length(count_lada),length(count_gestational),length(count_prediabetes), length(count_other))
@@ -221,20 +224,31 @@ ggplot(data=type_counts_df,aes(x=types,y=type_counts))+
   ylab("Count Analyzed")+ 
   labs(title="Data Sets Analyzed by Diabetes Type")
 
-count_age_1_5 = which(metaData$age[analyzedFile_metaData]>=1 & metaData$age[analyzedFile_metaData] <=5)
-count_age_6_8 = which(metaData$age[analyzedFile_metaData]>=6 & metaData$age[analyzedFile_metaData] <=8)
-count_age_9_11 = which(metaData$age[analyzedFile_metaData]>=9 & metaData$age[analyzedFile_metaData] <=11)
-count_age_12_14 = which(metaData$age[analyzedFile_metaData]>=12 & metaData$age[analyzedFile_metaData] <=14)
-count_age_15_17 = which(metaData$age[analyzedFile_metaData]>=15 & metaData$age[analyzedFile_metaData] <=17)
-count_age_18_20 = which(metaData$age[analyzedFile_metaData]>=18 & metaData$age[analyzedFile_metaData] <=20)
-count_age_21_24 = which(metaData$age[analyzedFile_metaData]>=21 & metaData$age[analyzedFile_metaData] <=24)
-count_age_25_29 = which(metaData$age[analyzedFile_metaData]>=25 & metaData$age[analyzedFile_metaData] <=29)
-count_age_30_34 = which(metaData$age[analyzedFile_metaData]>=30 & metaData$age[analyzedFile_metaData] <=34)
-count_age_35_39 = which(metaData$age[analyzedFile_metaData]>=35 & metaData$age[analyzedFile_metaData] <=39)
-count_age_40_49 = which(metaData$age[analyzedFile_metaData]>=40 & metaData$age[analyzedFile_metaData] <=49)
-count_age_50_59 = which(metaData$age[analyzedFile_metaData]>=50 & metaData$age[analyzedFile_metaData] <=59)
-count_age_60_69 = which(metaData$age[analyzedFile_metaData]>=60 & metaData$age[analyzedFile_metaData] <=69)
-count_age_70_88 = which(metaData$age[analyzedFile_metaData]>=70 & metaData$age[analyzedFile_metaData] <=88)
+#Find the filename count for each age group in the analyzed data
+count_age_1_5 = which(filtered_metaData$age>=1 & filtered_metaData$age <=5)
+count_age_6_8 = which(filtered_metaData$age>=6 & filtered_metaData$age <=8)
+count_age_9_11 = which(filtered_metaData$age>=9 & filtered_metaData$age <=11)
+count_age_12_14 = which(filtered_metaData$age>=12 & filtered_metaData$age <=14)
+count_age_15_17 = which(filtered_metaData$age>=15 & filtered_metaData$age <=17)
+count_age_18_20 = which(filtered_metaData$age>=18 & filtered_metaData$age <=20)
+count_age_21_24 = which(filtered_metaData$age>=21 & filtered_metaData$age <=24)
+count_age_25_29 = which(filtered_metaData$age>=25 & filtered_metaData$age <=29)
+count_age_30_34 = which(filtered_metaData$age>=30 & filtered_metaData$age <=34)
+count_age_35_39 = which(filtered_metaData$age>=35 & filtered_metaData$age <=39)
+count_age_40_49 = which(filtered_metaData$age>=40 & filtered_metaData$age <=49)
+count_age_50_59 = which(filtered_metaData$age>=50 & filtered_metaData$age <=59)
+count_age_60_69 = which(filtered_metaData$age>=60 & filtered_metaData$age <=69)
+count_age_70_88 = which(filtered_metaData$age>=70 & filtered_metaData$age <=88)
+
+#Get the total days for donors above age 20
+#Get the total amount of days where carbs exceeded the national mean (CDC)
+above_20 = c(count_age_21_24, count_age_25_29, count_age_30_34,count_age_35_39,count_age_40_49,count_age_50_59,count_age_60_69,count_age_70_88)
+carbs_over_260_above_20 = c()
+days_above_20 = c()
+for(donor in 1:length(above_20)){
+  carbs_over_260_above_20 = c(carbs_over_242_above_20, length(which(total_daily_carbs[which(file_tracker==filtered_metaData$hashID[above_20[donor]])]>242)))
+  days_above_20 = c(days_above_20, length(which(file_tracker==filtered_metaData$hashID[above_20[donor]])))
+}
 
 ages = c("1-5","6-8","9-11","12-14","15-17","18-20","21-24","25-29","30-34","35-39","40-49","50-59","60-69","70-88")
 age_counts = c(length(count_age_1_5), length(count_age_6_8), length(count_age_9_11), length(count_age_12_14), length(count_age_15_17), length(count_age_18_20), length(count_age_21_24), length(count_age_25_29), length(count_age_30_34), length(count_age_35_39), length(count_age_40_49), length(count_age_50_59), length(count_age_60_69), length(count_age_70_88))
@@ -246,6 +260,18 @@ ggplot(data=age_counts_df,aes(x=ages,y=age_counts))+
   xlab("Age")+
   ylab("Count Analyzed")+ 
   labs(title="Data Sets Analyzed by Age")
+
+days_per_donor = c()
+#How many days are contributed by each donor?
+for(donor in 1:length(unique(file_tracker))){
+  days_per_donor = c(days_per_donor, length(which(file_tracker==unique(file_tracker)[donor])))
+}
+
+days_per_age = c()
+#How many days are contributed by each age group?
+
+
+
 
 #######
 # Optional Code to run
