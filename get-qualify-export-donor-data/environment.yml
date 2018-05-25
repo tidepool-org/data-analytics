@@ -1,4 +1,4 @@
-name: get-donor-data
+name: tidepool-data-env
 channels:
   - conda-forge
 dependencies:
@@ -9,3 +9,5 @@ dependencies:
 - pylint
 - spyder
 - openpyxl
+- xlrd
+- xlsxwriter

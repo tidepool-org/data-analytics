@@ -1,4 +1,4 @@
-name: analysis-env
+name: tidepool-analysis-env
 channels:
   - conda-forge
 dependencies:
