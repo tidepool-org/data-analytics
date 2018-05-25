@@ -125,7 +125,7 @@ These new fields, which are not in our data model, all begin with "est", as thes
 
 * _est.localTime_: the local time estimate 
 
- * ```
+```
 est.localTime = time + est.timezoneOffset
 ```
 
