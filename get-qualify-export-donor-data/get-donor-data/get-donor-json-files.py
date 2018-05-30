@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 description: get the most recent donor json files
-version: 0.0.1
+version: 0.0.2
 created: 2018-02-21
 author: Ed Nykaza
 dependencies:
@@ -65,40 +65,49 @@ parser.add_argument("-d",
                     help="date in '%Y-%m-%d' format of unique donor list" +
                     "(e.g., PHI-2018-03-02-uniqueDonorList)")
 
+args = parser.parse_args()
+
+# create a datestamp of when the data is pulled, and add PHI bc data has PHI
+phiDateStamp = "PHI-" + args.dateStamp
+
+parser.add_argument("-i",
+                    "--input-data-path",
+                    dest="donorListPath",
+                    default=os.path.join("..",
+                                         "data",
+                                         phiDateStamp + "-donor-data",
+                                         phiDateStamp + "-uniqueDonorList.csv"),
+                    help="csv file that contains the a list of donors")
+
 parser.add_argument("-o",
                     "--output-data-path",
-                    dest="dataPath",
-                    default="../data",
+                    dest="donorJsonDataFolder",
+                    default=os.path.join("..",
+                                         "data",
+                                         phiDateStamp + "-donor-data",
+                                         phiDateStamp + "-donorJsonData"),
                     help="the output path where the data is stored")
 
 args = parser.parse_args()
 
 
-# %% Make sure the data directory exists
-if not os.path.isdir(args.dataPath):
-    sys.exit("{0} is not a directory".format(args.dataPath))
+# %% check inputs and load donor list
+if not os.path.exists(args.donorListPath):
+    sys.exit("{0} does not exist in the given path".format(args.donorListPath))
 
-# %% define global variables
-phiDateStamp = "PHI-" + args.dateStamp
-
-donorFolder = os.path.join(args.dataPath, phiDateStamp + "-donor-data/")
-if not os.path.isdir(donorFolder):
-    sys.exit("{0} is not a directory".format(donorFolder))
-
-# create output folders
-donorJsonDataFolder = donorFolder + phiDateStamp + "-donorJsonData/"
-if not os.path.exists(donorJsonDataFolder):
-    os.makedirs(donorJsonDataFolder)
+if not os.path.isdir(args.donorJsonDataFolder):
+    os.makedirs(args.donorJsonDataFolder)
 
 # load in list of unique donors
-uniqueDonors = pd.read_csv(donorFolder + phiDateStamp + "-uniqueDonorList.csv",
-                           index_col="dIndex")
+uniqueDonors = pd.read_csv(args.donorListPath,
+                           index_col="dIndex",
+                           low_memory=False)
 
 
 # %% pull the json files for all of the unique donors
 for userID, donorGroup in zip(uniqueDonors.userID, uniqueDonors.donorGroup):
-    jsonDataName = "PHI-" + userID + ".json"
-    outputFilePathName = donorJsonDataFolder + jsonDataName
+    outputFilePathName = os.path.join(args.donorJsonDataFolder,
+                                      "PHI-" + userID + ".json")
 
     # if the json file already exists, do NOT pull it again
     if not os.path.exists(outputFilePathName):
