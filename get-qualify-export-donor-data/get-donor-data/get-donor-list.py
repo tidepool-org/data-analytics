@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 description: download donors for each of the Tidepool donor groups
-version: 0.0.1
+version: 0.0.2
 created: 2018-02-21
 author: Ed Nykaza
 dependencies:
@@ -12,16 +12,15 @@ dependencies:
     * requires https://github.com/tidepool-org/command-line-data-tools
 license: BSD-2-Clause
 TODO:
-* [X] waiting for QA to cross reference donor accounts with testing accounts,
-once they do, then the ignoreAccounts file needs to be updated
 * [] once the process of accepting new donors is automated, the use of the
 dateStamp will make more sense. As it is being used now, it is possible that
 the dateStamp does NOT reflect all of the recent donors.
+* [] refactor script to get rid of commandline tools
 """
 
 
 # %% load in required libraries
-import environmentalVariables
+
 import pandas as pd
 import datetime as dt
 import numpy as np
@@ -32,6 +31,8 @@ import subprocess as sub
 import requests
 import json
 import argparse
+sys.path.insert(0, "../")
+import environmentalVariables
 
 
 # %% user inputs (choices to be made in order to run the code)
@@ -92,9 +93,14 @@ except KeyError:
 
 phiDateStamp = "PHI-" + args.dateStamp
 
-donorBandDdayListColumns = ["userID", "bDay", "dDay", "hashID"]
+donorMetadataColumns = ["userID", "bDay", "dDay",
+                            "diagnosisType",
+                            "targetDevices",
+                            "targetTimezone",
+                            "termsAccepted",
+                            "hashID"]
 
-allDonorBandDdayList = pd.DataFrame(columns=donorBandDdayListColumns)
+alldonorMetadataList = pd.DataFrame(columns=donorMetadataColumns)
 
 # create output folders
 donorFolder = os.path.join(args.dataPath, phiDateStamp + "-donor-data")
@@ -143,9 +149,9 @@ def load_donors(outputDonorList, donorGroup):
     return donorList
 
 
-def get_bdays_and_ddays(email, password, donorBandDdayListColumns):
+def get_metadata(email, password, donorMetadataColumns):
 
-    tempBandDdayList = pd.DataFrame(columns=donorBandDdayListColumns)
+    tempBandDdayList = pd.DataFrame(columns=donorMetadataColumns)
     url1 = "https://api.tidepool.org/auth/login"
     myResponse = requests.post(url1, auth=(email, password))
 
@@ -172,6 +178,23 @@ def get_bdays_and_ddays(email, password, donorBandDdayListColumns):
                     dDay = usersData[i]["profile"]["patient"]["diagnosisDate"]
                 except Exception:
                     dDay = np.nan
+                try:
+                    diagnosisType = usersData[i]["profile"]["patient"]["diagnosisType"]
+                except Exception:
+                    diagnosisType = np.nan
+                try:
+                    targetDevices = usersData[i]["profile"]["patient"]["targetDevices"]
+                except Exception:
+                    targetDevices = np.nan
+                try:
+                    targetTimezone = usersData[i]["profile"]["patient"]["targetTimezone"]
+                except Exception:
+                    targetTimezone = np.nan
+                try:
+                    termsAccepted = usersData[i]["termsAccepted"]
+                except Exception:
+                    termsAccepted = np.nan
+
                 userID = usersData[i]["userid"]
                 usr_string = userID + salt
                 hash_user = hashlib.sha256(usr_string.encode())
@@ -180,8 +203,12 @@ def get_bdays_and_ddays(email, password, donorBandDdayListColumns):
                         pd.DataFrame([[userID,
                                        bDay,
                                        dDay,
+                                       diagnosisType,
+                                       targetDevices,
+                                       targetTimezone,
+                                       termsAccepted,
                                        hashID]],
-                                     columns=donorBandDdayListColumns),
+                                     columns=donorMetadataColumns),
                         ignore_index=True)
         else:
             print(donorGroup, "ERROR", myResponse2.status_code)
@@ -209,29 +236,28 @@ for donorGroup in donorGroups:
     donorList = load_donors(outputDonorList, donorGroup)
 
     # load in bdays and ddays and append to all donor list
-    donorBandDdayList = get_bdays_and_ddays(email,
-                                            password,
-                                            donorBandDdayListColumns)
+    donorMetadataList = get_metadata(email, password, donorMetadataColumns)
 
-    donorBandDdayList = pd.merge(donorBandDdayList,
+    donorMetadataList = pd.merge(donorMetadataList,
                                  donorList,
                                  how="left",
                                  on="userID")
 
-    allDonorBandDdayList = allDonorBandDdayList.append(donorBandDdayList,
-                                                       ignore_index=True)
+    alldonorMetadataList = alldonorMetadataList.append(donorMetadataList,
+                                                       ignore_index=True,
+                                                       sort=False)
 
     print("BIGDATA_" + donorGroup, "complete")
 
 
 # %% save output
 
-uniqueDonors = allDonorBandDdayList.loc[
-        ~allDonorBandDdayList["userID"].duplicated(),
-        donorBandDdayListColumns + ["name", "donorGroup"]]
+uniqueDonors = alldonorMetadataList.loc[
+        ~alldonorMetadataList["userID"].duplicated(),
+        donorMetadataColumns + ["name", "donorGroup"]]
 
 # add donor groups to unique donors
-donorCounts = allDonorBandDdayList.groupby("userID").count()
+donorCounts = alldonorMetadataList.groupby("userID").count()
 donorCounts = donorCounts[donorGroups]
 donorCounts["userID"] = donorCounts.index
 
@@ -254,7 +280,7 @@ uniqueDonors.index.name = "dIndex"
 print("There are",
       len(uniqueDonors),
       "unique donors, of the",
-      len(allDonorBandDdayList),
+      len(alldonorMetadataList),
       "records")
 
 print("The total number of missing datapoints:",
