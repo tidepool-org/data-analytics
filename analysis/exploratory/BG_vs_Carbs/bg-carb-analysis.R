@@ -5,9 +5,18 @@
 library(ggplot2)
 library(hexbin)
 
-#Set working directory to folder containing data
+#Import metadata file
+setwd("YOUR METADATA DIRECTORY")
+metaData = read.csv("metaData.csv", stringsAsFactors = FALSE)
+metaData$hashID = paste(metaData$hashID, ".csv",sep="")
+metaData$age = as.integer(round(difftime(Sys.time(),as.Date(metaData$bDay))/365))
+
+#Set working directory to folder containing only .csv data
 setwd("YOUR_WORKING_DIRECTORY")
 files = dir()
+
+#Use this files command if you are re-running the program with a specific set of known files
+files = unique(file_tracker)
 
 #Create empty elements to fill from each file
 total_daily_carbs = c()
@@ -18,6 +27,13 @@ stddevBG = c()
 daily_range = c()
 daily_25_75_IQR = c()
 daily_CV = c()
+daily_below70 = c()
+daily_70_180 = c()
+daily_above180 = c()
+big.bg = c()
+big.carbs = c()
+big.day = c()
+big.age = c()
 
 #These elements will be used to verify quality of data
 daily_cgm_events = c()
@@ -53,26 +69,6 @@ for(file_number in 1:length(files)){
     cat(paste("Files complete: ", toString(file_number), "/", toString(length(files))," -- ", sep=""))
     cat(paste("Estimated time remaining: ", toString(round(mean(run_time)*sum(file.info(files[file_number:length(files)])$size))), " min\n", sep="" ))
   }
-  
-  ################ Use only for xlsx files ###################
-  
-  #carb_data = tryCatch(read_excel(files[file_number],sheet="bolus"), error=function(e) NA)
-  #bg_data = tryCatch(read_excel(files[file_number],sheet="cbg"), error=function(e) NA)
-  
-  #Skip current file if missing sheet resulted in an "NA"
-  #if(length(carb_data)==1){
-  #  skipped_files = c(skipped_files,files[file_number])
-  #  no_carb_files = no_carb_files + 1
-  #  next
-  #}
-  
-  #if(length(bg_data)==1){
-  #  skipped_files = c(skipped_files,files[file_number])
-  #  no_bg_files = no_bg_files + 1
-  #  next
-  #}
-  
-  ############################################################
   
   #Load data
   data = read.csv(files[file_number], stringsAsFactors = FALSE)
@@ -174,8 +170,18 @@ for(file_number in 1:length(files)){
     daily_25_75_IQR = c(daily_25_75_IQR, quantile(bg_data$value[which(bg_data$day==days_to_analyze[i])])[3]-quantile(bg_data$value[which(bg_data$day==days_to_analyze[i])])[2])
     daily_CV = c(daily_CV, 100*sd(bg_data$value[which(bg_data$day==days_to_analyze[i])])/mean(bg_data$value[which(bg_data$day==days_to_analyze[i])]))
     
+    #Tracking time in range
+    daily_below70 = c(daily_below70, 100*length(which(bg_data$value[(which(bg_data$day==days_to_analyze[i]))]<=70))/length(which(bg_data$day==days_to_analyze[i])))
+    daily_70_180 = c(daily_70_180, 100*length(which(bg_data$value[(which(bg_data$day==days_to_analyze[i]))]>70 & bg_data$value[(which(bg_data$day==days_to_analyze[i]))]<180))/length(which(bg_data$day==days_to_analyze[i])))
+    daily_above180 = c(daily_above180, 100*length(which(bg_data$value[(which(bg_data$day==days_to_analyze[i]))]>=180))/length(which(bg_data$day==days_to_analyze[i])))
+    
     total_days_analyzed = total_days_analyzed + 1
     
+    #Start tracking EVERY individual glucose level with associated data
+    big.bg = c(big.bg,bg_data$value[which(bg_data$day==days_to_analyze[i])])
+    big.day = c(big.day, rep(days_to_analyze[i],length(bg_data$value[which(bg_data$day==days_to_analyze[i])])))
+    big.carbs = c(big.carbs, rep(sum(carb_data$carbInput[which(carb_data$day==days_to_analyze[i])]),length(bg_data$value[which(bg_data$day==days_to_analyze[i])])))
+    big.age = c(big.age, rep(metaData$age[which(metaData$hashID==files[i])],length(bg_data$value[which(bg_data$day==days_to_analyze[i])])))
   }
   
   #Calculate and print estimate time remaining
@@ -193,13 +199,15 @@ cat(paste("Total Run Time: ", toString(round(difftime(real_run_end,real_run_star
   
 #Bind all elements into dataframe
 df = data.frame(total_daily_carbs,meanBG,medianBG,stddevBG,daily_range,daily_25_75_IQR,daily_CV)
-
+big.df = data.frame(big.bg,big.day,big.carbs,big.age)
 
 #Import file metadata
+setwd("E:/Tidepool/GoogleDrive/2018-05-15-anonymizedExport-w-local-time")
 metaData = read.csv("metaData.csv", stringsAsFactors = FALSE)
 metaData$hashID = paste(metaData$hashID, ".csv",sep="")
-analyzedFile_metaData = which(metaData$hashID %in% unique(file_tracker))
 metaData$age = as.integer(round(difftime(Sys.time(),as.Date(metaData$bDay))/365))
+analyzedFile_metaData = which(metaData$hashID %in% unique(file_tracker))
+
 
 #Filter metadata to only include files from the analysis
 filtered_metaData = metaData[analyzedFile_metaData,]
@@ -250,6 +258,7 @@ for(donor in 1:length(above_20)){
   days_above_20 = c(days_above_20, length(which(file_tracker==filtered_metaData$hashID[above_20[donor]])))
 }
 
+#Plot the number of data sets analyzed by age
 ages = c("1-5","6-8","9-11","12-14","15-17","18-20","21-24","25-29","30-34","35-39","40-49","50-59","60-69","70-88")
 age_counts = c(length(count_age_1_5), length(count_age_6_8), length(count_age_9_11), length(count_age_12_14), length(count_age_15_17), length(count_age_18_20), length(count_age_21_24), length(count_age_25_29), length(count_age_30_34), length(count_age_35_39), length(count_age_40_49), length(count_age_50_59), length(count_age_60_69), length(count_age_70_88))
 age_counts_df = data.frame(ages,age_counts)
@@ -261,20 +270,130 @@ ggplot(data=age_counts_df,aes(x=ages,y=age_counts))+
   ylab("Count Analyzed")+ 
   labs(title="Data Sets Analyzed by Age")
 
-days_per_donor = c()
 #How many days are contributed by each donor?
+days_per_donor = c()
 for(donor in 1:length(unique(file_tracker))){
   days_per_donor = c(days_per_donor, length(which(file_tracker==unique(file_tracker)[donor])))
 }
 
 days_per_age = c()
-#How many days are contributed by each age group?
+#How many days are contributed by each age group? (TBD)
 
 
+######## Time in range plots
 
+#Plot Time in Range distributions (normal)
+hist(daily_below70,xlim=c(0,100),col=rgb(1,0,0,0.25),breaks=59,main ="%Time in Range Distributions",xlab="% Time in Range")
+hist(daily_above180,col=rgb(0,0,1,0.25),breaks=100,add=T)
+hist(daily_70_180,col=rgb(0,1,0,0.25),breaks=100,add=T)
+legend("topright", inset=.02, title="Blood Glucose Ranges",c("Below 70 mg/dL","Between 70 - 180 mg/dL","Above 180 mg/dL"), fill=c(rgb(1,0,0,0.25),rgb(0,1,0,0.25),rgb(0,0,1,0.25)), cex=0.8)
+box()
+
+#Plot Time in Range distributions (log y)
+TIR.df = data.frame(x = c(daily_below70,daily_70_180, daily_above180),y = rep(c('Below 70 mg/dL','Between 70 - 180 mg/dL','Above 180 mg/dL'),each = length(daily_below70)))
+TIR.df$y = factor(TIR.df$y,levels=unique(TIR.df$y))
+
+ggplot(dat, aes(x=x, fill=as.factor(y))) +   
+  geom_histogram(bins=100,col='black',alpha=0.5, position="identity")+
+  scale_y_log10(expand = c(0,0))+
+  theme_classic()+
+  #scale_fill_manual(values=c("Desired colors"))+
+  labs(fill='Blood Glucose Range',title = "% Time in Range Distributions", x = "% Time in Range", y = "Frequency (Log)")
+
+#Create data frame grouped by carb intake and mean percent time in range
+carb_by_group = cut(total_daily_carbs,breaks=seq(0,500,25))
+group_names = levels(carb_by_group)
+df_TIR = c()
+
+
+for(carb_group in 1:length(group_names)){
+  df_TIR = rbind(df_TIR, c(group_names[carb_group], mean(daily_above180[which(carb_by_group==group_names[carb_group])]), "Above 180"))
+  df_TIR = rbind(df_TIR, c(group_names[carb_group], mean(daily_70_180[which(carb_by_group==group_names[carb_group])]), "Between 70-180"))
+  df_TIR = rbind(df_TIR, c(group_names[carb_group], mean(daily_below70[which(carb_by_group==group_names[carb_group])]), "Below 70"))
+}
+
+df_TIR = data.frame(df_TIR)
+colnames(df_TIR)=c("carb_group","time_in_range","range_name")
+df_TIR$carb_group = factor(df_TIR$carb_group,levels=unique(df_TIR$carb_group))
+df_TIR$range_name = factor(df_TIR$range_name,levels=unique(df_TIR$range_name))
+
+ggplot(df_TIR, aes(fill=as.factor(range_name), y=as.double(as.character(time_in_range)), x=as.factor(carb_group))) + 
+  geom_bar( stat="identity",position="stack")+
+  theme_classic() + 
+  xlab("Total Daily Carb Intake Range (g)")+
+  ylab("Mean % Time in Range")+ 
+  labs(title="Daily Carb Intake vs Mean % Time in Range")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_fill_manual(values=c("#BC9BE7","#77D3A7","#FF8C7D"))+
+  labs(fill='Blood Glucose Range')
+  #geom_text(aes(label=as.integer(as.character(time_in_range))), position=position_dodge(width=0.9), vjust=-0.25)
+
+############ For use with big data frame ######################
+
+carb_by_group = cut(big.df$big.carbs,breaks=seq(0,500,25))
+levels(carb_by_group) <- c(levels(carb_by_group),"500+")
+carb_by_group[is.na(carb_by_group)] = as.factor("500+")
+big.df$carb_group = carb_by_group
+group_names = levels(carb_by_group)
+df_TIR = c()
+
+
+for(carb_group in 1:length(group_names)){
+  df_TIR = rbind(df_TIR, c(group_names[carb_group], 100*length(which(big.df$big.bg[which(big.df$carb_group==group_names[carb_group])]>=180))/length(which(big.df$carb_group==group_names[carb_group])), "Above 180"))
+  df_TIR = rbind(df_TIR, c(group_names[carb_group], 100*length(which(big.df$big.bg[which(big.df$carb_group==group_names[carb_group])]>70 & big.df$big.bg[which(big.df$carb_group==group_names[carb_group])]<180))/length(which(big.df$carb_group==group_names[carb_group])), "Between 70-180"))
+  df_TIR = rbind(df_TIR, c(group_names[carb_group], 100*length(which(big.df$big.bg[which(big.df$carb_group==group_names[carb_group])]<=70))/length(which(big.df$carb_group==group_names[carb_group])), "Below 70"))
+}
+
+df_TIR = data.frame(df_TIR)
+colnames(df_TIR)=c("carb_group","time_in_range","range_name")
+df_TIR$carb_group = factor(df_TIR$carb_group,levels=unique(df_TIR$carb_group))
+df_TIR$range_name = factor(df_TIR$range_name,levels=unique(df_TIR$range_name))
+
+## Plot All Glucose Range + Carb Ranges together
+ggplot(df_TIR, aes(fill=as.factor(range_name), y=as.double(as.character(time_in_range)), x=as.factor(carb_group))) + 
+  geom_bar( stat="identity",position="dodge")+
+  theme_classic() + 
+  xlab("Total Daily Carb Intake Range (g)")+
+  ylab("% Time in Range")+ 
+  labs(title="Daily Carb Intake vs % Time in Range")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_fill_manual(values=c("#BC9BE7","#77D3A7","#FF8C7D"))+
+  labs(fill='Blood Glucose Range')
+#geom_text(aes(label=as.integer(as.character(time_in_range))), position=position_dodge(width=0.9), vjust=-0.25)
+
+## Plot only Above 180 + Carb Ranges
+ggplot(subset(df_TIR, range_name %in% c("Above 180")),aes(x=as.factor(carb_group),y=as.double(as.character(time_in_range)))) + 
+  geom_bar(stat = "identity",aes(fill="#BC9BE7"))+
+  theme_classic() + 
+  xlab("Total Daily Carb Intake Range (g)")+
+  ylab("% Time in Range")+ 
+  labs(title="Percent Time in Range Above 180")+
+  theme(legend.position="none",axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_fill_manual(values=c("#BC9BE7"))
+  #labs(fill='Blood Glucose Range')
+
+## Plot only Between 70 and 180 + Carb Ranges
+ggplot(subset(df_TIR, range_name %in% c("Between 70-180")),aes(x=as.factor(carb_group),y=as.double(as.character(time_in_range)))) + 
+  geom_bar(stat = "identity",fill="#77D3A7")+
+  theme_classic() + 
+  xlab("Total Daily Carb Intake Range (g)")+
+  ylab("% Time in Range")+ 
+  labs(title="Percent Time In Range (70 - 180 mg/dL)")+
+  theme(legend.position="none",axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_fill_manual(values=c("#77D3A7"))
+
+## Plot only Below 70 + Carb Ranges
+ggplot(subset(df_TIR, range_name %in% c("Below 70")),aes(x=as.factor(carb_group),y=as.double(as.character(time_in_range)))) + 
+  geom_bar(stat = "identity",aes(fill="#FF8C7D"))+
+  theme_classic() + 
+  xlab("Total Daily Carb Intake Range (g)")+
+  ylab("% Time in Range")+ 
+  labs(title=" Percent Time Below 70 mg/dL")+
+  theme(legend.position="none",axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_fill_manual(values=c("#FF8C7D"))
 
 #######
-# Optional Code to run
+# General Distributions and Figures
 #######
 
 #Write data frame to file
