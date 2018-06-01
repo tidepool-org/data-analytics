@@ -16,15 +16,17 @@ import pandas as pd
 import os
 
 # load an example xlsx file
-xlsxPathAndFileName = os.path.join("..", "example-data", "PHI-example.xlsx")
+xlsxPathAndFileName = os.path.join("..",
+                                   "example-data",
+                                   "example-from-j-jellyfish.xlsx")
 
 # load xlsx
 df = pd.read_excel(xlsxPathAndFileName, sheet_name=None, ignore_index=True)
 
 # create a data frame or table that combines data from all xlsx sheets
-cdf = pd.concat(df.values(), ignore_index=True)
+cdf = pd.concat(df.values(), ignore_index=True, sort=False)
 cdf = cdf.set_index('jsonRowIndex')
 
 # save as csv a file
-outpath = os.path.join("..", "example-data", "PHI-example")
-cdf.to_csv(outpath + ".csv")
+outpath = os.path.join("..", "example-data", "example-from-j-jellyfish.csv")
+cdf.to_csv(outpath)
