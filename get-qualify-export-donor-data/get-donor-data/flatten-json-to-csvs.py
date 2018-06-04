@@ -172,9 +172,6 @@ for dIndex in range(startIndex, endIndex):
     # if the csv file already exists, do NOT process it again
     if not os.path.exists(csvFilePathName):
         if fileSize > 1000:
-#            if fileSize > 250E6:  # flag condition where download is > 250MB
-#                metadata["errorMessage"] = \
-#                    "download manually until commandline tools are fixed"
 
             # load json file
             data = pd.read_json(inputFilePathName, orient="records")
