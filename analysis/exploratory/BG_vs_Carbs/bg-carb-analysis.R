@@ -4,7 +4,28 @@
 #library(readxl)
 library(ggplot2)
 library(hexbin)
+library(lubridate)
 
+##### Data Collection Filtering Options #####
+
+# Set a minimum # of days available for each file
+# Files with less than this will be skipped
+minimum_days = 14
+
+# Set a minimum # of daily carb entries for each day
+# Days with less than this will be skipped
+minimum_carb_entries = 3
+
+# Set a minimum % of cgm data points for each day
+# Days with less than this will be skipped
+minimum_cgm_percentage = 80
+minimum_cgm_points = round(288*minimum_cgm_percentage/100)
+
+# Set the time when a day starts/ends
+daily_hour_start = 6
+
+################ End Options ################
+  
 #Import metadata file
 setwd("YOUR METADATA DIRECTORY")
 metaData = read.csv("metaData.csv", stringsAsFactors = FALSE)
@@ -17,19 +38,31 @@ files = dir()
 
 #Use this files command if you are re-running the program with a specific set of known files
 files = unique(file_tracker)
-
 #Create empty elements to fill from each file
 total_daily_carbs = c()
 all_carb_entries = c()
+carb_timestamps = c()
+
+#Statistical measurements
 meanBG = c()
 medianBG = c()
 stddevBG = c()
 daily_range = c()
 daily_25_75_IQR = c()
 daily_CV = c()
+daily_below54 = c()
 daily_below70 = c()
 daily_70_180 = c()
 daily_above180 = c()
+daily_above250 = c()
+
+daily_hypo54_count = c()
+daily_hypo70_count = c()
+daily_hyper180_count = c()
+daily_hyper250_count = c()
+
+#Big data structure elements
+big.filename = c()
 big.bg = c()
 big.carbs = c()
 big.day = c()
@@ -37,9 +70,10 @@ big.age = c()
 
 #These elements will be used to verify quality of data
 daily_cgm_events = c()
+daily_carb_events = c()
 file_tracker = c()
 day_tracker = c()
-mean_insulin_sensitivity = c()
+#mean_insulin_sensitivity = c()
 
 #Run time tracking for console time-to-complete estimate
 run_time = c()
@@ -47,67 +81,124 @@ run_time = c()
 #Loop through each file collecting all data and appending to respecting elements.
 real_run_start = Sys.time()
 
-#Keep track of skipped files
-skipped_files = c()
-no_carb_files = 0
-no_bg_files = 0
+#Keep track of skipped file/day counts
+skipped_files_no_carbs = 0
+skipped_files_no_bg = 0
+skipped_files_not_enough_days = 0
+skipped_days_not_enough_cgm_data = 0
+skipped_days_too_much_cgm_data = 0
+skipped_days_not_enough_carb_data = 0
 
 #Keep track of total number of days with carbs and bg entries for each user
 user_days_count = c()
 total_days_analyzed = 0
 total_sets_analyzed = 0
 
+#Set how many files to process
+#files_to_process = length(files)
+files_to_process = 25
+
 ############## START FILE PROCESSING ##################
 
-for(file_number in 1:length(files)){
+for(file_number in 1:files_to_process){
 
   #Start time tracking for each file's processing time
   start_time <- Sys.time()
   
   #For all remaining files, estimate time remaining on every 100th file
-  if(file_number%%100==0){
-    cat(paste("Files complete: ", toString(file_number), "/", toString(length(files))," -- ", sep=""))
-    cat(paste("Estimated time remaining: ", toString(round(mean(run_time)*sum(file.info(files[file_number:length(files)])$size))), " min\n", sep="" ))
+  if(file_number%%5==0){
+    cat(paste("Files complete: ", toString(file_number), "/", toString(files_to_process)," -- ", sep=""))
+    cat(paste("Estimated time remaining: ", toString(round(mean(run_time)*sum(file.info(files[file_number:files_to_process])$size))), " min\n", sep="" ))
   }
+  
+  ################ Use only for xlsx files ###################
+  
+  #carb_data = tryCatch(read_excel(files[file_number],sheet="bolus"), error=function(e) NA)
+  #bg_data = tryCatch(read_excel(files[file_number],sheet="cbg"), error=function(e) NA)
+  
+  #Skip current file if missing sheet resulted in an "NA"
+  #if(length(carb_data)==1){
+  #  skipped_files_no_carbs = skipped_files_no_carbs +1
+  #  next
+  #}
+  
+  #if(length(bg_data)==1){
+  #  skipped_files = c(skipped_files,files[file_number])
+  #  no_bg_files = no_bg_files + 1
+  #  next
+  #}
+  
+  ############################################################
   
   #Load data
   data = read.csv(files[file_number], stringsAsFactors = FALSE)
   
-  if(!is.null(data$deviceTime)){
-    data$deviceTime[which(data$deviceTime=="")]= "XTY"
+  #Use est.localTime as main datetime metric
   
-    #Add a "day" column from deviceTime
-    timestamp_vec = unlist(strsplit(data$deviceTime,"T"))
-    data$day = timestamp_vec[seq(1,length(timestamp_vec),2)]
+  if(!is.null(data$est.localTime)){
+    
+    #Remove all rows with a est.type method of "UNCERTAIN"
+    data = data[which(data$est.type!="UNCERTAIN"),]
+    
+    #Convert all times into POSIXct data frame
+    #Timezone is UTC to overcome internal DST problems
+    data$est.localTime = strptime(data$est.localTime,"%Y-%m-%d %H:%M:%S",tz="UTC")
+    
+    #Add a day column
+    data$day = as.character(as.Date(data$est.localTime))
+    #Create virtual time frame for comparing "days" as set by the daily_hour_start
+    data$virtualTime = data$est.localTime-(daily_hour_start*60*60)
   }
+  
+  #Optional: Use deviceTime as main datetime metric
+  
+  #if(!is.null(data$deviceTime)){
+  #  #Remove NAs from missing deviceTime rows
+  #  data = data[which(data$deviceTime!=""),]
+  #
+  #  #Convert all times into POSIXct data frame
+  #  #Timezone is UTC to overcome internal DST problems
+  #  data$deviceTime = strptime(data$deviceTime,"%Y-%m-%dT%H:%M:%S",tz="UTC)
+  #
+  #  #Create virtual time frame for comparing "days" as set by the daily_hour_start
+  #  data$virtualTime = data$deviceTime-(daily_hour_start*60*60)
+  #  data$virtualDay = as.character(as.Date(data$virtualTime))
+  #}
   
   #Isolate carb, bg data
   carb_data = data[which(data$type=="bolus"),]
   bg_data = data[which(data$type=="cbg"),]
   
-
+  #Round all bg data timestamps to nearest 5 minutes
+  #There should never be a cgm timestamp less than 5 minutes apart.
+  bg_data$virtualTime = round_date(bg_data$virtualTime,"5 minutes")
   
   #Remove duplicated timestamps
-  #Use either deviceTime, time, utcTime, or est.localTime
-  carb_data = carb_data[which(!duplicated(carb_data$deviceTime)),]
-  bg_data = bg_data[which(!duplicated(bg_data$deviceTime)),]
+  #Use deviceTime, est.localTime, or a rounded virtual time.
+  carb_data = carb_data[which(!duplicated(carb_data$est.localTime)),]
+  bg_data = bg_data[which(!duplicated(bg_data$virtualTime)),]
   
   #Remove rows with empty/0 Carbs and BG
   carb_data = carb_data[!is.na(carb_data$carbInput),]
   carb_data = carb_data[carb_data$carbInput>0,]
   bg_data = bg_data[!is.na(bg_data$value),]
   
+  #Round all virtual carb timestamps to the nearest 5 minutes
+  carb_data$virtualTime = round_date(carb_data$virtualTime,"5 minutes")
+  
+  #Add a day column to compare unique daily bg/carb data in virtual timeframe
+  carb_data$virtualDay = as.character(as.Date(carb_data$virtualTime))
+  bg_data$virtualDay = as.character(as.Date(bg_data$virtualTime))
+  
   #Skip current file if no carb input is available
   if(nrow(carb_data)<=1){
-    skipped_files = c(skipped_files,files[file_number])
-    no_carb_files = no_carb_files + 1
+    skipped_files_no_carbs = skipped_files_no_carbs + 1
     next
   }
   
   #Skip current file if no bg input is available
   if(nrow(bg_data)<=1){
-    skipped_files = c(skipped_files,files[file_number])
-    no_bg_files = no_bg_files + 1
+    skipped_files_no_bg = skipped_files_no_bg + 1
     next
   }
   
@@ -128,81 +219,109 @@ for(file_number in 1:length(files)){
   bg_data$value[which(bg_data$units!=units)]=bg_data$value[which(bg_data$units!=units)]*multiplier
   #carb_data$insulinSensitivity[which(carb_data$units!=units)]=carb_data$insulinSensitivity[which(carb_data$units!=units)]*multiplier
   
+  #Store all carb events for this user
+  all_carb_entries = c(all_carb_entries, carb_data$carbInput)
+  carb_timestamps = c(carb_timestamps,carb_data$est.localTime)
+  
   #Find days where both carbs and BG data is available
-  unique_bg_days = unique(bg_data$day)
-  unique_carb_days = unique(carb_data$day)
+  unique_bg_days = unique(bg_data$virtualDay)
+  unique_carb_days = unique(carb_data$virtualDay)
   days_to_analyze = unique_bg_days[unique_bg_days %in% unique_carb_days]
   user_days_count = c(user_days_count, length(days_to_analyze))
   
-  #Store all carb events for this user
-  all_carb_entries = c(all_carb_entries, carb_data$carbInput)
-    
-  #Set limit of how many days to take from each data set
-  if(length(days_to_analyze)>90){
-    limited_days = 90
-  } else {
-    limited_days = length(days_to_analyze)
+  #Skip file if # of days available is less than the minimum required from the Filter Options
+  if(days_to_analyze < minimum_days){
+    skipped_files_not_enough_days = skipped_files_not_enough_days + 1
+    next
   }
+
+  ###### Start day-to-day metric collection for the current file ######
   
-  #Fill elements for data frame of daily carb intake and mean BG 
-  # (add additional metrics as needed)
-  
-  for(i in 1:limited_days){
+  for(i in 1:length(days_to_analyze)){
     
-    #Skip if there is bg data longer (indicates duplicated data) than 1 day or less than 2/3 of the day
-    if(length(which(bg_data$day==days_to_analyze[i]))>288 | length(which(bg_data$day==days_to_analyze[i]))<192){
+    #Skip day if there is cgm data less than minimum required by Filter Options
+    if(length(which(bg_data$virtualDay==days_to_analyze[i])) < minimum_cgm_points){
+      skipped_days_not_enough_cgm_data = skipped_days_not_enough_cgm_data + 1
       next
     }
     
-    #Skip if < 3 meals in the day
-    if(length(carb_data$carbInput[which(carb_data$day==days_to_analyze[i])])<3){
+    #Skip day if there is bg data longer that 1 day (indicates duplicated data)
+    if(length(which(bg_data$virtualDay==days_to_analyze[i])) > 288){
+      skipped_days_too_much_cgm_data = skipped_days_too_much_cgm_data + 1
       next
     }
     
-    daily_cgm_events = c(daily_cgm_events, length(which(bg_data$day==days_to_analyze[i])))
+    #Skip day if the # of carb entries does not meet the minimum required by Filter Options
+    if(length(carb_data$carbInput[which(carb_data$virtualDay==days_to_analyze[i])]) < minimum_carb_entries){
+      skipped_days_not_enough_carb_data = skipped_days_not_enough_carb_data + 1
+      next
+    }
+    
+    daily_cgm_events = c(daily_cgm_events, length(which(bg_data$virtualDay==days_to_analyze[i])))
+    daily_carb_events = c(daily_carb_events, length(which(carb_data$virtualDay==days_to_analyze[i])))
     file_tracker = c(file_tracker, files[file_number])
-    day_tracker = c(day_tracker, days_to_analyze[i])
-    total_daily_carbs = c(total_daily_carbs, sum(carb_data$carbInput[which(carb_data$day==days_to_analyze[i])]))
-    meanBG = c(meanBG,mean(bg_data$value[which(bg_data$day==days_to_analyze[i])]))
-    medianBG = c(medianBG,median(bg_data$value[which(bg_data$day==days_to_analyze[i])]))
-    stddevBG = c(stddevBG,sd(bg_data$value[which(bg_data$day==days_to_analyze[i])]))
-    daily_range = c(daily_range, max(bg_data$value[which(bg_data$day==days_to_analyze[i])])-min(bg_data$value[which(bg_data$day==days_to_analyze[i])]))
-    daily_25_75_IQR = c(daily_25_75_IQR, quantile(bg_data$value[which(bg_data$day==days_to_analyze[i])])[3]-quantile(bg_data$value[which(bg_data$day==days_to_analyze[i])])[2])
-    daily_CV = c(daily_CV, 100*sd(bg_data$value[which(bg_data$day==days_to_analyze[i])])/mean(bg_data$value[which(bg_data$day==days_to_analyze[i])]))
+    
+    total_daily_carbs = c(total_daily_carbs, sum(carb_data$carbInput[which(carb_data$virtualDay==days_to_analyze[i])]))
+    meanBG = c(meanBG,mean(bg_data$value[which(bg_data$virtualDay==days_to_analyze[i])]))
+    medianBG = c(medianBG,median(bg_data$value[which(bg_data$virtualDay==days_to_analyze[i])]))
+    stddevBG = c(stddevBG,sd(bg_data$value[which(bg_data$virtualDay==days_to_analyze[i])]))
+    daily_range = c(daily_range, max(bg_data$value[which(bg_data$virtualDay==days_to_analyze[i])])-min(bg_data$value[which(bg_data$virtualDay==days_to_analyze[i])]))
+    daily_25_75_IQR = c(daily_25_75_IQR, quantile(bg_data$value[which(bg_data$virtualDay==days_to_analyze[i])])[3]-quantile(bg_data$value[which(bg_data$virtualDay==days_to_analyze[i])])[2])
+    daily_CV = c(daily_CV, 100*sd(bg_data$value[which(bg_data$virtualDay==days_to_analyze[i])])/mean(bg_data$value[which(bg_data$virtualDay==days_to_analyze[i])]))
     
     #Tracking time in range
-    daily_below70 = c(daily_below70, 100*length(which(bg_data$value[(which(bg_data$day==days_to_analyze[i]))]<=70))/length(which(bg_data$day==days_to_analyze[i])))
-    daily_70_180 = c(daily_70_180, 100*length(which(bg_data$value[(which(bg_data$day==days_to_analyze[i]))]>70 & bg_data$value[(which(bg_data$day==days_to_analyze[i]))]<180))/length(which(bg_data$day==days_to_analyze[i])))
-    daily_above180 = c(daily_above180, 100*length(which(bg_data$value[(which(bg_data$day==days_to_analyze[i]))]>=180))/length(which(bg_data$day==days_to_analyze[i])))
+    daily_below54 = c(daily_below54, 100*length(which(bg_data$value[(which(bg_data$virtualDay==days_to_analyze[i]))]<54))/length(which(bg_data$virtualDay==days_to_analyze[i])))
+    daily_below70 = c(daily_below70, 100*length(which(bg_data$value[(which(bg_data$virtualDay==days_to_analyze[i]))]<70))/length(which(bg_data$virtualDay==days_to_analyze[i])))
+    daily_70_180 = c(daily_70_180, 100*length(which(bg_data$value[(which(bg_data$virtualDay==days_to_analyze[i]))]>=70 & bg_data$value[(which(bg_data$virtualDay==days_to_analyze[i]))]<=180))/length(which(bg_data$virtualDay==days_to_analyze[i])))
+    daily_above180 = c(daily_above180, 100*length(which(bg_data$value[(which(bg_data$virtualDay==days_to_analyze[i]))]>180))/length(which(bg_data$virtualDay==days_to_analyze[i])))
+    daily_above250 = c(daily_above250, 100*length(which(bg_data$value[(which(bg_data$virtualDay==days_to_analyze[i]))]>250))/length(which(bg_data$virtualDay==days_to_analyze[i])))
+    
+    #Tracking daily number of hypo/hyper episodes
+    daily_hypo54_count = c(daily_hypo54_count, length(which(rle(diff(which(bg_data$value[(which(bg_data$virtualDay==days_to_analyze[i]))]<54)))$lengths>=3)))
+    daily_hypo70_count = c(daily_hypo70_count, length(which(rle(diff(which(bg_data$value[(which(bg_data$virtualDay==days_to_analyze[i]))]<70)))$lengths>=3)))
+    daily_hyper180_count = c(daily_hyper180_count, length(which(rle(diff(which(bg_data$value[(which(bg_data$virtualDay==days_to_analyze[i]))]>180)))$lengths>=3)))
+    daily_hyper250_count = c(daily_hyper250_count, length(which(rle(diff(which(bg_data$value[(which(bg_data$virtualDay==days_to_analyze[i]))]>250)))$lengths>=3)))
+    
     
     total_days_analyzed = total_days_analyzed + 1
     
-    #Start tracking EVERY individual glucose level with associated data
-    big.bg = c(big.bg,bg_data$value[which(bg_data$day==days_to_analyze[i])])
-    big.day = c(big.day, rep(days_to_analyze[i],length(bg_data$value[which(bg_data$day==days_to_analyze[i])])))
-    big.carbs = c(big.carbs, rep(sum(carb_data$carbInput[which(carb_data$day==days_to_analyze[i])]),length(bg_data$value[which(bg_data$day==days_to_analyze[i])])))
-    big.age = c(big.age, rep(metaData$age[which(metaData$hashID==files[i])],length(bg_data$value[which(bg_data$day==days_to_analyze[i])])))
+    #Day tracker and hourly tracker gets normal day (not virtual day)
+    day_tracker = c(day_tracker, carb_data$day[which(carb_data$virtualDay==days_to_analyze[1])[1]])
+    
+    #Start tracking EVERY individual glucose level with associated data to prepare for one BIG data frame
+    big.filename = c(big.filename, rep(files[file_number],length(bg_data$value[which(bg_data$virtualDay==days_to_analyze[i])])))
+    big.bg = c(big.bg,bg_data$value[which(bg_data$virtualDay==days_to_analyze[i])])
+    big.day = c(big.day, rep(carb_data$day[which(carb_data$virtualDay==days_to_analyze[1])[1]],length(bg_data$value[which(bg_data$virtualDay==days_to_analyze[i])])))
+    big.carbs = c(big.carbs, rep(sum(carb_data$carbInput[which(carb_data$virtualDay==days_to_analyze[i])]),length(bg_data$value[which(bg_data$virtualDay==days_to_analyze[i])])))
+    big.age = c(big.age, rep(as.integer(round(difftime(days_to_analyze[i],as.Date(metaData$bDay[which(metaData$hashID==files[i])]))/365)),length(bg_data$value[which(bg_data$virtualDay==days_to_analyze[i])])))
   }
   
   #Calculate and print estimate time remaining
   end_time = Sys.time()
   run_time = c(run_time, difftime(end_time,start_time,units="mins")/file.info(files[file_number])$size)
   
-  if(file_number==1){
+  #Print estimated time remaining after first file completes
+  if(length(file_tracker)==1){
     cat(paste("Files complete: ", toString(file_number), "/", toString(length(files))," -- ", sep=""))
     cat(paste("Estimated time remaining: ", toString(round(mean(run_time)*sum(file.info(files[file_number:length(files)])$size))), " min\n", sep="" ))
     }
-}
+} 
+
+######################## END FILE PARSING LOOP #####################################
+
+#File parsing information
 total_sets_analyzed = length(unique(file_tracker))
 real_run_end = Sys.time()
 cat(paste("Total Run Time: ", toString(round(difftime(real_run_end,real_run_start,units="mins"))), " minutes",sep=""))
-  
+ 
+
+ 
 #Bind all elements into dataframe
 df = data.frame(total_daily_carbs,meanBG,medianBG,stddevBG,daily_range,daily_25_75_IQR,daily_CV)
-big.df = data.frame(big.bg,big.day,big.carbs,big.age)
+big.df = data.frame(big.filename,big.bg,big.day,big.carbs,big.age)
 
 #Import file metadata
-setwd("E:/Tidepool/GoogleDrive/2018-05-15-anonymizedExport-w-local-time")
+setwd("YOUR METAFILE LOCATION")
 metaData = read.csv("metaData.csv", stringsAsFactors = FALSE)
 metaData$hashID = paste(metaData$hashID, ".csv",sep="")
 metaData$age = as.integer(round(difftime(Sys.time(),as.Date(metaData$bDay))/365))
@@ -293,7 +412,7 @@ box()
 TIR.df = data.frame(x = c(daily_below70,daily_70_180, daily_above180),y = rep(c('Below 70 mg/dL','Between 70 - 180 mg/dL','Above 180 mg/dL'),each = length(daily_below70)))
 TIR.df$y = factor(TIR.df$y,levels=unique(TIR.df$y))
 
-ggplot(dat, aes(x=x, fill=as.factor(y))) +   
+ggplot(TIR.df, aes(x=x, fill=as.factor(y))) +   
   geom_histogram(bins=100,col='black',alpha=0.5, position="identity")+
   scale_y_log10(expand = c(0,0))+
   theme_classic()+
@@ -318,7 +437,7 @@ df_TIR$carb_group = factor(df_TIR$carb_group,levels=unique(df_TIR$carb_group))
 df_TIR$range_name = factor(df_TIR$range_name,levels=unique(df_TIR$range_name))
 
 ggplot(df_TIR, aes(fill=as.factor(range_name), y=as.double(as.character(time_in_range)), x=as.factor(carb_group))) + 
-  geom_bar( stat="identity",position="stack")+
+  geom_bar( stat="identity",position="dodge")+
   theme_classic() + 
   xlab("Total Daily Carb Intake Range (g)")+
   ylab("Mean % Time in Range")+ 
@@ -331,10 +450,13 @@ ggplot(df_TIR, aes(fill=as.factor(range_name), y=as.double(as.character(time_in_
 ############ For use with big data frame ######################
 
 carb_by_group = cut(big.df$big.carbs,breaks=seq(0,500,25))
+age_by_group = cut(big.df$big.age,breaks=c(1,5,8,11,14,17,20,24,29,34,39,49,59,69,88),labels=c("1-5","6-8","9-11","12-14","15-17","18-20","21-24","25-29","30-34","35-39","40-49","50-59","60-69","70-88"))
 levels(carb_by_group) <- c(levels(carb_by_group),"500+")
 carb_by_group[is.na(carb_by_group)] = as.factor("500+")
 big.df$carb_group = carb_by_group
+big.df$age_group = age_by_group
 group_names = levels(carb_by_group)
+age_ranges = levels(age_by_group)
 df_TIR = c()
 
 
@@ -367,7 +489,7 @@ ggplot(subset(df_TIR, range_name %in% c("Above 180")),aes(x=as.factor(carb_group
   theme_classic() + 
   xlab("Total Daily Carb Intake Range (g)")+
   ylab("% Time in Range")+ 
-  labs(title="Percent Time in Range Above 180")+
+  labs(title="Percent Time Above 180 mg/dL")+
   theme(legend.position="none",axis.text.x = element_text(angle = 90, hjust = 1))+
   scale_fill_manual(values=c("#BC9BE7"))
   #labs(fill='Blood Glucose Range')
@@ -391,6 +513,40 @@ ggplot(subset(df_TIR, range_name %in% c("Below 70")),aes(x=as.factor(carb_group)
   labs(title=" Percent Time Below 70 mg/dL")+
   theme(legend.position="none",axis.text.x = element_text(angle = 90, hjust = 1))+
   scale_fill_manual(values=c("#FF8C7D"))
+
+
+###########
+# Use for Age + Carb + TIR figures
+##########
+
+carb_by_group = cut(big.df$big.carbs,breaks=seq(0,500,25))
+age_by_group = cut(big.df$big.age,breaks=c(1,5,8,11,14,17,20,24,29,34,39,49,59,69,88),labels=c("1-5","6-8","9-11","12-14","15-17","18-20","21-24","25-29","30-34","35-39","40-49","50-59","60-69","70-88"))
+
+levels(carb_by_group) <- c(levels(carb_by_group),"500+")
+carb_by_group[is.na(carb_by_group)] = as.factor("500+")
+
+big.df$carb_group = carb_by_group
+big.df$age_group = age_by_group
+
+group_names = levels(carb_by_group)
+age_ranges = levels(age_by_group)
+df_TIR = c()
+
+for(carb_group in 1:length(group_names)){
+  for(age_group in 1:length(age_ranges)){
+  df_TIR = rbind(df_TIR, c(age_ranges[age_group],group_names[carb_group], 100*length(which(big.df$big.bg[which(big.df$carb_group==group_names[carb_group])]>=180))/length(which(big.df$carb_group==group_names[carb_group])), "Above 180"))
+  df_TIR = rbind(df_TIR, c(age_ranges[age_group],group_names[carb_group], 100*length(which(big.df$big.bg[which(big.df$carb_group==group_names[carb_group])]>70 & big.df$big.bg[which(big.df$carb_group==group_names[carb_group])]<180))/length(which(big.df$carb_group==group_names[carb_group])), "Between 70-180"))
+  df_TIR = rbind(df_TIR, c(age_ranges[age_group],group_names[carb_group], 100*length(which(big.df$big.bg[which(big.df$carb_group==group_names[carb_group])]<=70))/length(which(big.df$carb_group==group_names[carb_group])), "Below 70"))
+  }
+}
+
+df_TIR = data.frame(df_TIR)
+colnames(df_TIR)=c("age_group","carb_group","time_in_range","range_name")
+df_TIR$carb_group = factor(df_TIR$carb_group,levels=unique(df_TIR$carb_group))
+df_TIR$age_group = factor(df_TIR$age_group,levels=unique(df_TIR$age_group))
+df_TIR$range_name = factor(df_TIR$range_name,levels=unique(df_TIR$range_name))
+
+
 
 #######
 # General Distributions and Figures
@@ -451,6 +607,11 @@ ggplot(data=df) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 hist(as.Date(day_tracker),breaks=200,format = "%b %Y")
+
+#One possible version of time of day and carb intake frequency
+#x=as.factor(format(round_date(carb_data$est.localTime,"15 minutes"),"%H:%M"))
+#hist(as.integer(x),breaks=100)
+#axis(1,at=1:length(levels(x)),labels=levels(x))
 
 ##### Special age-defined scatterplots
 
