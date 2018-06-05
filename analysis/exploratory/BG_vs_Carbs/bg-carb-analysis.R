@@ -1,7 +1,12 @@
-# This code demonstrates the basic trend analysis of anonymized Tidepool data sets
-# Special focus is given to carb intake and daily BG effects
 
-#library(readxl)
+################################################################################################
+#
+# This code demonstrates the basic trend analysis of Tidepool data sets
+#
+# Special focus is given to carb intake and daily BG effects
+#
+################################################################################################
+
 library(ggplot2)
 library(hexbin)
 library(lubridate)
@@ -26,18 +31,22 @@ daily_hour_start = 6
 
 ################ End Options ################
   
-#Import metadata file
-setwd("YOUR METADATA DIRECTORY")
-metaData = read.csv("metaData.csv", stringsAsFactors = FALSE)
-metaData$hashID = paste(metaData$hashID, ".csv",sep="")
-metaData$age = as.integer(round(difftime(Sys.time(),as.Date(metaData$bDay))/365))
+#Import file metadata
+setwd("YOUR METADATA FILE DIRECTORY")
+metaData = read.csv("YOUR_METADATA_FILENAME.csv", stringsAsFactors = FALSE)
 
-#Set working directory to folder containing only .csv data
-setwd("YOUR_WORKING_DIRECTORY")
+#Use either hashID.csv or PHI-userID.csv
+#metaData$hashID = paste(metaData$hashID, ".csv",sep="")
+metaData$hashID = paste("PHI-",metaData$userID, ".csv",sep="")
+
+#Set working directory to folder containing data
+setwd("YOUR DATA FILE WORKING DIRECTORY")
 files = dir()
 
 #Use this files command if you are re-running the program with a specific set of known files
-files = unique(file_tracker)
+#This helps speed up processing time by using only known unskipped files
+#files = unique(file_tracker)
+
 #Create empty elements to fill from each file
 total_daily_carbs = c()
 all_carb_entries = c()
@@ -91,12 +100,13 @@ skipped_days_not_enough_carb_data = 0
 
 #Keep track of total number of days with carbs and bg entries for each user
 user_days_count = c()
+current_user_days_analyzed = 0
 total_days_analyzed = 0
 total_sets_analyzed = 0
 
 #Set how many files to process
 #files_to_process = length(files)
-files_to_process = 25
+files_to_process = 50
 
 ############## START FILE PROCESSING ##################
 
@@ -106,29 +116,10 @@ for(file_number in 1:files_to_process){
   start_time <- Sys.time()
   
   #For all remaining files, estimate time remaining on every 100th file
-  if(file_number%%5==0){
+  if(file_number%%100==0){
     cat(paste("Files complete: ", toString(file_number), "/", toString(files_to_process)," -- ", sep=""))
     cat(paste("Estimated time remaining: ", toString(round(mean(run_time)*sum(file.info(files[file_number:files_to_process])$size))), " min\n", sep="" ))
   }
-  
-  ################ Use only for xlsx files ###################
-  
-  #carb_data = tryCatch(read_excel(files[file_number],sheet="bolus"), error=function(e) NA)
-  #bg_data = tryCatch(read_excel(files[file_number],sheet="cbg"), error=function(e) NA)
-  
-  #Skip current file if missing sheet resulted in an "NA"
-  #if(length(carb_data)==1){
-  #  skipped_files_no_carbs = skipped_files_no_carbs +1
-  #  next
-  #}
-  
-  #if(length(bg_data)==1){
-  #  skipped_files = c(skipped_files,files[file_number])
-  #  no_bg_files = no_bg_files + 1
-  #  next
-  #}
-  
-  ############################################################
   
   #Load data
   data = read.csv(files[file_number], stringsAsFactors = FALSE)
@@ -166,8 +157,23 @@ for(file_number in 1:files_to_process){
   #}
   
   #Isolate carb, bg data
-  carb_data = data[which(data$type=="bolus"),]
+  
+  #Use "bolus" with anonymized data, "wizard" with PHI data
+  #carb_data = data[which(data$type=="bolus"),]
+  carb_data = data[which(data$type=="wizard"),]
   bg_data = data[which(data$type=="cbg"),]
+  
+  #Skip current file if no carb input is available
+  if(nrow(carb_data)<=1){
+    skipped_files_no_carbs = skipped_files_no_carbs + 1
+    next
+  }
+  
+  #Skip current file if no bg input is available
+  if(nrow(bg_data)<=1){
+    skipped_files_no_bg = skipped_files_no_bg + 1
+    next
+  }
   
   #Round all bg data timestamps to nearest 5 minutes
   #There should never be a cgm timestamp less than 5 minutes apart.
@@ -190,17 +196,6 @@ for(file_number in 1:files_to_process){
   carb_data$virtualDay = as.character(as.Date(carb_data$virtualTime))
   bg_data$virtualDay = as.character(as.Date(bg_data$virtualTime))
   
-  #Skip current file if no carb input is available
-  if(nrow(carb_data)<=1){
-    skipped_files_no_carbs = skipped_files_no_carbs + 1
-    next
-  }
-  
-  #Skip current file if no bg input is available
-  if(nrow(bg_data)<=1){
-    skipped_files_no_bg = skipped_files_no_bg + 1
-    next
-  }
   
   #Set units and their conversion multiplier to "mg/dL" or "mmol/L"
   units = "mg/dL"
@@ -217,8 +212,7 @@ for(file_number in 1:files_to_process){
   
   #Check each BG for appropriate units, and convert if needed
   bg_data$value[which(bg_data$units!=units)]=bg_data$value[which(bg_data$units!=units)]*multiplier
-  #carb_data$insulinSensitivity[which(carb_data$units!=units)]=carb_data$insulinSensitivity[which(carb_data$units!=units)]*multiplier
-  
+
   #Store all carb events for this user
   all_carb_entries = c(all_carb_entries, carb_data$carbInput)
   carb_timestamps = c(carb_timestamps,carb_data$est.localTime)
@@ -227,10 +221,9 @@ for(file_number in 1:files_to_process){
   unique_bg_days = unique(bg_data$virtualDay)
   unique_carb_days = unique(carb_data$virtualDay)
   days_to_analyze = unique_bg_days[unique_bg_days %in% unique_carb_days]
-  user_days_count = c(user_days_count, length(days_to_analyze))
   
   #Skip file if # of days available is less than the minimum required from the Filter Options
-  if(days_to_analyze < minimum_days){
+  if(length(days_to_analyze) < minimum_days){
     skipped_files_not_enough_days = skipped_files_not_enough_days + 1
     next
   }
@@ -284,6 +277,7 @@ for(file_number in 1:files_to_process){
     
     
     total_days_analyzed = total_days_analyzed + 1
+    current_user_days_analyzed = current_user_days_analyzed + 1
     
     #Day tracker and hourly tracker gets normal day (not virtual day)
     day_tracker = c(day_tracker, carb_data$day[which(carb_data$virtualDay==days_to_analyze[1])[1]])
@@ -296,6 +290,10 @@ for(file_number in 1:files_to_process){
     big.age = c(big.age, rep(as.integer(round(difftime(days_to_analyze[i],as.Date(metaData$bDay[which(metaData$hashID==files[i])]))/365)),length(bg_data$value[which(bg_data$virtualDay==days_to_analyze[i])])))
   }
   
+  #Track how many days are provided by each user
+  user_days_count = c(user_days_count, current_user_days_analyzed)
+  current_user_days_analyzed = 0
+  
   #Calculate and print estimate time remaining
   end_time = Sys.time()
   run_time = c(run_time, difftime(end_time,start_time,units="mins")/file.info(files[file_number])$size)
@@ -307,26 +305,24 @@ for(file_number in 1:files_to_process){
     }
 } 
 
-######################## END FILE PARSING LOOP #####################################
-
 #File parsing information
 total_sets_analyzed = length(unique(file_tracker))
 real_run_end = Sys.time()
 cat(paste("Total Run Time: ", toString(round(difftime(real_run_end,real_run_start,units="mins"))), " minutes",sep=""))
  
+ 
+######################## END FILE PARSING #####################################
 
+
+######################## BEGIN DATA ANALYSIS #####################################
  
 #Bind all elements into dataframe
 df = data.frame(total_daily_carbs,meanBG,medianBG,stddevBG,daily_range,daily_25_75_IQR,daily_CV)
 big.df = data.frame(big.filename,big.bg,big.day,big.carbs,big.age)
 
-#Import file metadata
-setwd("YOUR METAFILE LOCATION")
-metaData = read.csv("metaData.csv", stringsAsFactors = FALSE)
-metaData$hashID = paste(metaData$hashID, ".csv",sep="")
+#Use previously imported file metadata
 metaData$age = as.integer(round(difftime(Sys.time(),as.Date(metaData$bDay))/365))
 analyzedFile_metaData = which(metaData$hashID %in% unique(file_tracker))
-
 
 #Filter metadata to only include files from the analysis
 filtered_metaData = metaData[analyzedFile_metaData,]
