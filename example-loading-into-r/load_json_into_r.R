@@ -9,25 +9,32 @@ if(require("jsonlite")==FALSE){install.packages("jsonlite")}
 library("jsonlite")
 
 
-#Step 2, identify the pathway to the file. You can copy and paste this from your file explorer.  
-#Add the name of the file to the end.  Be sure to double the \\ because a single \ indicates an escape character in R.
+#Step 2, identify the pathway to the file:
 
-pathway<-"C:\\Users\\kybol\\Documents\\Github_Tidepool\\data-analytics\\example-data\\example-from-j-jellyfish.json"
-
+pathway<-"../example-data/example-from-j-jellyfish.json"
 
 
 #Step 3: Use the fromJSON function to save the file as an object with any name you choose:
 tidepooljson<-fromJSON(pathway)
 
-#Step 4: Now that the .csv file is an R object, you can call commands on it:
+#Step 4: Now that the .json file is an R object, you can call commands on it:
 
-summary(tidepooljson) #Summary Statistics on each variable in the dataset.
+#Summary Statistics on each variable in the dataset.
+summary(tidepooljson) 
 
-str(tidepooljson)  #Structure of each variable with data type and examples 
+#Structure of each variable with data type and examples
+str(tidepooljson)   
 
-View(tidepooljson) #Open a spreadsheet in R of the data
- 
-head(tidepooljson, 10)  #Look at the first 10 rows
+#Open a spreadsheet in R of the data
+View(tidepooljson) 
+
+#Look at the first 10 rows 
+head(tidepooljson, 10)
+
+#To save the data as a .csv file:
+#Set outpath:
+outpath<-"../example-data/example-from-j-jellyfish2.csv"
+write.csv(tidepooljson, file=outpath)
 
 
 

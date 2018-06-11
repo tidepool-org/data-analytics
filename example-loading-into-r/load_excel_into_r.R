@@ -6,13 +6,11 @@ if(require("readxl")==FALSE){install.packages("readxl")}
 
 #Then load it:
 
-library("readxl")
+library(readxl)
 
+#Step 2, identify the pathway to the file:
 
-#Step 2, identify the pathway to the file. You can copy and paste this from your file explorer.  
-#Add the name of the file to the end.  Be sure to double the \\ because a single \ indicates an escape character in R.
-
-pathway<-"C:\\Users\\kybol\\Documents\\Github_Tidepool\\data-analytics\\example-data\\example-from-j-jellyfish.xlsx"
+pathway<-"../example-data/example-from-j-jellyfish.xlsx"
 
 
 #Step 3: Use the read_excel function to save the file as an object with any name you choose:
@@ -25,18 +23,78 @@ tidepoolxl<-read_excel(pathway,sheet=1)
 
 #Step 4: Now that the .xls file is an R object, you can call commands on it:
 
-summary(tidepoolxl) #Summary Statistics on each variable in the dataset.
+#Summary Statistics on each variable in the dataset.
+summary(tidepoolxl) 
 
-str(tidepoolxl)  #Structure of each variable with data type and examples 
+#Structure of each variable with data type and examples 
+str(tidepoolxl)  
 
-View(tidepoolxl) #Open a spreadsheet in R of the data
+#Open a spreadsheet in R of the data
+View(tidepoolxl) 
  
-head(tidepoolxl, 10)  #Look at the first 10 rows
+#Look at the first 10 rows
+head(tidepoolxl, 10)  
 
 
+#As an alternative to the above, you can "save as" the Microsoft Excel file as a .csv file and load it as a .csv file using the read.csv() function.   
 
-#As an alternative to the above, you can "save as" the Microsoft Excel file as a .csv file and load it as a .csv file using read.csv.   
-#Excel will only allow you to save a single sheet as .csv at a time.  So again, this approach requires multiple loads.
+
+#To save the file as a .csv file:
+#Set outpath:
+outpath<-"../example-data/example-from-j-jellyfish2.csv"
+
+write.csv(tidepoolxl, file=outpath)
+
+
+#To combine all Excel sheets into a single dataframe:
+
+
+#Install the readr package.
+if(require("readr")==FALSE){install.packages("readr")}
+library(readr)
+
+
+#Run xl_sheet_import function:
+xl_sheet_import <- function(path=pathway, n=1){
+  
+  #Import the data into an unnamed dataframe:
+  df<-
+    read_excel(path, sheet=n, col_names = FALSE)[-1,]
+  
+  #Collect the column names (first row of the sheet):
+  namesxl<-
+    read_excel(path, sheet=n, col_names = FALSE)[1,]
+  
+  #Apply the names to the dataframe:
+
+  colnames(df)<-namesxl
+
+  return(df)
+}
+
+#Run merge_sheets function to collect and merge all of the sheets, using a recursive full_join() with the above xl_sheet_import():
+
+merge_sheets <- function(path=pathway, n=length(excel_sheets(pathway))){
+
+    if(n<=1){
+      return(xl_sheet_import(path))
+    }else{
+      return(full_join(merge_sheets(path, n=n-1), xl_sheet_import(path, n)))
+    }
+  
+}
+
+#Finally, use the readr function, type_convert(), to detect the data types of each column:
+combinedxl<-
+  readr::type_convert(merge_sheets(path=pathway))
+
+
+#Inspect the results:
+str(combinedxl)
+dim(combinedxl)
+View(combinedxl)
+
+
 
 
 
