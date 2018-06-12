@@ -1,7 +1,12 @@
+library(extrafont)
+library(corrplot)
+library(ggplot2)
+library(hexbin)
+
 ############################## START FIGURE OUTPUT ################################
 
 #Set your figure output location
-output_location = "YOUR_OUTPUT_FILE_LOCATION"
+output_location = "A:/"
 
 plot_histogram <- function(data_source, feature, fill_color, bin_width, xlimits, break_sequence, title_text,ylab_text,xlab_text,filename) {
   
@@ -18,7 +23,7 @@ plot_histogram <- function(data_source, feature, fill_color, bin_width, xlimits,
     theme(axis.text = element_text(size=20*(2/3),family="Roboto Mono",face="bold",color="#7c7c7c"))+
     theme(axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0)))+
     theme(axis.title.x = element_text(margin = margin(t = 15, r = 0, b = 0, l = 0)))
-    #stat_count(geom="text", aes(x=feature,label=..count..), binwidth=bin_width,vjust=-1)
+  #stat_count(geom="text", aes(x=feature,label=..count..), binwidth=bin_width,vjust=-1)
   
   #ggsave(file=filename, path=output_location, width=6.4, height=4.8, dpi=300, units="in")
 }
@@ -74,9 +79,9 @@ ggplot(df_TIR, aes(fill=as.factor(range_name), y=as.double(as.character(time_in_
   theme(axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0)))+
   theme(axis.title.x = element_text(margin = margin(t = 15, r = 0, b = 0, l = 0)))+
   theme(legend.text = element_text(size=20*(2/3),family="Roboto Mono",face="bold",color="#a1a1a1"))+
-  theme(legend.title = element_text(size=20*(2/3),family="Roboto Mono",face="bold",color="#7c7c7c"))+
-  scale_x_discrete(limits=rev(levels(df_TIR$carb_group)))+
-  coord_flip()
+  theme(legend.title = element_text(size=20*(2/3),family="Roboto Mono",face="bold",color="#7c7c7c"))
+#scale_x_discrete(limits=rev(levels(df_TIR$carb_group)))+
+#coord_flip()
 #geom_text(aes(label=as.integer(as.character(time_in_range))), position=position_dodge(width=0.9), vjust=-0.25)
 
 #ggsave(file="test.png", path=output_location, width=12, height=8, dpi=300, units="in")
@@ -136,13 +141,13 @@ df_TIR=c()
 
 for(carb_group in 1:length(group_names)){
   for(age_group_val in 1:length(age_ranges)){
-  df_TIR = rbind(df_TIR, c(age_ranges[age_group_val],group_names[carb_group], 100*length(which(big.df$big.bg[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])]>250))/length(which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])), range_names[1],length(unique(big.df$big.day[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])])),length(unique(big.df$big.filename[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])]))))
-  df_TIR = rbind(df_TIR, c(age_ranges[age_group_val],group_names[carb_group], 100*length(which(big.df$big.bg[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])]>180))/length(which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])), range_names[2],length(unique(big.df$big.day[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])])),length(unique(big.df$big.filename[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])]))))
-  df_TIR = rbind(df_TIR, c(age_ranges[age_group_val],group_names[carb_group], 100*length(which(big.df$big.bg[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])]>=70 & big.df$big.bg[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])]<=180))/length(which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])), range_names[3],length(unique(big.df$big.day[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])])),length(unique(big.df$big.filename[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])]))))
-  df_TIR = rbind(df_TIR, c(age_ranges[age_group_val],group_names[carb_group], 100*length(which(big.df$big.bg[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])]<70))/length(which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])), range_names[4],length(unique(big.df$big.day[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])])),length(unique(big.df$big.filename[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])]))))
-  df_TIR = rbind(df_TIR, c(age_ranges[age_group_val],group_names[carb_group], 100*length(which(big.df$big.bg[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])]<54))/length(which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])), range_names[5],length(unique(big.df$big.day[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])])),length(unique(big.df$big.filename[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])]))))
-  
-  cat(paste(carb_group,"/21 * ", age_group_val,"/14\n",sep=""))
+    df_TIR = rbind(df_TIR, c(age_ranges[age_group_val],group_names[carb_group], 100*length(which(big.df$big.bg[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])]>250))/length(which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])), range_names[1],length(unique(big.df$big.day[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])])),length(unique(big.df$big.filename[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])]))))
+    df_TIR = rbind(df_TIR, c(age_ranges[age_group_val],group_names[carb_group], 100*length(which(big.df$big.bg[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])]>180))/length(which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])), range_names[2],length(unique(big.df$big.day[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])])),length(unique(big.df$big.filename[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])]))))
+    df_TIR = rbind(df_TIR, c(age_ranges[age_group_val],group_names[carb_group], 100*length(which(big.df$big.bg[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])]>=70 & big.df$big.bg[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])]<=180))/length(which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])), range_names[3],length(unique(big.df$big.day[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])])),length(unique(big.df$big.filename[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])]))))
+    df_TIR = rbind(df_TIR, c(age_ranges[age_group_val],group_names[carb_group], 100*length(which(big.df$big.bg[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])]<70))/length(which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])), range_names[4],length(unique(big.df$big.day[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])])),length(unique(big.df$big.filename[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])]))))
+    df_TIR = rbind(df_TIR, c(age_ranges[age_group_val],group_names[carb_group], 100*length(which(big.df$big.bg[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])]<54))/length(which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])), range_names[5],length(unique(big.df$big.day[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])])),length(unique(big.df$big.filename[which(big.df$age_group[which(big.df$carb_group==group_names[carb_group])]==age_ranges[age_group_val])]))))
+    
+    cat(paste(carb_group,"/21 * ", age_group_val,"/14\n",sep=""))
   }
 }
 
@@ -154,3 +159,51 @@ df_TIR$range_name = factor(df_TIR$range_name,levels=unique(df_TIR$range_name))
 
 
 ########################## PLOT CARBS VS TIME ###########################
+
+unique_carb_timestamps = sort(unique(carb_timestamp_hours))
+#unique_bg_timestamps = sort(unique(big.timestamp_hours))
+
+meanBG_timeofday = c()
+mean_carbs_timeofday = c()
+count_carbs_timeofday = c()
+
+for(k in 1:length(unique_carb_timestamps)){
+  mean_carbs_timeofday=c(mean_carbs_timeofday,mean(all_carb_entries[which(carb_timestamp_hours==unique_carb_timestamps[k])]))
+  count_carbs_timeofday = c(count_carbs_timeofday, length(which(carb_timestamp_hours==unique_carb_timestamps[k])))
+  meanBG_timeofday = c(meanBG_timeofday,mean(big.bg[which(big.timestamp_hours==unique_carb_timestamps[k])]))
+}
+
+x_hour_format = format( seq.POSIXt(as.POSIXct(Sys.Date()), as.POSIXct(Sys.Date()+1), by = "1 hour"), "%H:%M", tz="UTC")
+carb_bin_format = format( seq.POSIXt(as.POSIXct(Sys.Date()), as.POSIXct(Sys.Date()+1), by = "30 min"), "%H:%M", tz="UTC")
+carb_count_formatted = c()
+carb_bin_intervals = findInterval(sort(as.numeric(as.factor(carb_timestamp_hours))),which(unique_carb_timestamps %in% carb_bin_format))
+carb_bins = unique_carb_timestamps[which(unique_carb_timestamps %in% carb_bin_format)]
+for(val in 1:length(unique(carb_bin_intervals))){
+  carb_count_formatted= c(carb_count_formatted,length(which(carb_bin_intervals==val)))
+}
+
+ggplot() + 
+  geom_col(aes(x=carb_bins,y=carb_count_formatted),width = 4,fill="#ffd382")+
+  geom_point(aes(x=unique_carb_timestamps,y=(meanBG_timeofday-0.8*min(meanBG_timeofday))*20),color="#7bb895")+
+  theme_classic()+
+  theme(legend.position="none")+
+  xlab("Time of Day (HH:MM)")+
+  ylab("Total Carb Entry Count")+ 
+  labs(title="Average Blood Glucose vs Carb Entry Time")+
+  scale_x_discrete(limits=c(unique_carb_timestamps),breaks=x_hour_format)+
+  scale_y_continuous(sec.axis = sec_axis(~./20+0.8*min(meanBG_timeofday) , name = "Blood Glucose (mg/dL)"),limits=c(0,1.5*max(carb_count_formatted)))+
+  theme(plot.title = element_text(size=20,family="Nunito",face="bold",color="#454545",hjust=0))+
+  theme(axis.title = element_text(size=20*(7/8),family="Roboto Mono",face="bold",color="#a1a1a1"))+
+  theme(axis.text = element_text(size=20*(2/3),family="Roboto Mono",face="bold",color="#7c7c7c"))+
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0)))+
+  theme(axis.title.x = element_text(margin = margin(t = 15, r = 0, b = 0, l = 0)))+
+  theme(axis.text.x = element_text(angle=90,hjust=1,vjust=0.5))+
+  theme(axis.title.y.right = element_text(margin = margin(t = 0, r = 0, b = 0, l = 15)))
+
+ggsave(file="sample_bg_carb_intake_TOD.png", path=output_location, width=6.4, height=4.8, dpi=300, units="in")
+
+
+
+
+
+
