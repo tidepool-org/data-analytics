@@ -16,3 +16,5 @@ dependencies:
 - graphviz
 - python-graphviz
 - plotly
+- r
+- r-essentials
