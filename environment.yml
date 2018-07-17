@@ -1,0 +1,18 @@
+name: tidepool-analytics
+channels:
+  - conda-forge
+dependencies:
+- python=3
+- python-dotenv
+- pandas
+- requests
+- pylint
+- spyder
+- openpyxl
+- xlrd
+- xlsxwriter
+- matplotlib
+- scikit-learn
+- graphviz
+- python-graphviz
+- plotly
