@@ -1,3 +1,10 @@
+####################################################################################
+# description: Example for loading Tidepool data and calculating cgm stats in R
+# version: 0.0.1
+# created: 2018-07-17
+# author: Jason Meno
+# license: BSD-2-Clause
+####################################################################################
 
 # Set location of data
 dataPath = "../example-data/"
