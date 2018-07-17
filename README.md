@@ -10,7 +10,7 @@ Miniconda to get started.
 
 ## Getting started
 1. Install [Miniconda](https://conda.io/miniconda.html) for your platform.
-1. In a terminal, navigate to the data-analytics directory where the environmental.yml 
+1. In a terminal, navigate to the data-analytics directory where the environment.yml 
 is located.
 1. Run `conda env create`. This will download all of the package dependencies
 and install them in a virtual environment named tidepool-analytics.
