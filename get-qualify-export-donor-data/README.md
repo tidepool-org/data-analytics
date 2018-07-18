@@ -11,7 +11,7 @@ Here are the main functions, which are typically run in this order:
 * anonymize-and-export.py
 
 ## dependencies:
-* set up get-donor-data virtual environment (see /data-analytics/readme.md)
+* set up tidepool-analytics virtual environment (see /data-analytics/readme.md)
 * requires that donors are accepted (currently a manual process)
 * requires a list of qa accounts on production to be ignored
 * requires environmental variables: import environmentalVariables.py

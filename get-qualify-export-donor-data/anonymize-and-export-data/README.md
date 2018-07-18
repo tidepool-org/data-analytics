@@ -5,7 +5,7 @@ There is one main functions:
 * anonymize-and-export.py
 
 ## dependencies:
-* requires tidepool-data-env (see repository readme for instructions)
+* set up tidepool-analytics virtual environment (see /data-analytics/readme.md)
 * requires Tidepool data (e.g., PHI-jill-jellyfish.json)
 * requires commandline tool 'jq' for making the pretty json file
 

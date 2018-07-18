@@ -13,8 +13,6 @@ dependencies:
 - xlsxwriter
 - matplotlib
 - scikit-learn
-- graphviz
-- python-graphviz
 - plotly
 - r
 - r-essentials

@@ -2,11 +2,13 @@
 .env
 # Jupyter Notebook
 .ipynb_checkpoints
+# R Environment
+.RHistory
+# Python
+__pycache__/
 # General
 .DS_Store
 work-record-archive/
 export/
 internal/
 data
-# Python
-__pycache__/
