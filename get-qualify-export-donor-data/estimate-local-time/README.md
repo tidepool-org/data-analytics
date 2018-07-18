@@ -2,7 +2,7 @@
 A python algorithm for estimating the local time
 
 ### Dependencies:
-* Set up the tidepool-data-env (see /data-analytics/readme.md)
+* set up tidepool-analytics virtual environment (see /data-analytics/readme.md)
 * Requires wikipedia-timezone-aliases-2018-04-28.csv (in github repository)
 
 ## Why?
