@@ -6,11 +6,12 @@
 # license: BSD-2-Clause
 ####################################################################################
 
+
 # Set location of data
-dataPath = "../example-data/"
+dataPath = file.path("..","example-data")
 
 # load csv data
-data = read.csv(paste0(dataPath,
+data = read.csv(file.path(dataPath,
                        "example-from-j-jellyfish.csv"),
                        stringsAsFactors = FALSE)
 
@@ -40,7 +41,7 @@ head(cgm$mg_dL)
 
 # define a function that captures the Ambulatory Glucose Profile statistics
 # http://www.agpreport.org/agp/agpreports#CGM_AGP
-get_stats <- function(df){
+get_stats = function(df){
     
     statsDF = data.frame(matrix(nrow=1,ncol=0))
     
