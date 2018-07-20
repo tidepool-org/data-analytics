@@ -1,0 +1,5 @@
+name: tidepool-analysis-env
+
+dependencies:
+- tidyverse
+- lubridate
