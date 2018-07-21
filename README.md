@@ -20,6 +20,6 @@ may take close to 30 minutes to complete.
 Run `conda env list`
 
 ## To use the Virtual Environment
-* Run `conda activate tidepool-analytics` OR `source activate tidepool-analytics` 
+* Run `source activate tidepool-analytics`
 to start the environment.
-* Run `conda deactivate` to stop the environment
+* Run `source deactivate` to stop the environment
