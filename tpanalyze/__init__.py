@@ -7,3 +7,6 @@ created: 2018-07-21
 author: Ed Nykaza
 license: BSD-2-Clause
 """
+
+# List of functions in the tpanalyze package
+from load import load_csv
