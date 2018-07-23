@@ -8,17 +8,27 @@ license: BSD-2-Clause
 """
 
 
-# PLEASE NOTE: THESE 6 LINES ARE NEEDED TO LOAD THE TPANALYZTICS PACKAGE
-# THIS PACKAGE IS IN DEVELOPMENT
+# PLEASE NOTE: THESE 10 LINES ARE NEEDED TO LOAD THE TPANALYZTICS PACKAGE
+# ALSO NOTE: THIS PACKAGE IS STILL IN DEVELOPMENT
 import sys
 import os
 cwd = os.getcwd()
-packagePath = cwd[:(cwd.find("data-analytics") + 15)]
+# NOTE: if you renamed the root directory of the data-analytics repository,
+# enter that name here:
+nameDataAnalyticsRepository = "data-analytics"
+packagePath = cwd[:(cwd.find(nameDataAnalyticsRepository) +
+                    len(nameDataAnalyticsRepository) + 1)]
 sys.path.append(packagePath)
 sys.path.append(os.path.join(packagePath, "tpanalyze"))
 import tpanalyze as tp
+import pandas as pd
 
 
 # %% load in example data with the tpanalyze package
 dataPath = os.path.join("..", "example-data", "example-from-j-jellyfish.csv")
 data = tp.load_csv(dataPath)
+
+# get just the cgm data
+cgm = data.type
+# round data to the nearest 5 minutes
+data = tp.round_time(data, 5)
