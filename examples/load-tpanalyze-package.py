@@ -8,7 +8,7 @@ license: BSD-2-Clause
 """
 
 
-# PLEASE NOTE: THESE 10 LINES ARE NEEDED TO LOAD THE TPANALYZTICS PACKAGE
+# PLEASE NOTE: THESE 10 LINES ARE NEEDED TO LOAD THE TPANALYZE PACKAGE
 # ALSO NOTE: THIS PACKAGE IS STILL IN DEVELOPMENT
 import sys
 import os
@@ -30,5 +30,6 @@ data = tp.load_csv(dataPath)
 
 # get just the cgm data
 cgm = data.type
+
 # round data to the nearest 5 minutes
 data = tp.round_time(data, 5)
