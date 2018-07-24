@@ -28,8 +28,8 @@ import pandas as pd
 dataPath = os.path.join("..", "example-data", "example-from-j-jellyfish.csv")
 data = tp.load_csv(dataPath)
 
-# get just the cgm data
-cgm = data.type
+# get just the cgm data (utc-time and mmol/L values)
+cgm = data.loc[data.type == "cbg", ["time", "value"]]
 
 # round data to the nearest 5 minutes
-data = tp.round_time(data, 5)
+cgm = tp.round_time(cgm, 5)
