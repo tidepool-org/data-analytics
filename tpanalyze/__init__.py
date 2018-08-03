@@ -12,3 +12,4 @@ license: BSD-2-Clause
 from load import load_csv
 from clean import round_time
 from clean import remove_duplicates
+from clean import find_duplicates
