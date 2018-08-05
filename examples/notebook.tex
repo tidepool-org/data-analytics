@@ -1,0 +1,1147 @@
+
+% Default to the notebook output style
+
+    
+
+
+% Inherit from the specified cell style.
+
+
+
+
+    
+\documentclass[11pt]{article}
+
+    
+    
+    \usepackage[T1]{fontenc}
+    % Nicer default font (+ math font) than Computer Modern for most use cases
+    \usepackage{mathpazo}
+
+    % Basic figure setup, for now with no caption control since it's done
+    % automatically by Pandoc (which extracts ![](path) syntax from Markdown).
+    \usepackage{graphicx}
+    % We will generate all images so they have a width \maxwidth. This means
+    % that they will get their normal width if they fit onto the page, but
+    % are scaled down if they would overflow the margins.
+    \makeatletter
+    \def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth
+    \else\Gin@nat@width\fi}
+    \makeatother
+    \let\Oldincludegraphics\includegraphics
+    % Set max figure width to be 80% of text width, for now hardcoded.
+    \renewcommand{\includegraphics}[1]{\Oldincludegraphics[width=.8\maxwidth]{#1}}
+    % Ensure that by default, figures have no caption (until we provide a
+    % proper Figure object with a Caption API and a way to capture that
+    % in the conversion process - todo).
+    \usepackage{caption}
+    \DeclareCaptionLabelFormat{nolabel}{}
+    \captionsetup{labelformat=nolabel}
+
+    \usepackage{adjustbox} % Used to constrain images to a maximum size 
+    \usepackage{xcolor} % Allow colors to be defined
+    \usepackage{enumerate} % Needed for markdown enumerations to work
+    \usepackage{geometry} % Used to adjust the document margins
+    \usepackage{amsmath} % Equations
+    \usepackage{amssymb} % Equations
+    \usepackage{textcomp} % defines textquotesingle
+    % Hack from http://tex.stackexchange.com/a/47451/13684:
+    \AtBeginDocument{%
+        \def\PYZsq{\textquotesingle}% Upright quotes in Pygmentized code
+    }
+    \usepackage{upquote} % Upright quotes for verbatim code
+    \usepackage{eurosym} % defines \euro
+    \usepackage[mathletters]{ucs} % Extended unicode (utf-8) support
+    \usepackage[utf8x]{inputenc} % Allow utf-8 characters in the tex document
+    \usepackage{fancyvrb} % verbatim replacement that allows latex
+    \usepackage{grffile} % extends the file name processing of package graphics 
+                         % to support a larger range 
+    % The hyperref package gives us a pdf with properly built
+    % internal navigation ('pdf bookmarks' for the table of contents,
+    % internal cross-reference links, web links for URLs, etc.)
+    \usepackage{hyperref}
+    \usepackage{longtable} % longtable support required by pandoc >1.10
+    \usepackage{booktabs}  % table support for pandoc > 1.12.2
+    \usepackage[inline]{enumitem} % IRkernel/repr support (it uses the enumerate* environment)
+    \usepackage[normalem]{ulem} % ulem is needed to support strikethroughs (\sout)
+                                % normalem makes italics be italics, not underlines
+    
+
+    
+    
+    % Colors for the hyperref package
+    \definecolor{urlcolor}{rgb}{0,.145,.698}
+    \definecolor{linkcolor}{rgb}{.71,0.21,0.01}
+    \definecolor{citecolor}{rgb}{.12,.54,.11}
+
+    % ANSI colors
+    \definecolor{ansi-black}{HTML}{3E424D}
+    \definecolor{ansi-black-intense}{HTML}{282C36}
+    \definecolor{ansi-red}{HTML}{E75C58}
+    \definecolor{ansi-red-intense}{HTML}{B22B31}
+    \definecolor{ansi-green}{HTML}{00A250}
+    \definecolor{ansi-green-intense}{HTML}{007427}
+    \definecolor{ansi-yellow}{HTML}{DDB62B}
+    \definecolor{ansi-yellow-intense}{HTML}{B27D12}
+    \definecolor{ansi-blue}{HTML}{208FFB}
+    \definecolor{ansi-blue-intense}{HTML}{0065CA}
+    \definecolor{ansi-magenta}{HTML}{D160C4}
+    \definecolor{ansi-magenta-intense}{HTML}{A03196}
+    \definecolor{ansi-cyan}{HTML}{60C6C8}
+    \definecolor{ansi-cyan-intense}{HTML}{258F8F}
+    \definecolor{ansi-white}{HTML}{C5C1B4}
+    \definecolor{ansi-white-intense}{HTML}{A1A6B2}
+
+    % commands and environments needed by pandoc snippets
+    % extracted from the output of `pandoc -s`
+    \providecommand{\tightlist}{%
+      \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+    \DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+    % Add ',fontsize=\small' for more characters per line
+    \newenvironment{Shaded}{}{}
+    \newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{\textbf{{#1}}}}
+    \newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.56,0.13,0.00}{{#1}}}
+    \newcommand{\DecValTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{{#1}}}
+    \newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{{#1}}}
+    \newcommand{\FloatTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{{#1}}}
+    \newcommand{\CharTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{{#1}}}
+    \newcommand{\StringTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{{#1}}}
+    \newcommand{\CommentTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textit{{#1}}}}
+    \newcommand{\OtherTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{{#1}}}
+    \newcommand{\AlertTok}[1]{\textcolor[rgb]{1.00,0.00,0.00}{\textbf{{#1}}}}
+    \newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.02,0.16,0.49}{{#1}}}
+    \newcommand{\RegionMarkerTok}[1]{{#1}}
+    \newcommand{\ErrorTok}[1]{\textcolor[rgb]{1.00,0.00,0.00}{\textbf{{#1}}}}
+    \newcommand{\NormalTok}[1]{{#1}}
+    
+    % Additional commands for more recent versions of Pandoc
+    \newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.53,0.00,0.00}{{#1}}}
+    \newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{{#1}}}
+    \newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{{#1}}}
+    \newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.73,0.40,0.53}{{#1}}}
+    \newcommand{\ImportTok}[1]{{#1}}
+    \newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.73,0.13,0.13}{\textit{{#1}}}}
+    \newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{{#1}}}}}
+    \newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{{#1}}}}}
+    \newcommand{\VariableTok}[1]{\textcolor[rgb]{0.10,0.09,0.49}{{#1}}}
+    \newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{\textbf{{#1}}}}
+    \newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.40,0.40,0.40}{{#1}}}
+    \newcommand{\BuiltInTok}[1]{{#1}}
+    \newcommand{\ExtensionTok}[1]{{#1}}
+    \newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.74,0.48,0.00}{{#1}}}
+    \newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.49,0.56,0.16}{{#1}}}
+    \newcommand{\InformationTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{{#1}}}}}
+    \newcommand{\WarningTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{{#1}}}}}
+    
+    
+    % Define a nice break command that doesn't care if a line doesn't already
+    % exist.
+    \def\br{\hspace*{\fill} \\* }
+    % Math Jax compatability definitions
+    \def\gt{>}
+    \def\lt{<}
+    % Document parameters
+    \title{find-duplicate-cgm-data-algorithm-example}
+    
+    
+    
+
+    % Pygments definitions
+    
+\makeatletter
+\def\PY@reset{\let\PY@it=\relax \let\PY@bf=\relax%
+    \let\PY@ul=\relax \let\PY@tc=\relax%
+    \let\PY@bc=\relax \let\PY@ff=\relax}
+\def\PY@tok#1{\csname PY@tok@#1\endcsname}
+\def\PY@toks#1+{\ifx\relax#1\empty\else%
+    \PY@tok{#1}\expandafter\PY@toks\fi}
+\def\PY@do#1{\PY@bc{\PY@tc{\PY@ul{%
+    \PY@it{\PY@bf{\PY@ff{#1}}}}}}}
+\def\PY#1#2{\PY@reset\PY@toks#1+\relax+\PY@do{#2}}
+
+\expandafter\def\csname PY@tok@w\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.73,0.73}{##1}}}
+\expandafter\def\csname PY@tok@c\endcsname{\let\PY@it=\textit\def\PY@tc##1{\textcolor[rgb]{0.25,0.50,0.50}{##1}}}
+\expandafter\def\csname PY@tok@cp\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.74,0.48,0.00}{##1}}}
+\expandafter\def\csname PY@tok@k\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@kp\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@kt\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.69,0.00,0.25}{##1}}}
+\expandafter\def\csname PY@tok@o\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.40,0.40,0.40}{##1}}}
+\expandafter\def\csname PY@tok@ow\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.67,0.13,1.00}{##1}}}
+\expandafter\def\csname PY@tok@nb\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@nf\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.00,0.00,1.00}{##1}}}
+\expandafter\def\csname PY@tok@nc\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.00,1.00}{##1}}}
+\expandafter\def\csname PY@tok@nn\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.00,1.00}{##1}}}
+\expandafter\def\csname PY@tok@ne\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.82,0.25,0.23}{##1}}}
+\expandafter\def\csname PY@tok@nv\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.10,0.09,0.49}{##1}}}
+\expandafter\def\csname PY@tok@no\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.53,0.00,0.00}{##1}}}
+\expandafter\def\csname PY@tok@nl\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.63,0.63,0.00}{##1}}}
+\expandafter\def\csname PY@tok@ni\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.60,0.60,0.60}{##1}}}
+\expandafter\def\csname PY@tok@na\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.49,0.56,0.16}{##1}}}
+\expandafter\def\csname PY@tok@nt\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@nd\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.67,0.13,1.00}{##1}}}
+\expandafter\def\csname PY@tok@s\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.13,0.13}{##1}}}
+\expandafter\def\csname PY@tok@sd\endcsname{\let\PY@it=\textit\def\PY@tc##1{\textcolor[rgb]{0.73,0.13,0.13}{##1}}}
+\expandafter\def\csname PY@tok@si\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.73,0.40,0.53}{##1}}}
+\expandafter\def\csname PY@tok@se\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.73,0.40,0.13}{##1}}}
+\expandafter\def\csname PY@tok@sr\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.40,0.53}{##1}}}
+\expandafter\def\csname PY@tok@ss\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.10,0.09,0.49}{##1}}}
+\expandafter\def\csname PY@tok@sx\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@m\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.40,0.40,0.40}{##1}}}
+\expandafter\def\csname PY@tok@gh\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.00,0.50}{##1}}}
+\expandafter\def\csname PY@tok@gu\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.50,0.00,0.50}{##1}}}
+\expandafter\def\csname PY@tok@gd\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.63,0.00,0.00}{##1}}}
+\expandafter\def\csname PY@tok@gi\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.00,0.63,0.00}{##1}}}
+\expandafter\def\csname PY@tok@gr\endcsname{\def\PY@tc##1{\textcolor[rgb]{1.00,0.00,0.00}{##1}}}
+\expandafter\def\csname PY@tok@ge\endcsname{\let\PY@it=\textit}
+\expandafter\def\csname PY@tok@gs\endcsname{\let\PY@bf=\textbf}
+\expandafter\def\csname PY@tok@gp\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.00,0.50}{##1}}}
+\expandafter\def\csname PY@tok@go\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.53,0.53,0.53}{##1}}}
+\expandafter\def\csname PY@tok@gt\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.00,0.27,0.87}{##1}}}
+\expandafter\def\csname PY@tok@err\endcsname{\def\PY@bc##1{\setlength{\fboxsep}{0pt}\fcolorbox[rgb]{1.00,0.00,0.00}{1,1,1}{\strut ##1}}}
+\expandafter\def\csname PY@tok@kc\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@kd\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@kn\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@kr\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@bp\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@fm\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.00,0.00,1.00}{##1}}}
+\expandafter\def\csname PY@tok@vc\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.10,0.09,0.49}{##1}}}
+\expandafter\def\csname PY@tok@vg\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.10,0.09,0.49}{##1}}}
+\expandafter\def\csname PY@tok@vi\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.10,0.09,0.49}{##1}}}
+\expandafter\def\csname PY@tok@vm\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.10,0.09,0.49}{##1}}}
+\expandafter\def\csname PY@tok@sa\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.13,0.13}{##1}}}
+\expandafter\def\csname PY@tok@sb\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.13,0.13}{##1}}}
+\expandafter\def\csname PY@tok@sc\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.13,0.13}{##1}}}
+\expandafter\def\csname PY@tok@dl\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.13,0.13}{##1}}}
+\expandafter\def\csname PY@tok@s2\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.13,0.13}{##1}}}
+\expandafter\def\csname PY@tok@sh\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.13,0.13}{##1}}}
+\expandafter\def\csname PY@tok@s1\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.13,0.13}{##1}}}
+\expandafter\def\csname PY@tok@mb\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.40,0.40,0.40}{##1}}}
+\expandafter\def\csname PY@tok@mf\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.40,0.40,0.40}{##1}}}
+\expandafter\def\csname PY@tok@mh\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.40,0.40,0.40}{##1}}}
+\expandafter\def\csname PY@tok@mi\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.40,0.40,0.40}{##1}}}
+\expandafter\def\csname PY@tok@il\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.40,0.40,0.40}{##1}}}
+\expandafter\def\csname PY@tok@mo\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.40,0.40,0.40}{##1}}}
+\expandafter\def\csname PY@tok@ch\endcsname{\let\PY@it=\textit\def\PY@tc##1{\textcolor[rgb]{0.25,0.50,0.50}{##1}}}
+\expandafter\def\csname PY@tok@cm\endcsname{\let\PY@it=\textit\def\PY@tc##1{\textcolor[rgb]{0.25,0.50,0.50}{##1}}}
+\expandafter\def\csname PY@tok@cpf\endcsname{\let\PY@it=\textit\def\PY@tc##1{\textcolor[rgb]{0.25,0.50,0.50}{##1}}}
+\expandafter\def\csname PY@tok@c1\endcsname{\let\PY@it=\textit\def\PY@tc##1{\textcolor[rgb]{0.25,0.50,0.50}{##1}}}
+\expandafter\def\csname PY@tok@cs\endcsname{\let\PY@it=\textit\def\PY@tc##1{\textcolor[rgb]{0.25,0.50,0.50}{##1}}}
+
+\def\PYZbs{\char`\\}
+\def\PYZus{\char`\_}
+\def\PYZob{\char`\{}
+\def\PYZcb{\char`\}}
+\def\PYZca{\char`\^}
+\def\PYZam{\char`\&}
+\def\PYZlt{\char`\<}
+\def\PYZgt{\char`\>}
+\def\PYZsh{\char`\#}
+\def\PYZpc{\char`\%}
+\def\PYZdl{\char`\$}
+\def\PYZhy{\char`\-}
+\def\PYZsq{\char`\'}
+\def\PYZdq{\char`\"}
+\def\PYZti{\char`\~}
+% for compatibility with earlier versions
+\def\PYZat{@}
+\def\PYZlb{[}
+\def\PYZrb{]}
+\makeatother
+
+
+    % Exact colors from NB
+    \definecolor{incolor}{rgb}{0.0, 0.0, 0.5}
+    \definecolor{outcolor}{rgb}{0.545, 0.0, 0.0}
+
+
+
+    
+    % Prevent overflowing lines due to hard-to-break entities
+    \sloppy 
+    % Setup hyperref package
+    \hypersetup{
+      breaklinks=true,  % so long urls are correctly broken across lines
+      colorlinks=true,
+      urlcolor=urlcolor,
+      linkcolor=linkcolor,
+      citecolor=citecolor,
+      }
+    % Slightly bigger margins than the latex defaults
+    
+    \geometry{verbose,tmargin=1in,bmargin=1in,lmargin=1in,rmargin=1in}
+    
+    
+
+    \begin{document}
+    
+    
+    \maketitle
+    
+    
+
+    
+    \hypertarget{introduction}{%
+\subsection{Introduction}\label{introduction}}
+
+The purpose of this algorithm is to find duplicate records that have
+different UTC time stamps between different uploads. It does NOT
+consider the case where there is duplicate data within an upload.
+
+This algorithm is also NOT designed to handle the case where duplicate
+data has the same time stamp, as there are more efficient functions
+(e.g., the duplicated function in pandas) that can quickly find and
+delete duplicated data. In fact, one should get rid of those types of
+duplicates before running this algorithm.
+
+Also, there are two key steps in the de-duplication process: 1)
+identifying duplicates, and 2) getting rid of the bad duplicate(s). This
+algorithm only addresses (1); however, if we can find all cases of
+duplicates from step (1) it should allow us to examine and solve (2).
+
+This method is comprehensive in the sense that it looks for duplicates
+between every unique pair-wise combination of uploadIds for a given
+user. While this may be overkill, as it may compare data that is
+separted by several years, it is important that we don't make any
+assumptions about the actual time of the data, as the whole point of the
+algorithm is to find duplicates where the times are different. Further,
+we have seen a few cases where the UTC time can be off by months or
+years.
+
+\hypertarget{algorithm-logic}{%
+\subsection{Algorithm Logic}\label{algorithm-logic}}
+
+This algorithm finds sequences of cgm values that are duplicated between
+two different uploadIds. Here is the basic logic of the algorithm. For
+one user's data, we loop through each unique pair-wise combination of
+uploadIds. We do the following to each uploadId: * First we round all of
+the cgm data to the nearest 5 minutes. * Second we create a contiguous
+time series between the first data point and the last data point in the
+time series. * We then merge the two time series, so that the missing
+cgm points are filled with nans.
+
+We then repeat for the following for each unique pairwise combination of
+uploadId: * We take the longer/larger time series and call it TL, and
+the shorter one Ts, which is useful for keeping track of which indices
+match. * At this step, there is an optional preprocessing step that
+orders the shift indices to speed up the algorithm (see details in the
+second read example below). * Next we shift Ts over TL, and at each step
+we calculate the element by element difference between cgm values. If
+there is an exact match, then the difference will be zero. * At each
+step we count the number of zeros, and if it exceeds an algorithm
+defined threshold, we tag the sequence in both time series as being
+duplicate.
+
+For the examples below we will focus on cgm time series data, but if
+there are other data types that are missing deviceTime data and/or have
+incorrect UTC times, this algorithm can be adapted to those situations
+too. The following examples are given below: * a very simple (fake)
+illustrative example * an example with real Tidepool donor data
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}2}]:} \PY{c+c1}{\PYZsh{} load in the required libraries}
+        \PY{k+kn}{import} \PY{n+nn}{os}
+        \PY{k+kn}{import} \PY{n+nn}{pandas} \PY{k}{as} \PY{n+nn}{pd}
+        \PY{k+kn}{import} \PY{n+nn}{numpy} \PY{k}{as} \PY{n+nn}{np}
+        \PY{k+kn}{from} \PY{n+nn}{itertools} \PY{k}{import} \PY{n}{combinations}
+        \PY{k+kn}{from} \PY{n+nn}{math} \PY{k}{import} \PY{n}{factorial}
+\end{Verbatim}
+
+
+    \hypertarget{simple-fake-illustrative-example}{%
+\subsection{simple (fake) illustrative
+example}\label{simple-fake-illustrative-example}}
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}17}]:} \PY{c+c1}{\PYZsh{} here is the setup for this example}
+         \PY{n}{TL} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{array}\PY{p}{(}\PY{p}{[}\PY{l+m+mi}{150}\PY{p}{,} \PY{l+m+mi}{160}\PY{p}{,} \PY{l+m+mi}{170}\PY{p}{,} \PY{l+m+mi}{180}\PY{p}{,} \PY{l+m+mi}{190}\PY{p}{,} \PY{l+m+mi}{200}\PY{p}{,} \PY{l+m+mi}{210}\PY{p}{,} \PY{l+m+mi}{220}\PY{p}{,} \PY{l+m+mi}{230}\PY{p}{,} \PY{l+m+mi}{240}\PY{p}{]}\PY{p}{)}
+         \PY{n}{Ts} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{array}\PY{p}{(}\PY{p}{[}\PY{l+m+mi}{180}\PY{p}{,} \PY{n}{np}\PY{o}{.}\PY{n}{nan}\PY{p}{,} \PY{l+m+mi}{200}\PY{p}{,} \PY{l+m+mi}{210}\PY{p}{,} \PY{l+m+mi}{220}\PY{p}{]}\PY{p}{)}
+         \PY{n}{minThreshold} \PY{o}{=} \PY{l+m+mi}{3}  \PY{c+c1}{\PYZsh{} NOTE: a real example should consider a much higher number, like 96 or 288 }
+         
+         \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{o}{\PYZhy{}}\PY{n+nb}{len}\PY{p}{(}\PY{n}{Ts}\PY{p}{)} \PY{o}{+} \PY{l+m+mi}{1}\PY{p}{,} \PY{n+nb}{len}\PY{p}{(}\PY{n}{TL}\PY{p}{)}\PY{p}{)}\PY{p}{:}
+             \PY{n+nb}{print}\PY{p}{(}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{trying index}\PY{l+s+s2}{\PYZdq{}}\PY{p}{,} \PY{n}{i}\PY{p}{)}
+             \PY{n}{tempTL} \PY{o}{=} \PY{n}{TL}\PY{p}{[}\PY{n+nb}{max}\PY{p}{(}\PY{p}{[}\PY{l+m+mi}{0}\PY{p}{,} \PY{n}{i}\PY{p}{]}\PY{p}{)}\PY{p}{:}\PY{n+nb}{min}\PY{p}{(}\PY{p}{[}\PY{n+nb}{len}\PY{p}{(}\PY{n}{TL}\PY{p}{)}\PY{p}{,} \PY{p}{(}\PY{n+nb}{len}\PY{p}{(}\PY{n}{Ts}\PY{p}{)} \PY{o}{+} \PY{n}{i}\PY{p}{)}\PY{p}{]}\PY{p}{)}\PY{p}{]}
+             \PY{n+nb}{print}\PY{p}{(}\PY{n}{tempTL}\PY{p}{)}
+             \PY{n}{tempTs} \PY{o}{=} \PY{n}{Ts}\PY{p}{[}\PY{o}{\PYZhy{}}\PY{n+nb}{len}\PY{p}{(}\PY{n}{tempTL}\PY{p}{)}\PY{p}{:}\PY{p}{]}
+             \PY{n+nb}{print}\PY{p}{(}\PY{n}{tempTs}\PY{p}{)}
+             \PY{n}{tempDiff} \PY{o}{=} \PY{n}{tempTL} \PY{o}{\PYZhy{}} \PY{n}{tempTs}
+             \PY{n+nb}{print}\PY{p}{(}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{difference = }\PY{l+s+s2}{\PYZdq{}}\PY{p}{,} \PY{n}{tempDiff}\PY{p}{)}
+             \PY{n}{nZeros} \PY{o}{=} \PY{n+nb}{sum}\PY{p}{(}\PY{n}{tempDiff} \PY{o}{==} \PY{l+m+mi}{0}\PY{p}{)}
+             \PY{n+nb}{print}\PY{p}{(}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{number of zeros = }\PY{l+s+s2}{\PYZdq{}}\PY{p}{,} \PY{n}{nZeros}\PY{p}{)}
+             \PY{k}{if} \PY{n}{nZeros} \PY{o}{\PYZgt{}}\PY{o}{=} \PY{n}{minThreshold}\PY{p}{:}
+                 \PY{n+nb}{print}\PY{p}{(}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{FOUND DUPLICATES AT}\PY{l+s+s2}{\PYZdq{}}\PY{p}{,} \PY{n}{i}\PY{p}{)}
+                 
+\end{Verbatim}
+
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+trying index -4
+[150]
+[220.]
+difference =  [-70.]
+number of zeros =  0
+trying index -3
+[150 160]
+[210. 220.]
+difference =  [-60. -60.]
+number of zeros =  0
+trying index -2
+[150 160 170]
+[200. 210. 220.]
+difference =  [-50. -50. -50.]
+number of zeros =  0
+trying index -1
+[150 160 170 180]
+[ nan 200. 210. 220.]
+difference =  [ nan -40. -40. -40.]
+number of zeros =  0
+trying index 0
+[150 160 170 180 190]
+[180.  nan 200. 210. 220.]
+difference =  [-30.  nan -30. -30. -30.]
+number of zeros =  0
+trying index 1
+[160 170 180 190 200]
+[180.  nan 200. 210. 220.]
+difference =  [-20.  nan -20. -20. -20.]
+number of zeros =  0
+trying index 2
+[170 180 190 200 210]
+[180.  nan 200. 210. 220.]
+difference =  [-10.  nan -10. -10. -10.]
+number of zeros =  0
+trying index 3
+[180 190 200 210 220]
+[180.  nan 200. 210. 220.]
+difference =  [ 0. nan  0.  0.  0.]
+number of zeros =  4
+FOUND DUPLICATES AT 3
+trying index 4
+[190 200 210 220 230]
+[180.  nan 200. 210. 220.]
+difference =  [10. nan 10. 10. 10.]
+number of zeros =  0
+trying index 5
+[200 210 220 230 240]
+[180.  nan 200. 210. 220.]
+difference =  [20. nan 20. 20. 20.]
+number of zeros =  0
+trying index 6
+[210 220 230 240]
+[ nan 200. 210. 220.]
+difference =  [nan 20. 20. 20.]
+number of zeros =  0
+trying index 7
+[220 230 240]
+[200. 210. 220.]
+difference =  [20. 20. 20.]
+number of zeros =  0
+trying index 8
+[230 240]
+[210. 220.]
+difference =  [20. 20.]
+number of zeros =  0
+trying index 9
+[240]
+[220.]
+difference =  [20.]
+number of zeros =  0
+
+    \end{Verbatim}
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}79}]:} \PY{c+c1}{\PYZsh{} USER SETTINGS:}
+         \PY{c+c1}{\PYZsh{} minimum number of duplicates needed to say that the uploads having duplicate cgm data}
+         \PY{n}{minThreshold} \PY{o}{=} \PY{l+m+mi}{96}  \PY{c+c1}{\PYZsh{} 288}
+         
+         \PY{c+c1}{\PYZsh{} define results dataframe:}
+         \PY{n}{results} \PY{o}{=} \PY{n}{pd}\PY{o}{.}\PY{n}{DataFrame}\PY{p}{(}\PY{n}{columns}\PY{o}{=}\PY{p}{[}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{uploadId\PYZus{}A}\PY{l+s+s2}{\PYZdq{}}\PY{p}{,} \PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{uploadId\PYZus{}B}\PY{l+s+s2}{\PYZdq{}}\PY{p}{,}
+                                         \PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{nDuplicates}\PY{l+s+s2}{\PYZdq{}}\PY{p}{,}
+                                         \PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{averageTimeDifference}\PY{l+s+s2}{\PYZdq{}}\PY{p}{,}
+                                         \PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{startIndex\PYZus{}A}\PY{l+s+s2}{\PYZdq{}}\PY{p}{,} \PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{endIndex\PYZus{}A}\PY{l+s+s2}{\PYZdq{}}\PY{p}{,}
+                                         \PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{startIndex\PYZus{}B}\PY{l+s+s2}{\PYZdq{}}\PY{p}{,} \PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{endIndex\PYZus{}B}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}80}]:} \PY{c+c1}{\PYZsh{} load in an exmaple dataset}
+         \PY{n}{hashID} \PY{o}{=} \PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{0289cfb8bd6d61ccf1f31c07aa146b7b14f0eb74474be4311860d9d77dd30f15}\PY{l+s+s2}{\PYZdq{}}
+         \PY{n}{dataPath} \PY{o}{=} \PY{n}{os}\PY{o}{.}\PY{n}{path}\PY{o}{.}\PY{n}{join}\PY{p}{(}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{.}\PY{l+s+s2}{\PYZdq{}}\PY{p}{,} \PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{data}\PY{l+s+s2}{\PYZdq{}}\PY{p}{)}
+         \PY{n}{data} \PY{o}{=} \PY{n}{pd}\PY{o}{.}\PY{n}{read\PYZus{}csv}\PY{p}{(}\PY{n}{os}\PY{o}{.}\PY{n}{path}\PY{o}{.}\PY{n}{join}\PY{p}{(}\PY{n}{dataPath}\PY{p}{,} \PY{n}{hashID} \PY{o}{+} \PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{.csv}\PY{l+s+s2}{\PYZdq{}}\PY{p}{)}\PY{p}{,} \PY{n}{low\PYZus{}memory}\PY{o}{=}\PY{k+kc}{False}\PY{p}{)}
+         \PY{c+c1}{\PYZsh{} work with just the cgm data (though this can be modified for pump data)}
+         \PY{n}{cgm} \PY{o}{=} \PY{n}{data}\PY{o}{.}\PY{n}{loc}\PY{p}{[}\PY{n}{data}\PY{o}{.}\PY{n}{type} \PY{o}{==} \PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{cbg}\PY{l+s+s2}{\PYZdq{}}\PY{p}{,} \PY{p}{[}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{deviceTime}\PY{l+s+s2}{\PYZdq{}}\PY{p}{,} \PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{time}\PY{l+s+s2}{\PYZdq{}}\PY{p}{,} \PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{value}\PY{l+s+s2}{\PYZdq{}}\PY{p}{,} \PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{uploadId}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]}\PY{p}{]}
+         \PY{c+c1}{\PYZsh{} convert mmol/L to mg/dL}
+         \PY{n}{cgm} \PY{o}{=} \PY{n}{cgm}\PY{o}{.}\PY{n}{rename}\PY{p}{(}\PY{n}{columns}\PY{o}{=}\PY{p}{\PYZob{}}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{value}\PY{l+s+s2}{\PYZdq{}}\PY{p}{:} \PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{mmol\PYZus{}L}\PY{l+s+s2}{\PYZdq{}}\PY{p}{\PYZcb{}}\PY{p}{)}
+         \PY{n}{cgm}\PY{p}{[}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{mg\PYZus{}dL}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]} \PY{o}{=} \PY{p}{(}\PY{n}{cgm}\PY{p}{[}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{mmol\PYZus{}L}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]} \PY{o}{*} \PY{l+m+mf}{18.01559}\PY{p}{)}\PY{o}{.}\PY{n}{astype}\PY{p}{(}\PY{n+nb}{int}\PY{p}{)}
+         \PY{n}{cgm}\PY{o}{.}\PY{n}{head}\PY{p}{(}\PY{p}{)}
+\end{Verbatim}
+
+
+\begin{Verbatim}[commandchars=\\\{\}]
+{\color{outcolor}Out[{\color{outcolor}80}]:}             deviceTime                      time     mmol\_L  \textbackslash{}
+         0  2015-09-20T12:54:49  2015-09-20T19:57:51.000Z  10.046854   
+         1  2015-09-20T12:54:49  2015-09-20T19:57:51.000Z  10.046854   
+         2  2015-09-20T12:59:49  2015-09-20T20:02:51.000Z  10.102361   
+         3  2015-09-20T12:59:49  2015-09-20T20:02:51.000Z  10.102361   
+         4  2015-09-20T13:04:49  2015-09-20T20:07:51.000Z  10.768451   
+         
+                                         uploadId  mg\_dL  
+         0  upid\_3c41703c2d3a8b97f479afdb6ccf799f    180  
+         1  upid\_3fc32e5ad912a8ea7efced9151804bdb    180  
+         2  upid\_3c41703c2d3a8b97f479afdb6ccf799f    182  
+         3  upid\_3fc32e5ad912a8ea7efced9151804bdb    182  
+         4  upid\_3c41703c2d3a8b97f479afdb6ccf799f    193  
+\end{Verbatim}
+            
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}81}]:} \PY{c+c1}{\PYZsh{} round UTC time (i.e., time) to the nearest 30 seconds to deal with rounding errors}
+         \PY{n}{cgm}\PY{p}{[}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{roundedTime30sec}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]} \PY{o}{=} \PY{n}{pd}\PY{o}{.}\PY{n}{to\PYZus{}datetime}\PY{p}{(}\PY{n}{cgm}\PY{p}{[}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{time}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]}\PY{p}{)}\PY{o}{.}\PY{n}{dt}\PY{o}{.}\PY{n}{round}\PY{p}{(}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{30S}\PY{l+s+s2}{\PYZdq{}}\PY{p}{)}
+         \PY{c+c1}{\PYZsh{} and then round to nearest 5 minutes}
+         \PY{n}{ns5min}\PY{o}{=}\PY{l+m+mi}{5}\PY{o}{*}\PY{l+m+mi}{60}\PY{o}{*}\PY{l+m+mf}{1E9}
+         \PY{n}{cgm}\PY{p}{[}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{roundedTime5min}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]} \PY{o}{=} \PYZbs{}
+             \PY{n}{pd}\PY{o}{.}\PY{n}{to\PYZus{}datetime}\PY{p}{(}\PY{p}{(}\PY{n}{pd}\PY{o}{.}\PY{n}{to\PYZus{}datetime}\PY{p}{(}\PY{n}{cgm}\PY{p}{[}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{roundedTime30sec}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]}\PY{p}{)}\PY{o}{.}\PY{n}{astype}\PY{p}{(}\PY{n}{np}\PY{o}{.}\PY{n}{int64}\PY{p}{)} \PY{o}{/}\PY{o}{/} \PY{n}{ns5min} \PY{o}{+} \PY{l+m+mi}{1}\PY{p}{)} \PY{o}{*} \PY{n}{ns5min}\PY{p}{)}
+         \PY{n}{cgm}\PY{o}{.}\PY{n}{head}\PY{p}{(}\PY{p}{)}
+\end{Verbatim}
+
+
+\begin{Verbatim}[commandchars=\\\{\}]
+{\color{outcolor}Out[{\color{outcolor}81}]:}             deviceTime                      time     mmol\_L  \textbackslash{}
+         0  2015-09-20T12:54:49  2015-09-20T19:57:51.000Z  10.046854   
+         1  2015-09-20T12:54:49  2015-09-20T19:57:51.000Z  10.046854   
+         2  2015-09-20T12:59:49  2015-09-20T20:02:51.000Z  10.102361   
+         3  2015-09-20T12:59:49  2015-09-20T20:02:51.000Z  10.102361   
+         4  2015-09-20T13:04:49  2015-09-20T20:07:51.000Z  10.768451   
+         
+                                         uploadId  mg\_dL    roundedTime30sec  \textbackslash{}
+         0  upid\_3c41703c2d3a8b97f479afdb6ccf799f    180 2015-09-20 19:58:00   
+         1  upid\_3fc32e5ad912a8ea7efced9151804bdb    180 2015-09-20 19:58:00   
+         2  upid\_3c41703c2d3a8b97f479afdb6ccf799f    182 2015-09-20 20:03:00   
+         3  upid\_3fc32e5ad912a8ea7efced9151804bdb    182 2015-09-20 20:03:00   
+         4  upid\_3c41703c2d3a8b97f479afdb6ccf799f    193 2015-09-20 20:08:00   
+         
+               roundedTime5min  
+         0 2015-09-20 20:00:00  
+         1 2015-09-20 20:00:00  
+         2 2015-09-20 20:05:00  
+         3 2015-09-20 20:05:00  
+         4 2015-09-20 20:10:00  
+\end{Verbatim}
+            
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}82}]:} \PY{c+c1}{\PYZsh{} get a count of all the unique uploadIDs}
+         \PY{n}{uniqueUploads} \PY{o}{=} \PY{n}{pd}\PY{o}{.}\PY{n}{DataFrame}\PY{p}{(}\PY{n}{cgm}\PY{o}{.}\PY{n}{groupby}\PY{p}{(}\PY{n}{by}\PY{o}{=}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{uploadId}\PY{l+s+s2}{\PYZdq{}}\PY{p}{)}\PY{o}{.}\PY{n}{mg\PYZus{}dL}\PY{o}{.}\PY{n}{count}\PY{p}{(}\PY{p}{)}\PY{p}{)}
+         \PY{n}{uniqueUploads} \PY{o}{=} \PY{n}{uniqueUploads}\PY{o}{.}\PY{n}{rename}\PY{p}{(}\PY{n}{columns}\PY{o}{=}\PY{p}{\PYZob{}}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{mg\PYZus{}dL}\PY{l+s+s2}{\PYZdq{}}\PY{p}{:}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{counts}\PY{l+s+s2}{\PYZdq{}}\PY{p}{\PYZcb{}}\PY{p}{)}
+         \PY{n}{uniqueUploads} \PY{o}{=} \PY{n}{uniqueUploads}\PY{p}{[}\PY{n}{uniqueUploads}\PY{o}{.}\PY{n}{counts} \PY{o}{\PYZgt{}} \PY{n}{minThreshold}\PY{p}{]}\PY{o}{.}\PY{n}{reset\PYZus{}index}\PY{p}{(}\PY{p}{)}
+         \PY{n+nb}{print}\PY{p}{(}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{there are }\PY{l+s+si}{\PYZpc{}d}\PY{l+s+s2}{ unique uploadIds}\PY{l+s+s2}{\PYZdq{}} \PY{o}{\PYZpc{}} \PY{n+nb}{len}\PY{p}{(}\PY{n}{uniqueUploads}\PY{p}{)}\PY{p}{)}
+         \PY{n}{uniqueUploads}\PY{o}{.}\PY{n}{head}\PY{p}{(}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+there are 302 unique uploadIds
+
+    \end{Verbatim}
+
+\begin{Verbatim}[commandchars=\\\{\}]
+{\color{outcolor}Out[{\color{outcolor}82}]:}                                 uploadId  counts
+         0  upid\_008d3670b5d22f7c8c9224c7e3e2cb6b     288
+         1  upid\_0147bc4243e2e3265136ea742707e226     211
+         2  upid\_0165f5fecabcc9afe71634ed8ec516bb     285
+         3  upid\_02905a123ef649c17aa9f2fced2f1f68     288
+         4  upid\_0398d37fae900252fb8fcd0a504986f9    1000
+\end{Verbatim}
+            
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}83}]:} \PY{c+c1}{\PYZsh{} calculate the number of unique combinations of uploadIds}
+         \PY{n}{combos} \PY{o}{=} \PY{n}{combinations}\PY{p}{(}\PY{n}{uniqueUploads}\PY{o}{.}\PY{n}{uploadId}\PY{p}{,} \PY{l+m+mi}{2}\PY{p}{)}
+         \PY{n}{nCombos} \PY{o}{=} \PY{n+nb}{int}\PY{p}{(}\PY{n}{factorial}\PY{p}{(}\PY{n+nb}{len}\PY{p}{(}\PY{n}{uniqueUploads}\PY{p}{)}\PY{p}{)}\PY{o}{/}\PY{p}{(}\PY{n}{factorial}\PY{p}{(}\PY{l+m+mi}{2}\PY{p}{)} \PY{o}{*} \PY{n}{factorial}\PY{p}{(}\PY{n+nb}{len}\PY{p}{(}\PY{n}{uniqueUploads}\PY{p}{)} \PY{o}{\PYZhy{}} \PY{l+m+mi}{2}\PY{p}{)}\PY{p}{)}\PY{p}{)}
+         \PY{n+nb}{print}\PY{p}{(}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{there are }\PY{l+s+si}{\PYZpc{}d}\PY{l+s+s2}{ unique combinations...oh my}\PY{l+s+s2}{\PYZdq{}} \PY{o}{\PYZpc{}} \PY{n}{nCombos}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+there are 45451 unique combinations{\ldots}oh my
+
+    \end{Verbatim}
+
+    Given that there are so many unique combinations, we will only show one
+combination; however, you could loop through the rest of the code with
+the following:
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}84}]:} \PY{c+c1}{\PYZsh{} for cIndex, combo in enumerate(list(combos)):}
+             \PY{c+c1}{\PYZsh{} assign the uploadId with the largest time span to A, and shortest to B}
+             \PY{c+c1}{\PYZsh{}        duration0 = pd.to\PYZus{}datetime(cgm[cgm.uploadId == combo[0]].time.max()) \PYZhy{} \PYZbs{}}
+             \PY{c+c1}{\PYZsh{}          pd.to\PYZus{}datetime(cgm[cgm.uploadId == combo[0]].time.min())}
+             \PY{c+c1}{\PYZsh{}        duration1 = pd.to\PYZus{}datetime(cgm[cgm.uploadId == combo[1]].time.max()) \PYZhy{} \PYZbs{}}
+             \PY{c+c1}{\PYZsh{}          pd.to\PYZus{}datetime(cgm[cgm.uploadId == combo[1]].time.min())}
+             \PY{c+c1}{\PYZsh{}        if duration0 \PYZgt{}= duration1:}
+             \PY{c+c1}{\PYZsh{}            results.loc[cIndex, [\PYZdq{}uploadId\PYZus{}A\PYZdq{}]] = combo[0]}
+             \PY{c+c1}{\PYZsh{}            results.loc[cIndex, [\PYZdq{}span\PYZus{}uploadId\PYZus{}A\PYZdq{}]] = duration0}
+             \PY{c+c1}{\PYZsh{}            results.loc[cIndex, [\PYZdq{}n\PYZus{}uploadId\PYZus{}A\PYZdq{}]] = \PYZbs{}}
+             \PY{c+c1}{\PYZsh{}                uniqueUploads[uniqueUploads.uploadId == combo[0]].counts.values[0]}
+             \PY{c+c1}{\PYZsh{}            results.loc[cIndex, [\PYZdq{}uploadId\PYZus{}B\PYZdq{}]] = combo[1]}
+             \PY{c+c1}{\PYZsh{}            results.loc[cIndex, [\PYZdq{}span\PYZus{}uploadId\PYZus{}B\PYZdq{}]] = duration1}
+             \PY{c+c1}{\PYZsh{}            results.loc[cIndex, [\PYZdq{}n\PYZus{}uploadId\PYZus{}B\PYZdq{}]] = \PYZbs{}}
+             \PY{c+c1}{\PYZsh{}                uniqueUploads[uniqueUploads.uploadId == combo[1]].counts.values[0]}
+             \PY{c+c1}{\PYZsh{}        else:}
+             \PY{c+c1}{\PYZsh{}            results.loc[cIndex, [\PYZdq{}uploadId\PYZus{}A\PYZdq{}]] = combo[1]}
+             \PY{c+c1}{\PYZsh{}            results.loc[cIndex, [\PYZdq{}span\PYZus{}uploadId\PYZus{}A\PYZdq{}]] = duration1}
+             \PY{c+c1}{\PYZsh{}            results.loc[cIndex, [\PYZdq{}n\PYZus{}uploadId\PYZus{}A\PYZdq{}]] = \PYZbs{}}
+             \PY{c+c1}{\PYZsh{}                uniqueUploads[uniqueUploads.uploadId == combo[1]].counts.values[0]}
+             \PY{c+c1}{\PYZsh{}            results.loc[cIndex, [\PYZdq{}uploadId\PYZus{}B\PYZdq{}]] = combo[0]}
+             \PY{c+c1}{\PYZsh{}            results.loc[cIndex, [\PYZdq{}span\PYZus{}uploadId\PYZus{}B\PYZdq{}]] = duration0}
+             \PY{c+c1}{\PYZsh{}            results.loc[cIndex, [\PYZdq{}n\PYZus{}uploadId\PYZus{}B\PYZdq{}]] = \PYZbs{}}
+             \PY{c+c1}{\PYZsh{}                uniqueUploads[uniqueUploads.uploadId == combo[0]].counts.values[0]}
+             \PY{c+c1}{\PYZsh{}}
+             \PY{c+c1}{\PYZsh{}        uploadId\PYZus{}A = results.loc[cIndex, \PYZdq{}uploadId\PYZus{}A\PYZdq{}]}
+             \PY{c+c1}{\PYZsh{}        uploadId\PYZus{}B = results.loc[cIndex, \PYZdq{}uploadId\PYZus{}B\PYZdq{}]}
+         \PY{n}{uploadId\PYZus{}A} \PY{o}{=} \PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{upid\PYZus{}ff6bf4b6fde9c9bc45bb211de131d225}\PY{l+s+s2}{\PYZdq{}}
+         \PY{n}{uploadId\PYZus{}B} \PY{o}{=} \PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{upid\PYZus{}12164f5817e09ab7bffb439d8c260131}\PY{l+s+s2}{\PYZdq{}}
+\end{Verbatim}
+
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}85}]:} \PY{c+c1}{\PYZsh{} get the cgm data of these two time series, and}
+         \PY{c+c1}{\PYZsh{} keep track of the original index}
+         \PY{n}{cgm\PYZus{}A} \PY{o}{=} \PY{n}{cgm}\PY{p}{[}\PY{n}{cgm}\PY{o}{.}\PY{n}{uploadId} \PY{o}{==} \PY{n}{uploadId\PYZus{}A}\PY{p}{]}\PY{o}{.}\PY{n}{reset\PYZus{}index}\PY{p}{(}\PY{p}{)}\PY{o}{.}\PY{n}{rename}\PY{p}{(}\PY{n}{columns}\PY{o}{=}\PY{p}{\PYZob{}}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{index}\PY{l+s+s2}{\PYZdq{}}\PY{p}{:}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{originalIndex}\PY{l+s+s2}{\PYZdq{}}\PY{p}{\PYZcb{}}\PY{p}{)}
+         \PY{n}{cgm\PYZus{}B} \PY{o}{=} \PY{n}{cgm}\PY{p}{[}\PY{n}{cgm}\PY{o}{.}\PY{n}{uploadId} \PY{o}{==} \PY{n}{uploadId\PYZus{}B}\PY{p}{]}\PY{o}{.}\PY{n}{reset\PYZus{}index}\PY{p}{(}\PY{p}{)}\PY{o}{.}\PY{n}{rename}\PY{p}{(}\PY{n}{columns}\PY{o}{=}\PY{p}{\PYZob{}}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{index}\PY{l+s+s2}{\PYZdq{}}\PY{p}{:}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{originalIndex}\PY{l+s+s2}{\PYZdq{}}\PY{p}{\PYZcb{}}\PY{p}{)}
+         \PY{n}{cgm\PYZus{}A}\PY{o}{.}\PY{n}{head}\PY{p}{(}\PY{p}{)}
+\end{Verbatim}
+
+
+\begin{Verbatim}[commandchars=\\\{\}]
+{\color{outcolor}Out[{\color{outcolor}85}]:}    originalIndex           deviceTime                      time    mmol\_L  \textbackslash{}
+         0          28728  2016-01-21T11:54:48  2016-01-21T19:57:24.000Z  5.606255   
+         1          28730  2016-01-21T11:59:49  2016-01-21T20:02:24.000Z  6.216838   
+         2          28732  2016-01-21T12:04:48  2016-01-21T20:07:24.000Z  7.049450   
+         3          28735  2016-01-21T12:09:48  2016-01-21T20:12:24.000Z  7.549017   
+         4          28736  2016-01-21T12:14:48  2016-01-21T20:17:24.000Z  7.604525   
+         
+                                         uploadId  mg\_dL    roundedTime30sec  \textbackslash{}
+         0  upid\_ff6bf4b6fde9c9bc45bb211de131d225    101 2016-01-21 19:57:30   
+         1  upid\_ff6bf4b6fde9c9bc45bb211de131d225    112 2016-01-21 20:02:30   
+         2  upid\_ff6bf4b6fde9c9bc45bb211de131d225    127 2016-01-21 20:07:30   
+         3  upid\_ff6bf4b6fde9c9bc45bb211de131d225    136 2016-01-21 20:12:30   
+         4  upid\_ff6bf4b6fde9c9bc45bb211de131d225    136 2016-01-21 20:17:30   
+         
+               roundedTime5min  
+         0 2016-01-21 20:00:00  
+         1 2016-01-21 20:05:00  
+         2 2016-01-21 20:10:00  
+         3 2016-01-21 20:15:00  
+         4 2016-01-21 20:20:00  
+\end{Verbatim}
+            
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}88}]:} \PY{c+c1}{\PYZsh{} create a continguous time series from the first to last data point}
+         \PY{c+c1}{\PYZsh{} first for A}
+         \PY{n}{contiguousBeginDateTime\PYZus{}A} \PY{o}{=} \PY{n+nb}{min}\PY{p}{(}\PY{n}{cgm\PYZus{}A}\PY{o}{.}\PY{n}{roundedTime5min}\PY{p}{)}
+         \PY{n}{contiguousEndDateTime\PYZus{}A} \PY{o}{=} \PY{n+nb}{max}\PY{p}{(}\PY{n}{cgm\PYZus{}A}\PY{o}{.}\PY{n}{roundedTime5min}\PY{p}{)}
+         \PY{n}{rng\PYZus{}A} \PY{o}{=} \PY{n}{pd}\PY{o}{.}\PY{n}{date\PYZus{}range}\PY{p}{(}\PY{n}{contiguousBeginDateTime\PYZus{}A}\PY{p}{,} \PY{n}{contiguousEndDateTime\PYZus{}A}\PY{p}{,} \PY{n}{freq}\PY{o}{=}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{5min}\PY{l+s+s2}{\PYZdq{}}\PY{p}{)}
+         \PY{n}{contiguousData\PYZus{}A} \PY{o}{=} \PY{n}{pd}\PY{o}{.}\PY{n}{DataFrame}\PY{p}{(}\PY{n}{rng\PYZus{}A}\PY{p}{,} \PY{n}{columns}\PY{o}{=}\PY{p}{[}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{dateTime}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]}\PY{p}{)}
+         \PY{c+c1}{\PYZsh{} then for B}
+         \PY{n}{contiguousBeginDateTime\PYZus{}B} \PY{o}{=} \PY{n+nb}{min}\PY{p}{(}\PY{n}{cgm\PYZus{}B}\PY{o}{.}\PY{n}{roundedTime5min}\PY{p}{)}
+         \PY{n}{contiguousEndDateTime\PYZus{}B} \PY{o}{=} \PY{n+nb}{max}\PY{p}{(}\PY{n}{cgm\PYZus{}B}\PY{o}{.}\PY{n}{roundedTime5min}\PY{p}{)}
+         \PY{n}{rng\PYZus{}B} \PY{o}{=} \PY{n}{pd}\PY{o}{.}\PY{n}{date\PYZus{}range}\PY{p}{(}\PY{n}{contiguousBeginDateTime\PYZus{}B}\PY{p}{,} \PY{n}{contiguousEndDateTime\PYZus{}B}\PY{p}{,} \PY{n}{freq}\PY{o}{=}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{5min}\PY{l+s+s2}{\PYZdq{}}\PY{p}{)}
+         \PY{n}{contiguousData\PYZus{}B} \PY{o}{=} \PY{n}{pd}\PY{o}{.}\PY{n}{DataFrame}\PY{p}{(}\PY{n}{rng\PYZus{}B}\PY{p}{,} \PY{n}{columns}\PY{o}{=}\PY{p}{[}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{dateTime}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]}\PY{p}{)}
+         
+         \PY{c+c1}{\PYZsh{} merge cgm data with contiguous time series}
+         \PY{n}{contiguousData\PYZus{}A} \PY{o}{=} \PY{n}{pd}\PY{o}{.}\PY{n}{merge}\PY{p}{(}\PY{n}{contiguousData\PYZus{}A}\PY{p}{,} \PY{n}{cgm\PYZus{}A}\PY{p}{,}
+                                     \PY{n}{left\PYZus{}on}\PY{o}{=}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{dateTime}\PY{l+s+s2}{\PYZdq{}}\PY{p}{,} \PY{n}{right\PYZus{}on}\PY{o}{=}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{roundedTime5min}\PY{l+s+s2}{\PYZdq{}}\PY{p}{,}
+                                     \PY{n}{how}\PY{o}{=}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{left}\PY{l+s+s2}{\PYZdq{}}\PY{p}{)}
+         \PY{n}{contiguousData\PYZus{}B} \PY{o}{=} \PY{n}{pd}\PY{o}{.}\PY{n}{merge}\PY{p}{(}\PY{n}{contiguousData\PYZus{}B}\PY{p}{,} \PY{n}{cgm\PYZus{}B}\PY{p}{,}
+                                     \PY{n}{left\PYZus{}on}\PY{o}{=}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{dateTime}\PY{l+s+s2}{\PYZdq{}}\PY{p}{,} \PY{n}{right\PYZus{}on}\PY{o}{=}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{roundedTime5min}\PY{l+s+s2}{\PYZdq{}}\PY{p}{,}
+                                     \PY{n}{how}\PY{o}{=}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{left}\PY{l+s+s2}{\PYZdq{}}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}89}]:} \PY{n}{contiguousData\PYZus{}A}
+\end{Verbatim}
+
+
+\begin{Verbatim}[commandchars=\\\{\}]
+{\color{outcolor}Out[{\color{outcolor}89}]:}                 dateTime  originalIndex           deviceTime  \textbackslash{}
+         0    2016-01-21 20:00:00        28728.0  2016-01-21T11:54:48   
+         1    2016-01-21 20:05:00        28730.0  2016-01-21T11:59:49   
+         2    2016-01-21 20:10:00        28732.0  2016-01-21T12:04:48   
+         3    2016-01-21 20:15:00        28735.0  2016-01-21T12:09:48   
+         4    2016-01-21 20:20:00        28736.0  2016-01-21T12:14:48   
+         5    2016-01-21 20:25:00        28738.0  2016-01-21T12:19:48   
+         6    2016-01-21 20:30:00        28740.0  2016-01-21T12:24:49   
+         7    2016-01-21 20:35:00        28742.0  2016-01-21T12:29:49   
+         8    2016-01-21 20:40:00        28745.0  2016-01-21T12:34:49   
+         9    2016-01-21 20:45:00        28746.0  2016-01-21T12:39:48   
+         10   2016-01-21 20:50:00        28749.0  2016-01-21T12:44:48   
+         11   2016-01-21 20:55:00        28751.0  2016-01-21T12:49:49   
+         12   2016-01-21 21:00:00        28753.0  2016-01-21T12:54:48   
+         13   2016-01-21 21:05:00        28755.0  2016-01-21T12:59:48   
+         14   2016-01-21 21:10:00        28756.0  2016-01-21T13:04:48   
+         15   2016-01-21 21:15:00        28758.0  2016-01-21T13:09:48   
+         16   2016-01-21 21:20:00        28760.0  2016-01-21T13:14:48   
+         17   2016-01-21 21:25:00        28763.0  2016-01-21T13:19:48   
+         18   2016-01-21 21:30:00        28764.0  2016-01-21T13:24:48   
+         19   2016-01-21 21:35:00        28766.0  2016-01-21T13:29:48   
+         20   2016-01-21 21:40:00        28769.0  2016-01-21T13:34:48   
+         21   2016-01-21 21:45:00        28771.0  2016-01-21T13:39:48   
+         22   2016-01-21 21:50:00        28772.0  2016-01-21T13:44:48   
+         23   2016-01-21 21:55:00        28775.0  2016-01-21T13:49:48   
+         24   2016-01-21 22:00:00        28776.0  2016-01-21T13:54:48   
+         25   2016-01-21 22:05:00        28779.0  2016-01-21T13:59:48   
+         26   2016-01-21 22:10:00        28780.0  2016-01-21T14:04:48   
+         27   2016-01-21 22:15:00        28783.0  2016-01-21T14:09:48   
+         28   2016-01-21 22:20:00        28784.0  2016-01-21T14:14:48   
+         29   2016-01-21 22:25:00        28787.0  2016-01-21T14:19:48   
+         {\ldots}                  {\ldots}            {\ldots}                  {\ldots}   
+         8872 2016-02-21 15:20:00        30681.0  2016-02-21T07:12:38   
+         8873 2016-02-21 15:25:00        30682.0  2016-02-21T07:17:38   
+         8874 2016-02-21 15:30:00        30684.0  2016-02-21T07:22:38   
+         8875 2016-02-21 15:35:00        30687.0  2016-02-21T07:27:38   
+         8876 2016-02-21 15:40:00            NaN                  NaN   
+         8877 2016-02-21 15:45:00        30690.0  2016-02-21T07:37:38   
+         8878 2016-02-21 15:50:00            NaN                  NaN   
+         8879 2016-02-21 15:55:00        30695.0  2016-02-21T07:47:38   
+         8880 2016-02-21 16:00:00        30696.0  2016-02-21T07:52:38   
+         8881 2016-02-21 16:05:00        30698.0  2016-02-21T07:57:38   
+         8882 2016-02-21 16:10:00        30700.0  2016-02-21T08:02:38   
+         8883 2016-02-21 16:15:00            NaN                  NaN   
+         8884 2016-02-21 16:20:00        30704.0  2016-02-21T08:12:38   
+         8885 2016-02-21 16:25:00        30706.0  2016-02-21T08:17:38   
+         8886 2016-02-21 16:30:00        30709.0  2016-02-21T08:22:38   
+         8887 2016-02-21 16:35:00            NaN                  NaN   
+         8888 2016-02-21 16:40:00        30712.0  2016-02-21T08:32:38   
+         8889 2016-02-21 16:45:00        30714.0  2016-02-21T08:37:39   
+         8890 2016-02-21 16:50:00        30716.0  2016-02-21T08:42:38   
+         8891 2016-02-21 16:55:00        30718.0  2016-02-21T08:47:38   
+         8892 2016-02-21 17:00:00        30721.0  2016-02-21T08:52:38   
+         8893 2016-02-21 17:05:00        30723.0  2016-02-21T08:57:38   
+         8894 2016-02-21 17:10:00            NaN                  NaN   
+         8895 2016-02-21 17:15:00        30726.0  2016-02-21T09:07:39   
+         8896 2016-02-21 17:20:00        30728.0  2016-02-21T09:12:38   
+         8897 2016-02-21 17:25:00        30730.0  2016-02-21T09:17:38   
+         8898 2016-02-21 17:30:00            NaN                  NaN   
+         8899 2016-02-21 17:35:00        30732.0  2016-02-21T09:27:38   
+         8900 2016-02-21 17:40:00        30734.0  2016-02-21T09:32:38   
+         8901 2016-02-21 17:45:00        30736.0  2016-02-21T09:37:38   
+         
+                                   time    mmol\_L  \textbackslash{}
+         0     2016-01-21T19:57:24.000Z  5.606255   
+         1     2016-01-21T20:02:24.000Z  6.216838   
+         2     2016-01-21T20:07:24.000Z  7.049450   
+         3     2016-01-21T20:12:24.000Z  7.549017   
+         4     2016-01-21T20:17:24.000Z  7.604525   
+         5     2016-01-21T20:22:24.000Z  6.993942   
+         6     2016-01-21T20:27:24.000Z  7.382495   
+         7     2016-01-21T20:32:24.000Z  7.271480   
+         8     2016-01-21T20:37:24.000Z  7.215972   
+         9     2016-01-21T20:42:24.000Z  7.326987   
+         10    2016-01-21T20:47:24.000Z  7.160465   
+         11    2016-01-21T20:52:24.000Z  7.049450   
+         12    2016-01-21T20:57:24.000Z  6.938435   
+         13    2016-01-21T21:02:24.000Z  6.660898   
+         14    2016-01-21T21:07:24.000Z  6.660898   
+         15    2016-01-21T21:12:24.000Z  5.606255   
+         16    2016-01-21T21:17:24.000Z  5.328718   
+         17    2016-01-21T21:22:24.000Z  5.051181   
+         18    2016-01-21T21:27:24.000Z  4.662628   
+         19    2016-01-21T21:32:24.000Z  4.607121   
+         20    2016-01-21T21:37:24.000Z  4.662628   
+         21    2016-01-21T21:42:24.000Z  5.217703   
+         22    2016-01-21T21:47:24.000Z  6.216838   
+         23    2016-01-21T21:52:24.000Z  5.495241   
+         24    2016-01-21T21:57:24.000Z  5.939300   
+         25    2016-01-21T22:02:24.000Z  6.216838   
+         26    2016-01-21T22:07:24.000Z  6.105823   
+         27    2016-01-21T22:12:24.000Z  5.828285   
+         28    2016-01-21T22:17:24.000Z  5.828285   
+         29    2016-01-21T22:22:24.000Z  5.939300   
+         {\ldots}                        {\ldots}       {\ldots}   
+         8872  2016-02-21T15:16:00.000Z  3.719001   
+         8873  2016-02-21T15:21:00.000Z  3.774509   
+         8874  2016-02-21T15:26:00.000Z  3.830016   
+         8875  2016-02-21T15:31:00.000Z  3.885524   
+         8876                       NaN       NaN   
+         8877  2016-02-21T15:41:00.000Z  3.885524   
+         8878                       NaN       NaN   
+         8879  2016-02-21T15:51:00.000Z  3.996539   
+         8880  2016-02-21T15:56:00.000Z  4.163061   
+         8881  2016-02-21T16:01:00.000Z  4.329583   
+         8882  2016-02-21T16:06:00.000Z  4.440598   
+         8883                       NaN       NaN   
+         8884  2016-02-21T16:16:00.000Z  4.718136   
+         8885  2016-02-21T16:21:00.000Z  4.829151   
+         8886  2016-02-21T16:26:00.000Z  4.884658   
+         8887                       NaN       NaN   
+         8888  2016-02-21T16:36:00.000Z  4.940166   
+         8889  2016-02-21T16:41:00.000Z  4.940166   
+         8890  2016-02-21T16:45:59.000Z  4.940166   
+         8891  2016-02-21T16:50:59.000Z  4.829151   
+         8892  2016-02-21T16:55:59.000Z  4.718136   
+         8893  2016-02-21T17:01:00.000Z  4.551613   
+         8894                       NaN       NaN   
+         8895  2016-02-21T17:11:01.000Z  3.996539   
+         8896  2016-02-21T17:16:00.000Z  3.830016   
+         8897  2016-02-21T17:20:59.000Z  3.719001   
+         8898                       NaN       NaN   
+         8899  2016-02-21T17:30:59.000Z  4.385091   
+         8900  2016-02-21T17:35:59.000Z  4.385091   
+         8901  2016-02-21T17:40:59.000Z  4.385091   
+         
+                                            uploadId  mg\_dL    roundedTime30sec  \textbackslash{}
+         0     upid\_ff6bf4b6fde9c9bc45bb211de131d225  101.0 2016-01-21 19:57:30   
+         1     upid\_ff6bf4b6fde9c9bc45bb211de131d225  112.0 2016-01-21 20:02:30   
+         2     upid\_ff6bf4b6fde9c9bc45bb211de131d225  127.0 2016-01-21 20:07:30   
+         3     upid\_ff6bf4b6fde9c9bc45bb211de131d225  136.0 2016-01-21 20:12:30   
+         4     upid\_ff6bf4b6fde9c9bc45bb211de131d225  136.0 2016-01-21 20:17:30   
+         5     upid\_ff6bf4b6fde9c9bc45bb211de131d225  125.0 2016-01-21 20:22:30   
+         6     upid\_ff6bf4b6fde9c9bc45bb211de131d225  133.0 2016-01-21 20:27:30   
+         7     upid\_ff6bf4b6fde9c9bc45bb211de131d225  131.0 2016-01-21 20:32:30   
+         8     upid\_ff6bf4b6fde9c9bc45bb211de131d225  129.0 2016-01-21 20:37:30   
+         9     upid\_ff6bf4b6fde9c9bc45bb211de131d225  131.0 2016-01-21 20:42:30   
+         10    upid\_ff6bf4b6fde9c9bc45bb211de131d225  129.0 2016-01-21 20:47:30   
+         11    upid\_ff6bf4b6fde9c9bc45bb211de131d225  127.0 2016-01-21 20:52:30   
+         12    upid\_ff6bf4b6fde9c9bc45bb211de131d225  125.0 2016-01-21 20:57:30   
+         13    upid\_ff6bf4b6fde9c9bc45bb211de131d225  119.0 2016-01-21 21:02:30   
+         14    upid\_ff6bf4b6fde9c9bc45bb211de131d225  119.0 2016-01-21 21:07:30   
+         15    upid\_ff6bf4b6fde9c9bc45bb211de131d225  101.0 2016-01-21 21:12:30   
+         16    upid\_ff6bf4b6fde9c9bc45bb211de131d225   95.0 2016-01-21 21:17:30   
+         17    upid\_ff6bf4b6fde9c9bc45bb211de131d225   90.0 2016-01-21 21:22:30   
+         18    upid\_ff6bf4b6fde9c9bc45bb211de131d225   84.0 2016-01-21 21:27:30   
+         19    upid\_ff6bf4b6fde9c9bc45bb211de131d225   82.0 2016-01-21 21:32:30   
+         20    upid\_ff6bf4b6fde9c9bc45bb211de131d225   84.0 2016-01-21 21:37:30   
+         21    upid\_ff6bf4b6fde9c9bc45bb211de131d225   93.0 2016-01-21 21:42:30   
+         22    upid\_ff6bf4b6fde9c9bc45bb211de131d225  112.0 2016-01-21 21:47:30   
+         23    upid\_ff6bf4b6fde9c9bc45bb211de131d225   99.0 2016-01-21 21:52:30   
+         24    upid\_ff6bf4b6fde9c9bc45bb211de131d225  106.0 2016-01-21 21:57:30   
+         25    upid\_ff6bf4b6fde9c9bc45bb211de131d225  112.0 2016-01-21 22:02:30   
+         26    upid\_ff6bf4b6fde9c9bc45bb211de131d225  110.0 2016-01-21 22:07:30   
+         27    upid\_ff6bf4b6fde9c9bc45bb211de131d225  104.0 2016-01-21 22:12:30   
+         28    upid\_ff6bf4b6fde9c9bc45bb211de131d225  104.0 2016-01-21 22:17:30   
+         29    upid\_ff6bf4b6fde9c9bc45bb211de131d225  106.0 2016-01-21 22:22:30   
+         {\ldots}                                     {\ldots}    {\ldots}                 {\ldots}   
+         8872  upid\_ff6bf4b6fde9c9bc45bb211de131d225   67.0 2016-02-21 15:16:00   
+         8873  upid\_ff6bf4b6fde9c9bc45bb211de131d225   67.0 2016-02-21 15:21:00   
+         8874  upid\_ff6bf4b6fde9c9bc45bb211de131d225   69.0 2016-02-21 15:26:00   
+         8875  upid\_ff6bf4b6fde9c9bc45bb211de131d225   69.0 2016-02-21 15:31:00   
+         8876                                    NaN    NaN                 NaT   
+         8877  upid\_ff6bf4b6fde9c9bc45bb211de131d225   69.0 2016-02-21 15:41:00   
+         8878                                    NaN    NaN                 NaT   
+         8879  upid\_ff6bf4b6fde9c9bc45bb211de131d225   71.0 2016-02-21 15:51:00   
+         8880  upid\_ff6bf4b6fde9c9bc45bb211de131d225   75.0 2016-02-21 15:56:00   
+         8881  upid\_ff6bf4b6fde9c9bc45bb211de131d225   78.0 2016-02-21 16:01:00   
+         8882  upid\_ff6bf4b6fde9c9bc45bb211de131d225   80.0 2016-02-21 16:06:00   
+         8883                                    NaN    NaN                 NaT   
+         8884  upid\_ff6bf4b6fde9c9bc45bb211de131d225   84.0 2016-02-21 16:16:00   
+         8885  upid\_ff6bf4b6fde9c9bc45bb211de131d225   86.0 2016-02-21 16:21:00   
+         8886  upid\_ff6bf4b6fde9c9bc45bb211de131d225   88.0 2016-02-21 16:26:00   
+         8887                                    NaN    NaN                 NaT   
+         8888  upid\_ff6bf4b6fde9c9bc45bb211de131d225   89.0 2016-02-21 16:36:00   
+         8889  upid\_ff6bf4b6fde9c9bc45bb211de131d225   89.0 2016-02-21 16:41:00   
+         8890  upid\_ff6bf4b6fde9c9bc45bb211de131d225   89.0 2016-02-21 16:46:00   
+         8891  upid\_ff6bf4b6fde9c9bc45bb211de131d225   86.0 2016-02-21 16:51:00   
+         8892  upid\_ff6bf4b6fde9c9bc45bb211de131d225   84.0 2016-02-21 16:56:00   
+         8893  upid\_ff6bf4b6fde9c9bc45bb211de131d225   82.0 2016-02-21 17:01:00   
+         8894                                    NaN    NaN                 NaT   
+         8895  upid\_ff6bf4b6fde9c9bc45bb211de131d225   71.0 2016-02-21 17:11:00   
+         8896  upid\_ff6bf4b6fde9c9bc45bb211de131d225   69.0 2016-02-21 17:16:00   
+         8897  upid\_ff6bf4b6fde9c9bc45bb211de131d225   67.0 2016-02-21 17:21:00   
+         8898                                    NaN    NaN                 NaT   
+         8899  upid\_ff6bf4b6fde9c9bc45bb211de131d225   78.0 2016-02-21 17:31:00   
+         8900  upid\_ff6bf4b6fde9c9bc45bb211de131d225   78.0 2016-02-21 17:36:00   
+         8901  upid\_ff6bf4b6fde9c9bc45bb211de131d225   78.0 2016-02-21 17:41:00   
+         
+                  roundedTime5min  
+         0    2016-01-21 20:00:00  
+         1    2016-01-21 20:05:00  
+         2    2016-01-21 20:10:00  
+         3    2016-01-21 20:15:00  
+         4    2016-01-21 20:20:00  
+         5    2016-01-21 20:25:00  
+         6    2016-01-21 20:30:00  
+         7    2016-01-21 20:35:00  
+         8    2016-01-21 20:40:00  
+         9    2016-01-21 20:45:00  
+         10   2016-01-21 20:50:00  
+         11   2016-01-21 20:55:00  
+         12   2016-01-21 21:00:00  
+         13   2016-01-21 21:05:00  
+         14   2016-01-21 21:10:00  
+         15   2016-01-21 21:15:00  
+         16   2016-01-21 21:20:00  
+         17   2016-01-21 21:25:00  
+         18   2016-01-21 21:30:00  
+         19   2016-01-21 21:35:00  
+         20   2016-01-21 21:40:00  
+         21   2016-01-21 21:45:00  
+         22   2016-01-21 21:50:00  
+         23   2016-01-21 21:55:00  
+         24   2016-01-21 22:00:00  
+         25   2016-01-21 22:05:00  
+         26   2016-01-21 22:10:00  
+         27   2016-01-21 22:15:00  
+         28   2016-01-21 22:20:00  
+         29   2016-01-21 22:25:00  
+         {\ldots}                  {\ldots}  
+         8872 2016-02-21 15:20:00  
+         8873 2016-02-21 15:25:00  
+         8874 2016-02-21 15:30:00  
+         8875 2016-02-21 15:35:00  
+         8876                 NaT  
+         8877 2016-02-21 15:45:00  
+         8878                 NaT  
+         8879 2016-02-21 15:55:00  
+         8880 2016-02-21 16:00:00  
+         8881 2016-02-21 16:05:00  
+         8882 2016-02-21 16:10:00  
+         8883                 NaT  
+         8884 2016-02-21 16:20:00  
+         8885 2016-02-21 16:25:00  
+         8886 2016-02-21 16:30:00  
+         8887                 NaT  
+         8888 2016-02-21 16:40:00  
+         8889 2016-02-21 16:45:00  
+         8890 2016-02-21 16:50:00  
+         8891 2016-02-21 16:55:00  
+         8892 2016-02-21 17:00:00  
+         8893 2016-02-21 17:05:00  
+         8894                 NaT  
+         8895 2016-02-21 17:15:00  
+         8896 2016-02-21 17:20:00  
+         8897 2016-02-21 17:25:00  
+         8898                 NaT  
+         8899 2016-02-21 17:35:00  
+         8900 2016-02-21 17:40:00  
+         8901 2016-02-21 17:45:00  
+         
+         [8902 rows x 9 columns]
+\end{Verbatim}
+            
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}90}]:} \PY{c+c1}{\PYZsh{} TL is the longer time series, and Ts is the shorter}
+         \PY{n}{TL} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{array}\PY{p}{(}\PY{n}{contiguousData\PYZus{}A}\PY{o}{.}\PY{n}{mg\PYZus{}dL}\PY{p}{)}
+         \PY{n}{Ts} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{array}\PY{p}{(}\PY{n}{contiguousData\PYZus{}B}\PY{o}{.}\PY{n}{mg\PYZus{}dL}\PY{p}{)}
+         
+         \PY{n+nb}{print}\PY{p}{(}\PY{n}{TL}\PY{p}{)}
+         \PY{n+nb}{print}\PY{p}{(}\PY{n}{Ts}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+[101. 112. 127. {\ldots}  78.  78.  78.]
+[207.  nan 196. {\ldots}  nan  nan 233.]
+
+    \end{Verbatim}
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}91}]:} \PY{c+c1}{\PYZsh{} add NaNs to the beginning and end of TL, which is necessary}
+         \PY{c+c1}{\PYZsh{} for covering all possible duplicate locations}
+         \PY{c+c1}{\PYZsh{} (ask Ed to share a picture that describes this)}
+         \PY{n}{addNaNs} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{repeat}\PY{p}{(}\PY{n}{np}\PY{o}{.}\PY{n}{nan}\PY{p}{,} \PY{n+nb}{len}\PY{p}{(}\PY{n}{Ts}\PY{p}{)} \PY{o}{\PYZhy{}} \PY{n}{minThreshold}\PY{p}{)}
+         \PY{n}{n\PYZus{}addNaNs} \PY{o}{=} \PY{n+nb}{len}\PY{p}{(}\PY{n}{addNaNs}\PY{p}{)}
+         
+         \PY{n}{TL} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{append}\PY{p}{(}\PY{n}{addNaNs}\PY{p}{,} \PY{n}{TL}\PY{p}{)}
+         \PY{n}{TL} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{append}\PY{p}{(}\PY{n}{TL}\PY{p}{,} \PY{n}{addNaNs}\PY{p}{)}
+         \PY{n+nb}{print}\PY{p}{(}\PY{n}{TL}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+[nan nan nan {\ldots} nan nan nan]
+
+    \end{Verbatim}
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}96}]:} \PY{c+c1}{\PYZsh{} shift Ts over TL to see if there are any duplicate sections}
+         \PY{n}{indices} \PY{o}{=} \PY{n+nb}{list}\PY{p}{(}\PY{n+nb}{range}\PY{p}{(}\PY{n}{n\PYZus{}addNaNs}\PY{p}{,} \PY{n+nb}{len}\PY{p}{(}\PY{n}{TL}\PY{p}{)} \PY{o}{\PYZhy{}} \PY{n+nb}{len}\PY{p}{(}\PY{n}{Ts}\PY{p}{)}\PY{p}{)}\PY{p}{)}
+         \PY{n}{indices}\PY{o}{.}\PY{n}{extend}\PY{p}{(}\PY{n+nb}{range}\PY{p}{(}\PY{l+m+mi}{0}\PY{p}{,} \PY{n}{n\PYZus{}addNaNs}\PY{p}{)}\PY{p}{)}
+         \PY{n}{combined} \PY{o}{=} \PY{n}{pd}\PY{o}{.}\PY{n}{DataFrame}\PY{p}{(}\PY{p}{)}
+         \PY{n}{j} \PY{o}{=} \PY{o}{\PYZhy{}}\PY{l+m+mi}{1}
+         \PY{k}{while} \PY{p}{(}\PY{p}{(}\PY{n+nb}{len}\PY{p}{(}\PY{n}{combined}\PY{p}{)} \PY{o}{==} \PY{l+m+mi}{0}\PY{p}{)} \PY{o}{|} \PY{p}{(}\PY{n}{j} \PY{o}{\PYZlt{}} \PY{n+nb}{len}\PY{p}{(}\PY{n}{indices}\PY{p}{)}\PY{p}{)}\PY{p}{)}\PY{p}{:}
+             \PY{n}{j} \PY{o}{+}\PY{o}{=} \PY{l+m+mi}{1} 
+             \PY{n}{i} \PY{o}{=} \PY{n}{indices}\PY{p}{[}\PY{n}{j}\PY{p}{]}
+         
+             \PY{c+c1}{\PYZsh{} calculate the arry\PYZhy{}element difference between the mg/dL values at each shift}
+             \PY{n}{tempDiff} \PY{o}{=} \PY{n}{TL}\PY{p}{[}\PY{n}{i}\PY{p}{:}\PY{p}{(}\PY{n+nb}{len}\PY{p}{(}\PY{n}{Ts}\PY{p}{)} \PY{o}{+} \PY{n}{i}\PY{p}{)}\PY{p}{]} \PY{o}{\PYZhy{}} \PY{n}{Ts}
+             \PY{c+c1}{\PYZsh{} calculate how many times the difference is zero}
+             \PY{n}{nZeros} \PY{o}{=} \PY{n+nb}{sum}\PY{p}{(}\PY{n}{tempDiff} \PY{o}{==} \PY{l+m+mi}{0}\PY{p}{)}
+             \PY{k}{if} \PY{n}{nZeros} \PY{o}{\PYZgt{}}\PY{o}{=} \PY{n}{minThreshold}\PY{p}{:}
+                 \PY{n}{nDuplicates} \PY{o}{=} \PY{n}{nZeros}
+                 \PY{c+c1}{\PYZsh{} \PYZdq{}case 1, Ts before TL\PYZdq{}}
+                 \PY{k}{if} \PY{p}{(}\PY{n}{i} \PY{o}{\PYZhy{}} \PY{n}{n\PYZus{}addNaNs}\PY{p}{)} \PY{o}{\PYZlt{}} \PY{l+m+mi}{0}\PY{p}{:}
+                     \PY{n}{dupTs} \PY{o}{=} \PY{n}{contiguousData\PYZus{}B}\PY{p}{[}\PY{p}{(}\PY{n}{n\PYZus{}addNaNs} \PY{o}{\PYZhy{}} \PY{n}{i}\PY{p}{)}\PY{p}{:}\PY{p}{]}
+                     \PY{n}{dupTL} \PY{o}{=} \PY{n}{contiguousData\PYZus{}A}\PY{p}{[}\PY{p}{:}\PY{p}{(}\PY{n+nb}{len}\PY{p}{(}\PY{n}{dupTs}\PY{p}{)}\PY{p}{)}\PY{p}{]}
+                 \PY{k}{else}\PY{p}{:}
+                     \PY{c+c1}{\PYZsh{} \PYZdq{}case 2, Ts within TL\PYZdq{}}
+                     \PY{k}{if} \PY{p}{(}\PY{n}{i} \PY{o}{+} \PY{n+nb}{len}\PY{p}{(}\PY{n}{Ts}\PY{p}{)}\PY{p}{)} \PY{o}{\PYZlt{}} \PY{n+nb}{len}\PY{p}{(}\PY{n}{TL}\PY{p}{)}\PY{p}{:}
+                         \PY{n}{dupTs} \PY{o}{=} \PY{n}{contiguousData\PYZus{}B}
+                         \PY{n}{dupTL} \PY{o}{=} \PY{n}{contiguousData\PYZus{}A}\PY{p}{[}\PY{p}{(}\PY{n}{i} \PY{o}{\PYZhy{}} \PY{n}{n\PYZus{}addNaNs}\PY{p}{)}\PY{p}{:}\PY{p}{(}\PY{p}{(}\PY{n}{i} \PY{o}{\PYZhy{}} \PY{n}{n\PYZus{}addNaNs}\PY{p}{)} \PY{o}{+} \PY{p}{(}\PY{n+nb}{len}\PY{p}{(}\PY{n}{dupTs}\PY{p}{)}\PY{p}{)}\PY{p}{)}\PY{p}{]}
+                     \PY{k}{else}\PY{p}{:}
+                         \PY{c+c1}{\PYZsh{} \PYZdq{}case 3, Ts extends TL\PYZdq{}}
+                         \PY{n}{dupTL} \PY{o}{=} \PY{n}{contiguousData\PYZus{}A}\PY{p}{[}\PY{p}{(}\PY{n}{i} \PY{o}{\PYZhy{}} \PY{n}{n\PYZus{}addNaNs}\PY{p}{)}\PY{p}{:}\PY{p}{(}\PY{n}{n\PYZus{}addNaNs} \PY{o}{+} \PY{n+nb}{len}\PY{p}{(}\PY{n}{TL}\PY{p}{)}\PY{p}{)}\PY{p}{]}
+                         \PY{n}{dupTs} \PY{o}{=} \PY{n}{contiguousData\PYZus{}B}\PY{p}{[}\PY{p}{:}\PY{p}{(}\PY{n+nb}{len}\PY{p}{(}\PY{n}{dupTL}\PY{p}{)}\PY{p}{)}\PY{p}{]}
+                 \PY{c+c1}{\PYZsh{} combine the results together}
+                 \PY{n}{combined} \PY{o}{=} \PYZbs{}
+                     \PY{n}{pd}\PY{o}{.}\PY{n}{concat}\PY{p}{(}\PY{p}{[}\PY{n}{dupTL}\PY{o}{.}\PY{n}{reset\PYZus{}index}\PY{p}{(}\PY{n}{drop}\PY{o}{=}\PY{k+kc}{True}\PY{p}{)}\PY{o}{.}\PY{n}{add\PYZus{}suffix}\PY{p}{(}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{.TL}\PY{l+s+s2}{\PYZdq{}}\PY{p}{)}\PY{p}{,}
+                                \PY{n}{dupTs}\PY{o}{.}\PY{n}{reset\PYZus{}index}\PY{p}{(}\PY{n}{drop}\PY{o}{=}\PY{k+kc}{True}\PY{p}{)}\PY{o}{.}\PY{n}{add\PYZus{}suffix}\PY{p}{(}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{.Ts}\PY{l+s+s2}{\PYZdq{}}\PY{p}{)}\PY{p}{]}\PY{p}{,} \PY{n}{axis}\PY{o}{=}\PY{l+m+mi}{1}\PY{p}{)}
+               
+\end{Verbatim}
+
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+
+        ---------------------------------------------------------------------------
+
+        IndexError                                Traceback (most recent call last)
+
+        <ipython-input-96-19e72d94709a> in <module>()
+          6 while ((len(combined) == 0) | (j < len(indices))):
+          7     j += 1
+    ----> 8     i = indices[j]
+          9 
+         10     \# calculate the arry-element difference between the mg/dL values at each shift
+
+
+        IndexError: list index out of range
+
+    \end{Verbatim}
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}94}]:} \PY{n}{combined}\PY{o}{.}\PY{n}{head}\PY{p}{(}\PY{p}{)}
+\end{Verbatim}
+
+
+\begin{Verbatim}[commandchars=\\\{\}]
+{\color{outcolor}Out[{\color{outcolor}94}]:}           dateTime.TL  originalIndex.TL        deviceTime.TL  \textbackslash{}
+         0 2016-01-22 11:05:00           29090.0  2016-01-22T02:59:46   
+         1 2016-01-22 11:10:00           29093.0  2016-01-22T03:04:46   
+         2 2016-01-22 11:15:00           29095.0  2016-01-22T03:09:46   
+         3 2016-01-22 11:20:00           29096.0  2016-01-22T03:14:46   
+         4 2016-01-22 11:25:00           29098.0  2016-01-22T03:19:46   
+         
+                             time.TL  mmol\_L.TL                            uploadId.TL  \textbackslash{}
+         0  2016-01-22T11:02:23.000Z  11.490048  upid\_ff6bf4b6fde9c9bc45bb211de131d225   
+         1  2016-01-22T11:07:23.000Z  10.657436  upid\_ff6bf4b6fde9c9bc45bb211de131d225   
+         2  2016-01-22T11:12:22.000Z  10.934974  upid\_ff6bf4b6fde9c9bc45bb211de131d225   
+         3  2016-01-22T11:17:22.000Z   9.935839  upid\_ff6bf4b6fde9c9bc45bb211de131d225   
+         4  2016-01-22T11:22:22.000Z   8.714674  upid\_ff6bf4b6fde9c9bc45bb211de131d225   
+         
+            mg\_dL.TL roundedTime30sec.TL  roundedTime5min.TL         dateTime.Ts  \textbackslash{}
+         0     207.0 2016-01-22 11:02:30 2016-01-22 11:05:00 2016-01-22 11:05:00   
+         1     191.0 2016-01-22 11:07:30 2016-01-22 11:10:00 2016-01-22 11:10:00   
+         2     196.0 2016-01-22 11:12:30 2016-01-22 11:15:00 2016-01-22 11:15:00   
+         3     178.0 2016-01-22 11:17:30 2016-01-22 11:20:00 2016-01-22 11:20:00   
+         4     157.0 2016-01-22 11:22:30 2016-01-22 11:25:00 2016-01-22 11:25:00   
+         
+            originalIndex.Ts        deviceTime.Ts                   time.Ts  mmol\_L.Ts  \textbackslash{}
+         0           29091.0  2016-01-22T02:59:46  2016-01-22T11:02:23.000Z  11.490048   
+         1               NaN                  NaN                       NaN        NaN   
+         2           29094.0  2016-01-22T03:09:46  2016-01-22T11:12:22.000Z  10.934974   
+         3           29097.0  2016-01-22T03:14:46  2016-01-22T11:17:22.000Z   9.935839   
+         4           29099.0  2016-01-22T03:19:46  2016-01-22T11:22:22.000Z   8.714674   
+         
+                                      uploadId.Ts  mg\_dL.Ts roundedTime30sec.Ts  \textbackslash{}
+         0  upid\_12164f5817e09ab7bffb439d8c260131     207.0 2016-01-22 11:02:30   
+         1                                    NaN       NaN                 NaT   
+         2  upid\_12164f5817e09ab7bffb439d8c260131     196.0 2016-01-22 11:12:30   
+         3  upid\_12164f5817e09ab7bffb439d8c260131     178.0 2016-01-22 11:17:30   
+         4  upid\_12164f5817e09ab7bffb439d8c260131     157.0 2016-01-22 11:22:30   
+         
+            roundedTime5min.Ts  
+         0 2016-01-22 11:05:00  
+         1                 NaT  
+         2 2016-01-22 11:15:00  
+         3 2016-01-22 11:20:00  
+         4 2016-01-22 11:25:00  
+\end{Verbatim}
+            
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}95}]:} \PY{c+c1}{\PYZsh{} get stats on the duplicates (if they exist)}
+         \PY{k}{if} \PY{n+nb}{len}\PY{p}{(}\PY{n}{combined}\PY{p}{)} \PY{o}{\PYZgt{}} \PY{l+m+mi}{0}\PY{p}{:}
+             \PY{n}{cIndex} \PY{o}{=} \PY{l+m+mi}{0}
+             \PY{n}{results}\PY{o}{.}\PY{n}{loc}\PY{p}{[}\PY{n}{cIndex}\PY{p}{,} \PY{p}{[}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{uploadId\PYZus{}A}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]}\PY{p}{]} \PY{o}{=} \PY{n}{uploadId\PYZus{}A}
+             \PY{n}{results}\PY{o}{.}\PY{n}{loc}\PY{p}{[}\PY{n}{cIndex}\PY{p}{,} \PY{p}{[}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{uploadId\PYZus{}B}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]}\PY{p}{]} \PY{o}{=} \PY{n}{uploadId\PYZus{}B}
+             \PY{n}{results}\PY{o}{.}\PY{n}{loc}\PY{p}{[}\PY{n}{cIndex}\PY{p}{,} \PY{p}{[}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{nDuplicates}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]}\PY{p}{]} \PY{o}{=} \PY{n}{nDuplicates}
+             \PY{n}{results}\PY{o}{.}\PY{n}{loc}\PY{p}{[}\PY{n}{cIndex}\PY{p}{,} \PY{p}{[}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{startIndex\PYZus{}A}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]}\PY{p}{]} \PY{o}{=} \PYZbs{}
+                 \PY{n}{combined}\PY{o}{.}\PY{n}{loc}\PY{p}{[}\PY{n}{combined}\PY{p}{[}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{mg\PYZus{}dL.TL}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]}\PY{o}{.}\PY{n}{notnull}\PY{p}{(}\PY{p}{)}\PY{p}{,} \PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{originalIndex.TL}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]}\PY{o}{.}\PY{n}{min}\PY{p}{(}\PY{p}{)}
+             \PY{n}{results}\PY{o}{.}\PY{n}{loc}\PY{p}{[}\PY{n}{cIndex}\PY{p}{,} \PY{p}{[}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{endIndex\PYZus{}A}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]}\PY{p}{]} \PY{o}{=} \PYZbs{}
+                 \PY{n}{combined}\PY{o}{.}\PY{n}{loc}\PY{p}{[}\PY{n}{combined}\PY{p}{[}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{mg\PYZus{}dL.TL}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]}\PY{o}{.}\PY{n}{notnull}\PY{p}{(}\PY{p}{)}\PY{p}{,} \PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{originalIndex.TL}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]}\PY{o}{.}\PY{n}{max}\PY{p}{(}\PY{p}{)}
+         
+             \PY{n}{results}\PY{o}{.}\PY{n}{loc}\PY{p}{[}\PY{n}{cIndex}\PY{p}{,} \PY{p}{[}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{startIndex\PYZus{}B}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]}\PY{p}{]} \PY{o}{=} \PYZbs{}
+                 \PY{n}{combined}\PY{o}{.}\PY{n}{loc}\PY{p}{[}\PY{n}{combined}\PY{p}{[}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{mg\PYZus{}dL.Ts}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]}\PY{o}{.}\PY{n}{notnull}\PY{p}{(}\PY{p}{)}\PY{p}{,} \PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{originalIndex.Ts}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]}\PY{o}{.}\PY{n}{min}\PY{p}{(}\PY{p}{)}
+             \PY{n}{results}\PY{o}{.}\PY{n}{loc}\PY{p}{[}\PY{n}{cIndex}\PY{p}{,} \PY{p}{[}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{endIndex\PYZus{}B}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]}\PY{p}{]} \PY{o}{=} \PYZbs{}
+                 \PY{n}{combined}\PY{o}{.}\PY{n}{loc}\PY{p}{[}\PY{n}{combined}\PY{p}{[}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{mg\PYZus{}dL.Ts}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]}\PY{o}{.}\PY{n}{notnull}\PY{p}{(}\PY{p}{)}\PY{p}{,} \PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{originalIndex.Ts}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]}\PY{o}{.}\PY{n}{max}\PY{p}{(}\PY{p}{)}
+         
+             \PY{n}{cTimeDifference} \PY{o}{=} \PY{n}{pd}\PY{o}{.}\PY{n}{to\PYZus{}datetime}\PY{p}{(}\PY{n}{combined}\PY{p}{[}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{time.TL}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]}\PY{p}{)} \PY{o}{\PYZhy{}} \PYZbs{}
+                                 \PY{n}{pd}\PY{o}{.}\PY{n}{to\PYZus{}datetime}\PY{p}{(}\PY{n}{combined}\PY{p}{[}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{time.Ts}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]}\PY{p}{)}
+         
+             \PY{n}{averageTimeDifference} \PY{o}{=} \PY{n}{cTimeDifference}\PY{o}{.}\PY{n}{dt}\PY{o}{.}\PY{n}{seconds}\PY{o}{.}\PY{n}{mean}\PY{p}{(}\PY{p}{)}
+             \PY{n}{results}\PY{o}{.}\PY{n}{loc}\PY{p}{[}\PY{n}{cIndex}\PY{p}{,} \PY{p}{[}\PY{l+s+s2}{\PYZdq{}}\PY{l+s+s2}{averageTimeDifference}\PY{l+s+s2}{\PYZdq{}}\PY{p}{]}\PY{p}{]} \PY{o}{=} \PY{n}{averageTimeDifference}
+             
+         \PY{n}{results}\PY{o}{.}\PY{n}{head}\PY{p}{(}\PY{p}{)}
+\end{Verbatim}
+
+
+\begin{Verbatim}[commandchars=\\\{\}]
+{\color{outcolor}Out[{\color{outcolor}95}]:}                               uploadId\_A  \textbackslash{}
+         0  upid\_ff6bf4b6fde9c9bc45bb211de131d225   
+         
+                                       uploadId\_B nDuplicates averageTimeDifference  \textbackslash{}
+         0  upid\_12164f5817e09ab7bffb439d8c260131           5                     0   
+         
+           startIndex\_A endIndex\_A startIndex\_B endIndex\_B  
+         0        29090      30212        29091      30213  
+\end{Verbatim}
+            
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}52}]:} 
+\end{Verbatim}
+
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+
+        ---------------------------------------------------------------------------
+
+        NameError                                 Traceback (most recent call last)
+
+        <ipython-input-52-2e3e818a4faa> in <module>()
+    ----> 1 combined
+    
+
+        NameError: name 'combined' is not defined
+
+    \end{Verbatim}
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}64}]:} 
+\end{Verbatim}
+
+
+\begin{Verbatim}[commandchars=\\\{\}]
+{\color{outcolor}Out[{\color{outcolor}64}]:}              dateTime  originalIndex           deviceTime  \textbackslash{}
+         0 2016-01-21 20:00:00        28728.0  2016-01-21T11:54:48   
+         1 2016-01-21 20:05:00        28730.0  2016-01-21T11:59:49   
+         2 2016-01-21 20:10:00        28732.0  2016-01-21T12:04:48   
+         3 2016-01-21 20:15:00        28735.0  2016-01-21T12:09:48   
+         4 2016-01-21 20:20:00        28736.0  2016-01-21T12:14:48   
+         
+                                time    mmol\_L                               uploadId  \textbackslash{}
+         0  2016-01-21T19:57:24.000Z  5.606255  upid\_ff6bf4b6fde9c9bc45bb211de131d225   
+         1  2016-01-21T20:02:24.000Z  6.216838  upid\_ff6bf4b6fde9c9bc45bb211de131d225   
+         2  2016-01-21T20:07:24.000Z  7.049450  upid\_ff6bf4b6fde9c9bc45bb211de131d225   
+         3  2016-01-21T20:12:24.000Z  7.549017  upid\_ff6bf4b6fde9c9bc45bb211de131d225   
+         4  2016-01-21T20:17:24.000Z  7.604525  upid\_ff6bf4b6fde9c9bc45bb211de131d225   
+         
+            mg\_dL    roundedTime30sec     roundedTime5min  
+         0  101.0 2016-01-21 19:57:30 2016-01-21 20:00:00  
+         1  112.0 2016-01-21 20:02:30 2016-01-21 20:05:00  
+         2  127.0 2016-01-21 20:07:30 2016-01-21 20:10:00  
+         3  136.0 2016-01-21 20:12:30 2016-01-21 20:15:00  
+         4  136.0 2016-01-21 20:17:30 2016-01-21 20:20:00  
+\end{Verbatim}
+            
+
+    % Add a bibliography block to the postdoc
+    
+    
+    
+    \end{document}

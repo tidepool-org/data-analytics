@@ -86,6 +86,15 @@ dupList = np.array([9,662,1098,1321,1421,1428,1619,2214,2355,2356,2748,2969,3030
            45040,45248,45353])
 
 
+
+def normalize(value, valMin, valMax, normMin, normMax):
+    a = (normMax - normMin)/(valMax - valMin)
+    b = normMax - a * valMax
+    newvalue = a * value + b
+    
+    return newvalue
+
+
 #
 #
 #import timeit
@@ -102,7 +111,7 @@ results = pd.DataFrame(columns=["uploadId_A", "span_uploadId_A",
                                 "n_uploadId_A",
                                 "uploadId_B", "span_uploadId_B",
                                 "n_uploadId_B", "elapsedTime",
-                                "maxCorrelation", "nDuplicates",
+                                "correlationOfIndex", "nDuplicates",
                                 "averageTimeDifference",
                                 "startIndex_A", "endIndex_A",
                                 "startIndex_B", "endIndex_B",
@@ -151,21 +160,21 @@ for cIndex, combo in enumerate(list(combos)):
             results.loc[cIndex, ["n_uploadId_B"]] = \
                 uniqueUploads[uniqueUploads.uploadId == combo[0]].counts.values[0]
 
-#        uploadId_A = results.loc[cIndex, "uploadId_A"]
-#        uploadId_B = results.loc[cIndex, "uploadId_B"]
+        uploadId_A = results.loc[cIndex, "uploadId_A"]
+        uploadId_B = results.loc[cIndex, "uploadId_B"]
 #
 #        pdb.set_trace()
 
 
-        # %%
-        ## loop through each unique combination of uploadIds
-        ## for now just show example with these two uploadIds
-
-        # this is a great example, becuase there are missign data points
-        uploadId_A = "upid_ff6bf4b6fde9c9bc45bb211de131d225"
-        uploadId_B = "upid_12164f5817e09ab7bffb439d8c260131"
+#        # %%
+#        ## loop through each unique combination of uploadIds
+#        ## for now just show example with these two uploadIds
 #
-        # %%
+#        # this is a great example, becuase there are missign data points
+#        uploadId_A = "upid_ff6bf4b6fde9c9bc45bb211de131d225"
+#        uploadId_B = "upid_12164f5817e09ab7bffb439d8c260131"
+##
+#        # %%
         cgm_A = cgm[cgm.uploadId == uploadId_A].reset_index().rename(columns={"index":"originalIndex"})
         cgm_B = cgm[cgm.uploadId == uploadId_B].reset_index().rename(columns={"index":"originalIndex"})
 
@@ -177,7 +186,7 @@ for cIndex, combo in enumerate(list(combos)):
 #        maxCorrelation = xCorr.max()
 
 
-        results.loc[cIndex, ["maxCorrelation"]] = maxCorrelation
+#        results.loc[cIndex, ["maxCorrelation"]] = maxCorrelation
 #        print(cIndex, int(maxCorrelation))
 
         # check for duplicates and flag if there are duplicates within 1 uploadID
@@ -187,7 +196,7 @@ for cIndex, combo in enumerate(list(combos)):
         if tp.find_duplicates(cgm_B, "roundedTime5min") > 0:
             results.loc[cIndex, ["dupsWithinFlag_B"]] = tp.find_duplicates(cgm_B, "roundedTime5min")
 
-        print(cIndex, int(maxCorrelation),
+        print(cIndex, #int(maxCorrelation),
               tp.find_duplicates(cgm_A, "roundedTime5min"),
               tp.find_duplicates(cgm_B, "roundedTime5min"))
 
@@ -216,80 +225,68 @@ for cIndex, combo in enumerate(list(combos)):
                                     left_on="dateTime", right_on="roundedTime5min",
                                     how="left")
 
-        pdb.set_trace()
+
         # %% build faster indexing with cross correlation here
 
-        def normalize(value, valMin, valMax, normMin, normMax):
-            a = (normMin - min')/(max - min)
-            b = max' - a * max
-            newvalue = a * value + b
-
+        
+        # 1. figure out the median of TL and Ts combined (T_all), so that 
+        # data can be separated into an equal number of positive and negative
+        # values.
+        
         T_all = pd.concat([contiguousData_A.mg_dL, contiguousData_B.mg_dL])
         median_all = T_all.median()
+        min_all = T_all.min()
+        max_all = T_all.max()
+        
+        # scale TL and Ts data so that the following three things happen:
+        # 1. median_all <= value <= max_all gets normalized between 1 and 1.1
+        # 2. min_all <= value < median_all gets normalized between -1.1 and -1 
+        # 3. all nans get replaced with zeros
+        # TODO: turn this into a function
+        TL1 = normalize(contiguousData_A.mg_dL[contiguousData_A.mg_dL >= median_all],
+                        median_all, max_all, 1, 1.1)
+        TL2 = normalize(contiguousData_A.mg_dL[contiguousData_A.mg_dL < median_all],
+                        min_all, median_all, -1.1, -1)
+        TL3 = contiguousData_A.mg_dL[contiguousData_A.mg_dL.isna()].fillna(0)
+        
+        TL_norm = pd.concat([TL1, TL2, TL3]).sort_index() 
 
-        TL = contiguousData_A.mg_dL[contiguousData_A.mg_dL >= median_all]
+        Ts1 = normalize(contiguousData_B.mg_dL[contiguousData_B.mg_dL >= median_all],
+                        median_all, max_all, 1, 1.1)
+        Ts2 = normalize(contiguousData_B.mg_dL[contiguousData_B.mg_dL < median_all],
+                        min_all, median_all, -1.1, -1)
+        Ts3 = contiguousData_B.mg_dL[contiguousData_B.mg_dL.isna()].fillna(0)
+        
+        Ts_norm = pd.concat([Ts1, Ts2, Ts3]).sort_index() 
 
-
-        # %% resume previous code
+        # do the cross correlation to get the most likely indices that contain duplicates
+#        x = np.array([-3, -2, -1, 0, 1, 2, 3])
+#        y = np.array([5, 6, 7])
+#        xCorr = pd.Series(correlate(x,y), name="value")
+        xCorr = pd.Series(correlate(TL_norm, Ts_norm), name="value")
+        indicesToTry = pd.DataFrame(xCorr[xCorr > 1])
+        indicesToTry["TLindex"] = indicesToTry.index + 1 - len(contiguousData_B)
+        indicesToTry = indicesToTry.sort_values(by="value", ascending=False)
+        
+#        maxCorr = xCorr.idxmax()
+#        asdf =  contiguousData_A[maxCorr + 1 - len(contiguousData_B):(maxCorr + 1)]
 
         TL = np.array(contiguousData_A.mg_dL)
         Ts = np.array(contiguousData_B.mg_dL)
 
-        # add NaNs to the beginning and end of TL
-        addNaNs = np.repeat(np.nan, len(Ts) - minThreshold)
-        n_addNaNs = len(addNaNs)
-
-        TL = np.append(addNaNs, TL)
-        TL = np.append(TL, addNaNs)
-
-        j = 0
-        for i in range(0, len(TL) - len(Ts)):
-    ## %% time it
-    #s = """\
-    #import numpy as np
-    #import pandas as pd
-    #tempDiff = np.zeros(10000) - np.ones(10000)
-    #
-    #"""
-    #timeit.timeit(stmt=s, number=100000)
-    #
-    ## tempDiff = np.zeros(10000) - np.ones(10000) THIS IS 10 TIMES FASTER THAN:
-    ## tempDiff = pd.Series(np.zeros(10000)) - pd.Series(np.ones(10000))
-    #
-    ### tempDiff = np.zeros(1000) - np.ones(1000) takes 0.51 seconds for 100,000 iterations
-    ### tempDiff = np.subtract(np.zeros(1000), np.ones(1000)) takes 0.53
-    ## %%
-
-            tempDiff = TL[i:(len(Ts) + i)] - Ts
+        for i in indicesToTry["TLindex"]:
+            print("trying index", i)
+            tempTL = TL[max([0, i]):min([len(TL), (len(Ts) + i)])]
+            tempDiff = tempTL - Ts[-len(tempTL):]
             nZeros = sum(tempDiff == 0)
             if nZeros >= minThreshold:
-                j = j + 1
-                print(cIndex, i, nZeros)
-                duplicateStartIndex = i
-                duplicateEndIndex = len(Ts) + i
-                duplicatedSequence = TL[duplicateStartIndex:duplicateEndIndex]
-
-                if (i - n_addNaNs) < 0:
-                    dupTs = contiguousData_B[(n_addNaNs - i):]
-                    dupTL = contiguousData_A[:(len(dupTs))]
-                    print("case 1, Ts before TL")
-
-                else:
-                    if (i + len(Ts)) < len(TL):
-                        dupTs = contiguousData_B
-                        dupTL = contiguousData_A[(i - n_addNaNs):((i - n_addNaNs) + (len(dupTs)))]
-                        print("case 2, Ts within TL")
-                    else:
-                        dupTL = contiguousData_A[(i - n_addNaNs):(n_addNaNs + len(TL))]
-                        dupTs = contiguousData_B[:(len(dupTL))]
-                        print("case 3, Ts extends TL")
-                        pdb.set_trace()
-
-    #            dupTL = contiguousData_A[(i - n_addNaNs):(i - n_addNaNs + len(Ts))]
-    #            dupTs = contiguousData_B
+                print("found it", i)
+                results.loc[cIndex, ["correlationOfIndex"]] = round(indicesToTry[indicesToTry["TLindex"] == i].value.values[0],1)
+                dupTL = contiguousData_A[max([0, i]):min([len(TL), (len(Ts) + i)])]
+                dupTs = contiguousData_B[-len(tempTL):]
                 combined = pd.concat([dupTL.reset_index(drop=True).add_suffix(".TL"),
-                                    dupTs.reset_index(drop=True).add_suffix(".Ts")], axis=1)
-
+                                      dupTs.reset_index(drop=True).add_suffix(".Ts")], axis=1)
+    
                 results.loc[cIndex, ["nDuplicates"]] = nZeros
                 results.loc[cIndex, ["startIndex_A"]] = \
                     combined.loc[combined["mg_dL.TL"].notnull(), "originalIndex.TL"].min()
@@ -306,12 +303,11 @@ for cIndex, combo in enumerate(list(combos)):
 
                 averageTimeDifference = cTimeDifference.dt.seconds.mean()
                 results.loc[cIndex, ["averageTimeDifference"]] = averageTimeDifference
-
-
+                
 #                pdb.set_trace()
-                if j > 1:
-                    results.loc[cIndex, ["multipleDupSequencesFlag"]] = j
-
+                
+                break
+                
         elapsedTime = time.time() - t
         results.loc[cIndex, ["elapsedTime"]] = elapsedTime
         print("finished ", cIndex, "of",
@@ -320,11 +316,107 @@ for cIndex, combo in enumerate(list(combos)):
               "spanB = ", results.loc[cIndex, "span_uploadId_B"],
               " time elapsed = ", round(elapsedTime, 1), "secs")
 
-
 #        pdb.set_trace()
+    
+results.to_csv(os.path.join(dataPath, "dup-results-" + hashID + "-v1Faster.csv"))                
 
-results.to_csv(os.path.join(dataPath, "dup-results-" + hashID + "-v5NewRoundedTime.csv"))
 
+
+        # %% resume previous code
+
+#        TL = np.array(contiguousData_A.mg_dL)
+#        Ts = np.array(contiguousData_B.mg_dL)
+#
+#        # add NaNs to the beginning and end of TL
+#        addNaNs = np.repeat(np.nan, len(Ts) - minThreshold)
+#        n_addNaNs = len(addNaNs)
+#
+#        TL = np.append(addNaNs, TL)
+#        TL = np.append(TL, addNaNs)
+#
+#        j = 0
+#        for i in range(0, len(TL) - len(Ts)):
+    ## %% time it
+    #s = """\
+    #import numpy as np
+    #import pandas as pd
+    #tempDiff = np.zeros(10000) - np.ones(10000)
+    #
+    #"""
+    #timeit.timeit(stmt=s, number=100000)
+    #
+    ## tempDiff = np.zeros(10000) - np.ones(10000) THIS IS 10 TIMES FASTER THAN:
+    ## tempDiff = pd.Series(np.zeros(10000)) - pd.Series(np.ones(10000))
+    #
+    ### tempDiff = np.zeros(1000) - np.ones(1000) takes 0.51 seconds for 100,000 iterations
+    ### tempDiff = np.subtract(np.zeros(1000), np.ones(1000)) takes 0.53
+    ## %%
+#
+#            tempDiff = TL[i:(len(Ts) + i)] - Ts
+#            nZeros = sum(tempDiff == 0)
+#            if nZeros >= minThreshold:
+#                j = j + 1
+#                print(cIndex, i, nZeros)
+#                duplicateStartIndex = i
+#                duplicateEndIndex = len(Ts) + i
+#                duplicatedSequence = TL[duplicateStartIndex:duplicateEndIndex]
+#
+#                if (i - n_addNaNs) < 0:
+#                    dupTs = contiguousData_B[(n_addNaNs - i):]
+#                    dupTL = contiguousData_A[:(len(dupTs))]
+#                    print("case 1, Ts before TL")
+#
+#                else:
+#                    if (i + len(Ts)) < len(TL):
+#                        dupTs = contiguousData_B
+#                        dupTL = contiguousData_A[(i - n_addNaNs):((i - n_addNaNs) + (len(dupTs)))]
+#                        print("case 2, Ts within TL")
+#                    else:
+#                        dupTL = contiguousData_A[(i - n_addNaNs):(n_addNaNs + len(TL))]
+#                        dupTs = contiguousData_B[:(len(dupTL))]
+#                        print("case 3, Ts extends TL")
+#                        pdb.set_trace()
+#
+#    #            dupTL = contiguousData_A[(i - n_addNaNs):(i - n_addNaNs + len(Ts))]
+#    #            dupTs = contiguousData_B
+#                combined = pd.concat([dupTL.reset_index(drop=True).add_suffix(".TL"),
+#                                    dupTs.reset_index(drop=True).add_suffix(".Ts")], axis=1)
+#
+#                results.loc[cIndex, ["nDuplicates"]] = nZeros
+#                results.loc[cIndex, ["startIndex_A"]] = \
+#                    combined.loc[combined["mg_dL.TL"].notnull(), "originalIndex.TL"].min()
+#                results.loc[cIndex, ["endIndex_A"]] = \
+#                    combined.loc[combined["mg_dL.TL"].notnull(), "originalIndex.TL"].max()
+#
+#                results.loc[cIndex, ["startIndex_B"]] = \
+#                    combined.loc[combined["mg_dL.Ts"].notnull(), "originalIndex.Ts"].min()
+#                results.loc[cIndex, ["endIndex_B"]] = \
+#                    combined.loc[combined["mg_dL.Ts"].notnull(), "originalIndex.Ts"].max()
+#
+#                cTimeDifference = pd.to_datetime(combined["time.TL"]) - \
+#                                    pd.to_datetime(combined["time.Ts"])
+#
+#                averageTimeDifference = cTimeDifference.dt.seconds.mean()
+#                results.loc[cIndex, ["averageTimeDifference"]] = averageTimeDifference
+#
+#
+##                pdb.set_trace()
+#                if j > 1:
+#                    results.loc[cIndex, ["multipleDupSequencesFlag"]] = j
+#
+#        elapsedTime = time.time() - t
+#        results.loc[cIndex, ["elapsedTime"]] = elapsedTime
+#        print("finished ", cIndex, "of",
+#              int(nCombos), "(", round((cIndex + 1) / nCombos*100, 1), "%) ",
+#              "spanA = ", results.loc[cIndex, "span_uploadId_A"],
+#              "spanB = ", results.loc[cIndex, "span_uploadId_B"],
+#              " time elapsed = ", round(elapsedTime, 1), "secs")
+#
+#
+##        pdb.set_trace()
+#
+#results.to_csv(os.path.join(dataPath, "dup-results-" + hashID + "-v1Faster.csv"))
+#
 
 
 # %%
