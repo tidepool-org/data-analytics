@@ -1,45 +1,33 @@
 import numpy as np
 import pandas as pd
-
 """
 Data Deduplication of Continous blood glucose. Final output are indexes of duplicated values, duplicated values and a plot of the values
 """
-
 """
 Test data  from two files
 files:0289cfb8bd6d61ccf1f31c07aa146b7b14f0eb74474be4311860d9d77dd30f15.csv
       0fe539475b52ae23f939d7dd2596cf8eb1e877edcea0478f2df73bb98bd5937c.csv
 """
-
 #Test data1
 ##data = pd.read_csv("C:/Python27/test2.csv",delimiter=',')
 ##print data
 ##df1=data.loc[data['alp'] =='x', ['value']]
 ##df2=data.loc[data['alp'] =='y', ['value']]
-
 #Test data2
 #data = pd.read_csv("C:/Users/Amenze/Desktop/tidepool/refdata/data.csv",delimiter=',')
 ##df1 = data.loc[data['uploadId'] =='upid_3c41703c2d3a8b97f479afdb6ccf799f', ['utcTime','value']]
 ##df2 = data.loc[data['uploadId'] =='upid_3fc32e5ad912a8ea7efced9151804bdb', ['utcTime','value']]
-
-
 #Test data3
 ##df1 = data.loc[data['uploadId'] =='upid_17db2d2a0ae0e02a12c0a5067e5fe85b', ['utcTime','value']]
 ##df2 = data.loc[data['uploadId'] =='upid_5fad608cf32bd03a1cd56e3bb1fdb834', ['utcTime','value']]
-
-
 #Test data4
 ##df1 = data.loc[data['uploadId'] =='upid_5fad608cf32bd03a1cd56e3bb1fdb834', ['utcTime','value']]
 ##df2 = data.loc[data['uploadId'] =='upid_830c6de3e2ecbbec6fbad0cecc64bdf5', ['utcTime','value']]
-
 
 #Test data5
 data=pd.read_csv("C:/Users/Amenze/Desktop/tidepool/refdata/duplicated0fe539475b52ae23f939d7dd2596cf8eb1e877edcea0478f2df73bb98bd5937c2.csv",delimiter=',')
 df1 = data.loc[data['uploadId'] =='2f61322480c841fd8679fe81e94930b2', ['utcTime','value']]
 df2 = data.loc[data['uploadId'] =='c05970591b404518a1cbd64595d628e5', ['utcTime','value']]
-
-
-
 
 def Distances(x,y):
    """
@@ -71,7 +59,6 @@ def Distances(x,y):
          distances[i][j] = ((xval[j])-(yval[i]))**2
    return distances
 
-
 def DiagonalList(dis):
    """
    Find the diagonal with the highest count of zero  and the diagonal start index
@@ -93,7 +80,6 @@ def DiagonalList(dis):
           diagonal=arr
           diagonalStartIndex=abs(i)
    return (diagonal,diagonalStartIndex)
-
 
 def DiagonalZero(disMatrix,ts1,ts2,startindex):
    """
@@ -129,8 +115,6 @@ def DiagonalZero(disMatrix,ts1,ts2,startindex):
           i = i+1  
    return (diaIndex,diaValue)
 
-
-
 def zero_runs(diaValue): #https://stackoverflow.com/questions/24885092/finding-the-consecutive-zeros-in-a-numpy-array
    """
    Args:
@@ -142,8 +126,6 @@ def zero_runs(diaValue): #https://stackoverflow.com/questions/24885092/finding-t
    absdiff = np.abs(np.diff(iszero))
    ranges = np.where(absdiff == 1)[0].reshape(-1, 2)
    return ranges
-
-
 def CountZero(runs):
    """
    Args:
@@ -151,7 +133,6 @@ def CountZero(runs):
    Returns:
     totalCount:returns the count of consecutive zero
     countIndex:list index with max zeros
-     
    """
    maxcount=0
    for i in  range(len(runs)):
@@ -179,8 +160,6 @@ def ZeroIndex(runs,dia,runindex):
        indexlst+=[dia[i]]
 
     return indexlst
-
-
 
 def DupIndex(x,y,indexzero):
     """
@@ -271,7 +250,6 @@ def ExtracteIndex(xDict,yDict,xIndex,yIndex):
    yIndexList.reverse()
    return (xIndexList,yIndexList)
      
-
 
 ###main###
 print "--------------vector one and two--------------------------"
