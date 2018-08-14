@@ -249,8 +249,9 @@ def ExtracteIndex(xDict,yDict,xIndex,yIndex):
    xIndexList.reverse()
    yIndexList.reverse()
    return (xIndexList,yIndexList)
+import time
+start_time = time.time()
      
-
 ###main###
 print "--------------vector one and two--------------------------"
 ts1=np.array(df1['value'])
@@ -321,6 +322,8 @@ originalindexts2=lookupdict(ts2index)
 
 print "--------------match to original index-------------------------"
 print ExtracteIndex(originalindexts1,originalindexts2,xindex,yindex) 
+
+print time.time() - start_time, "seconds"
 
 ##
 import matplotlib.pyplot as plt
