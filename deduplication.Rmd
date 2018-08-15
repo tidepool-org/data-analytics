@@ -1,89 +1,129 @@
 ---
-title: "uploadid"
-author: "Amenze"
+title: "De-duplication"
+author: "Amenze Okpah"
 date: "June 28, 2018"
 output: html_document
 ---
 
-```{r}
-setwd("/Users/Amenze/Desktop/tidepool/refdata")
-```
-
-
-```{r }
-#library(data.table)
-library(ggplot2)
-library(plyr)
-library(dplyr)
-#using jmotif
-library(jmotif)
-#install.packages("RecordLinkage")
-library(RecordLinkage)
-#install.packages("PTXQC")
-library("PTXQC")
-library(stringr)
-library(zoo)
-
-
-
-```
-
-
-
+compare similarity between two numeric vectors using Symbolic Aggregate approXimation (SAX).
+Symbolic Aggregate approXimation (SAX) algorithm application to the input time series transforms its into a strings.
+The algoithm was proposed by Lin et al.) and extends the PAA-based approach inheriting the original algorithm simplicity and low computational complexity while providing satisfactory sensitivity and selectivity in range query processing. Moreover, the use of a symbolic representation opened a door to the existing wealth of data-structures and string-manipulation algorithms in computer science such as hashing, regular expression, pattern matching, suffix trees, and grammatical inference.
+#http://www.cs.ucr.edu/~eamonn/SAX.htm
+#https://jmotif.github.io/sax-vsm_site/morea/algorithm/PAA.html
 
 ```{r}
-
 # create a list from these files
-list.filenames<-list.files("/Users/Amenze/Desktop/tidepool/refdata",pattern=".csv$")
-
-
+dir <- choose.dir(default = "", caption = "Select folder")
+list.filenames<-list.files(dir,pattern=".csv$")
 #extract files based on duplicated utctime
 for (i in 1:length(list.filenames))
 {
   patient<-read.csv(list.filenames[i])
   patient_cbg<-subset(patient,patient$type=="cbg")
   if ((length(unique(patient_cbg$utcTime)))!=nrow(patient_cbg))
-      write.csv(patient_cbg,paste0("/Users/Amenze/Desktop/tidepool/refdata/duplicated",list.filenames[i]))
-
+      write.csv(patient_cbg,paste0(dir,list.filenames[i]))
  }
 ```
+  # Coverts two vectors to their string equivalent
+  # Args:
+  # x:vector of numeric values for uploadid1 
+  # y:vector of numeric values for uploadid2 
+  # alpha.Size: alphabet size(number of character that will be used to discretized numeric values)
+  # Returns:
+  #   longeststring:longest common substring match between discretized valuea of x and y respectively stringX,stringY
+  # percentage similarity between vector x and y
 
-
-
-
+#Note: since PAA takes normalized values,vectors are normalized using the mean and standard deviation of either vector (x or y)
+#PAA:the length of PAA values are fixed to length of the vectors to avoid reducing the dimensions since all values are needed to check for duplication.
+```{r}
+StringConvert <- function(x, y, alpha.Size){
+  if (length(x) != length(y)){
+    normvalue = x
+  }
+  else if(length(x) == length(y)){
+    normvalue = x
+  }
+  normvalue.Mean <- mean(normvalue)
+  normvalue.Dev <- sd(normvalue)
+  xnormalized <- (x - normvalue.Mean) / normvalue.Dev
+  ynormalized <- (y - normvalue.Mean) / normvalue.Dev
+  X.PAA = paa(xnormalized, length(x)) 
+  y.PAA = paa(ynormalized,  length(y))
+  xString.Value <- series_to_string(X.PAA, alpha.Size)
+  yString.Value <- series_to_string(y.PAA, alpha.Size) 
+  stringX <- xString.Value
+  stringY <- yString.Value
+  longeststring<-LCSn(c(stringX,stringY))
+  return (list(longeststring, stringX, stringY, (levenshteinSim(xString.Value, yString.Value))))
+}
+```
+#computes the range of matching character between string values and common subsequence
+  Args:
+    values:output from stringcnvert function 
+  Returns:
+     Loc:Matching Ranges
+```{r}
+IndexRange<-function(values){
+  strings.Values <- as.character(c(values[2],values[3]))
+  common.SubSequence <- as.character(values[1])
+  loc <- str_locate(strings.Values, common.SubSequence)
+  return(list(loc))
+}
+```
+##computes the duplicated values for each vectors and their indexes 
+  # Args:
+  # x & y: vectors
+  # Returns:
+  #   duplicated.X:duplicated value for vextor x
+  # duplicated.Y:duplicated value for vextor y
+  # index.X:duplicated values index for vector x
+  # index.Y:duplicated values index for vector y
+```{r}
+ExtractDuplicateIndex <- function(x, y, IndexRange){
+   duplicate.X <- x[IndexRange[[1]][1,][1] : IndexRange[[1]][1,][2], "value"]
+   duplicate.Y <- y[IndexRange[[1]][2,][1] : IndexRange[[1]][2,][2], "value"]
+   index.X <- row.names(x[IndexRange[[1]][1,][1] : IndexRange[[1]][1,][2],])
+   index.Y <- row.names(y[IndexRange[[1]][2,][1] : IndexRange[[1]][2,][2],])
+return(list(duplicate.X, duplicate.Y, index.X, index.Y))
+}
+```
+##computes a list of indexes 
+  Args:
+    x: vectors
+  Returns:
+    duplicate.Index:duplicated value index
+```{r}
+ExtractVectorIndex<-function(x){
+  for (i in 1:length(x))
+  indexnum <- c(x[[i]]) 
+  duplicate.Index<-as.numeric(indexnum)
+return(duplicate.Index)
+}
+```
+#import files and subset data based on uploadIds to test  function
 
 ```{r}
-##read in file and check for duplicated utc
+##read in file and check for duplicated utcTime
+field <- c("deviceId", "id", "uploadId", "utcTime", "type", "value")
+patient <- read.csv("FileName ")[,field] #0289cfb8bd6d61ccf1f31c07aa146b7b14f0eb74474be4311860d9d77dd30f15.csv
+patient$mgvalue <- patient$value*18.01559
 
-field<-c("deviceId","id","uploadId","utcTime","type","value")
-patient<-read.csv("duplicated0289cfb8bd6d61ccf1f31c07aa146b7b14f0eb74474be4311860d9d77dd30f15.csv")[,field]
-patient$mgvalue<-patient$value*18.01559
-length(unique(patient$uploadId)) #1319
-length(unique(patient$id))==nrow(patient) ##True
-length(unique(patient$utcTime))#72287
-length(unique(patient$utcTime))==nrow(patient) #False
-
-
-
+#check for unique uploadIds
+uniqueid <- function(df){
+   for (i in df["uploadId"]){
+     Id <- unique(df$utcTime)
+   return (Id)
+   }
+}
 ###subset patient file based on  5 uploadids
-df1<-subset(patient,patient$uploadId=="upid_3c41703c2d3a8b97f479afdb6ccf799f")
-
-df2<-subset(patient,patient$uploadId=="upid_3fc32e5ad912a8ea7efced9151804bdb")
-
-
-df3<-subset(patient,patient$uploadId=="upid_17db2d2a0ae0e02a12c0a5067e5fe85b")
-
-
-df4<-subset(patient,patient$uploadId=="upid_5fad608cf32bd03a1cd56e3bb1fdb834")
-
-
-
-df5<-subset(patient,patient$uploadId=="upid_830c6de3e2ecbbec6fbad0cecc64bdf5")
+df1 <- subset(patient, patient$uploadId == "upid_3c41703c2d3a8b97f479afdb6ccf799f")
+df2 <- subset(patient, patient$uploadId == "upid_3fc32e5ad912a8ea7efced9151804bdb")
+df3 <- subset(patient, patient$uploadId == "upid_17db2d2a0ae0e02a12c0a5067e5fe85b")
+df4 <- subset(patient, patient$uploadId == "upid_5fad608cf32bd03a1cd56e3bb1fdb834")
+df5 <- subset(patient, patient$uploadId == "upid_830c6de3e2ecbbec6fbad0cecc64bdf5")
 
 #plot values for each uploadid
-par(mfrow=c(3,3))
-
-
+par(mfrow=c(3, 3))
 plot.ts(df1$value)
 plot.ts(df2$value)
 plot.ts(df3$value)
@@ -92,205 +132,65 @@ plot.ts(df5$value)
 
 ```
 
-
-
 ```{r}
-## input
-#x:vector value for uploadid x 
-#y: vector value for uploadid y
-#outputs 
-#longeststring:longest common substring match between discretize value of x and y respectively p1 & p2
-#percentage similarity
-#alphaxy:the alphabet size
+system.time(values <- StringConvert(df1$mgvalue, df2$mgvalue,3))  #http://www.cs.ucr.edu/~eamonn/SAX.pdf alphabet size: 5-8 works better.
+system.time(strngindex <- IndexRange(values))
+validate <- ExtractDuplicateIndex(df1, df2, strngindex)
+seq1 <- ExtractVectorIndex(validate[3])
+seq2 <- ExtractVectorIndex(validate[4])
+df1_mgvalue <- patient[seq1,"value"]
+df2_mgvalue <- patient[seq2,"value"]
+compare <- data.frame(df1_mgvalue,df2_mgvalue)
 
-stringcnvert<-function(x,y,alphaxy){
-  if (length(x)!=length(y)){
-    normvalue=x
-  }
-  else if(length(x)==length(y)){
-    normvalue=x
-  }
-  normvalue.mean <- mean(normvalue)
-  normvalue.dev<-sd(normvalue)
-  xznorm<-(x - normvalue.mean)/normvalue.dev
-  yznorm<-(y - normvalue.mean)/normvalue.dev
-  y_paa1 = paa(xznorm,length(x)) ##we decided to use the exact length of the vector based on what we want to achieve
-  y_paa2 = paa(yznorm,length(y))
-  xstringvalue<-series_to_string(y_paa1, alphaxy)
-  ystringvalue<-series_to_string(y_paa2, alphaxy) 
-  p1<-xstringvalue
-  p2<-ystringvalue
-  longeststring<-LCSn(c(p1,p2))
-  return (list(longeststring,p1,p2,(levenshteinSim(xstringvalue,ystringvalue))))
-
-
-}
-
-
-
-
-##input
-#values:output from stringcnvert function
-##ouptputs
-#stringvalue: 2 strings compared 
-#substringrep:matching substring that was compared, 
-#stringdetect:boolean eqivalent of string detected(TRUE:if detected, FALSE:not detected)
-#stringcount:count of substrng in stringvalue 
-#loc:starting and ending indexes for substring in the two strings compared.
-
-duplicateindex<-function(values){
-  stringsvalues <- as.character(c(values[2],values[3]))
-  substringrep <- as.character(values[1])
-  stringdetect<-str_detect(stringsvalues,substringrep)
-  stringcount<-str_count(stringsvalues, substringrep)
-  loc <- str_locate(stringsvalues,substringrep )
-  return(list(stringsvalues,substringrep,stringdetect,stringcount,loc))
-}
-
-
-
-##input
-#x & y:dataframe
-#strngindex: output from  duplicateindex function(loc)
-##ouptputs
-#s1:numeric vector ,
-#s2:numeric vector, 
-#index1:indexes of s1, 
-#index2:indexes of s2
-#
-extractindex<-function(x,y,strngindex){
-  
-   s1<-x[strngindex[5][[1]][[1]]:strngindex[5][[1]][[3]],"value"]
-   s2<-y[strngindex[5][[1]][[2]]:strngindex[5][[1]][[4]],"value"]
-   indexs1<-row.names(x[strngindex[5][[1]][[1]]:strngindex[5][[1]][[3]],])
-   indexs2<-row.names(y[strngindex[5][[1]][[2]]:strngindex[5][[1]][[4]],])
-
-  return(list(s1,s2,indexs1,indexs2))
-
-}
-
-
-###input
-#x:a list of indexes
-##ouptputs
-#indexnum1:numeric equivalent of indexes
-
-extractvalue<-function(x){
-  for (i in 1:length(x)[[1]])
-  indexnum <- c(x[[i]]) 
-  indexnum1<-as.numeric(indexnum)
-return(indexnum1)
-}
-
-##main
-#
-values<-stringcnvert(df1$mgvalue,df2$mgvalue,8) #http://www.cs.ucr.edu/~eamonn/SAX.pdf alphabet size: 5-8 works better.
-strngindex<-duplicateindex(values)
-validate<-extractindex(df1,df2,strngindex)
-seq1<-extractvalue(validate[3])
-seq2<-extractvalue(validate[4])
-
-df1_mgvalue<-patient[seq1,"mgvalue"]
-df2_mgvalue<-patient[seq2,"mgvalue"]
-compare<-data.frame(df1_mgvalue,df2_mgvalue)
-
-# par(mfrow=c(1,2))
-# plot.ts(compare$df1_mgvalue)
-# plot.ts(compare$df2_mgvalue)
-
-plot.zoo(cbind(compare$df1_mgvalue,compare$df2_mgvalue), 
+#plot duplicated values
+plot.zoo(cbind(compare$df1_mgvalue, compare$df2_mgvalue), 
          plot.type = "multiple", 
          col = c("red", "blue"))
-
-
-sum(compare$df1_mgvalue-compare$df2_mgvalue)
-
-
+sum(compare$df1_mgvalue - compare$df2_mgvalue)
 ```
 
-
-
 ```{r}
-values<-stringcnvert(df3$mgvalue,df4$mgvalue,3) #http://www.cs.ucr.edu/~eamonn/SAX.pdf alphabet size: 5-8 works better. ##3 worked better for this run
-strngindex<-duplicateindex(values)
-validate<-extractindex(df3,df4,strngindex)
-seq1<-extractvalue(validate[3])
-seq2<-extractvalue(validate[4])
+values <- StringConvert(df3$mgvalue, df4$mgvalue,3 ) #http://www.cs.ucr.edu/~eamonn/SAX.pdf alphabet size: 5-8 works better. ##3 worked better for this run
+strngindex <- IndexRange(values)
+validate <- ExtractDuplicateIndex(df3,df4,strngindex)
+seq1 <- ExtractVectorIndex(validate[3])
+seq2 <- ExtractVectorIndex(validate[4])
 
-df1_mgvalue<-patient[seq1,"mgvalue"]
-df2_mgvalue<-patient[seq2,"mgvalue"]
-compare<-data.frame(df1_mgvalue,df2_mgvalue)
-
-# par(mfrow=c(1,2))
-# plot.ts(compare$df1_mgvalue)
-# plot.ts(compare$df2_mgvalue)
-
-plot.zoo(cbind(compare$df1_mgvalue,compare$df2_mgvalue), 
+df1_mgvalue <- patient[seq1,"value"]
+df2_mgvalue <- patient[seq2,"value"]
+compare <- data.frame(df1_mgvalue, df2_mgvalue)
+plot.zoo(cbind(compare$df1_mgvalue, compare$df2_mgvalue), 
          plot.type = "multiple", 
          col = c("red", "blue"))
-
-
-sum(compare$df1_mgvalue-compare$df2_mgvalue)
+sum(compare$df1_mgvalue - compare$df2_mgvalue)
 ```
 
-
-
-
 ```{r}
-patient<-read.csv("duplicated0fe539475b52ae23f939d7dd2596cf8eb1e877edcea0478f2df73bb98bd5937c.csv")[,field]
-patient$mgvalue<-patient$value*18.01559
-length(unique(patient$uploadId)) #2
-length(unique(patient$id))==nrow(patient) ##True
-length(unique(patient$utcTime))# 8899
-anyDuplicated(patient$utcTime) #4366
-length(unique(patient$utcTime))==nrow(patient) #False
-
-
-
+patient <- read.csv("filename")[,field] #0fe539475b52ae23f939d7dd2596cf8eb1e877edcea0478f2df73bb98bd5937c.csv
+patient$mgvalue <- patient$value*18.01559
+length(unique(patient$uploadId)) 
+length(unique(patient$id))==nrow(patient) 
+length(unique(patient$utcTime))
+anyDuplicated(patient$utcTime) 
+length(unique(patient$utcTime))==nrow(patient) 
 df1<-subset(patient,patient$uploadId=="2f61322480c841fd8679fe81e94930b2")
-
-
 df2<-subset(patient,patient$uploadId=="c05970591b404518a1cbd64595d628e5")
-  
-
-
 ```
 
-
 ```{r}
-values<-stringcnvert(df1$mgvalue,df2$mgvalue,8)
-strngindex<-duplicateindex(values)
-validate<-extractindex(df1,df2,strngindex)
-seq1<-extractvalue(validate[3])
-seq2<-extractvalue(validate[4])
+values <- StringConvert(df1$mgvalue,df2$mgvalue,3)
+strngindex <- IndexRange(values)
+validate <- ExtractDuplicateIndex(df1,df2,strngindex)
+seq1 <- ExtractVectorIndex(validate[3])
+seq2 <- ExtractVectorIndex(validate[4])
 
-df1_mgvalue<-patient[seq1,"mgvalue"]
-df2_mgvalue<-patient[seq2,"mgvalue"]
+df1_mgvalue<-patient[seq1,"value"]
+df2_mgvalue<-patient[seq2,"value"]
 compare<-data.frame(df1_mgvalue,df2_mgvalue)
-
-
 
 plot.zoo(cbind(compare$df1_mgvalue,compare$df2_mgvalue), 
          plot.type = "multiple", 
          col = c("red", "blue"))
-
 sum(compare$df1_mgvalue-compare$df2_mgvalue)
 
-
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#cross correlation
