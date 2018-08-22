@@ -516,7 +516,7 @@ def exportSingleCsv(df, exportFolder, fileName, exportDirectory, fileType):
 
     # then sort
     bigTable = bigTable.sort_values("time")
-    if "csv" in fileType:
+    if (("csv" in fileType) | ("all" in fileType)):
         bigTable.to_csv(os.path.join(exportFolder, fileName + ".csv"))
 
     return bigTable
