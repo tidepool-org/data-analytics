@@ -328,6 +328,11 @@ def hashScheduleNames(df, salt, userID):
 
                 uniqueScheduleNames = list(set(uniqueScheduleNames +
                                                scheduleNameKeys))
+            # sort the uniqueScheduleNames so that the longest names are dealt
+            # with first to resolve a bug where a shorter name is included in
+            # a longer name (e.g., "camp" and "camp day")
+            uniqueScheduleNames.sort(key=len, reverse=True)
+
             # loop through each unique schedule name and create a hash
             for uniqueScheduleName in uniqueScheduleNames:
                 hashedScheduleName = \
