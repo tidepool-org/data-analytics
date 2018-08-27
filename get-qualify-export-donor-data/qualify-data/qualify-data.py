@@ -126,13 +126,24 @@ def getClosedLoopDays(groupedData, qualCriteria, metadata):
             closedLoopDF["basal.temp.count"] >= nTB
         nClosedLoopDays = closedLoopDF["basal.closedLoopDays"].sum()
 
+        # get the number of days with 670g
+        basalData["date"] = pd.to_datetime(basalData.time).dt.date
+        bdGroup = basalData.groupby("date")
+        topPump = bdGroup.deviceId.describe()["top"]
+        med670g = pd.DataFrame(topPump.str.contains("1780")).rename(columns={"top":"670g"})
+        med670g.reset_index(inplace=True)
+        n670gDays = med670g["670g"].sum()
+
     else:
         closedLoopDF = pd.DataFrame(columns=["basal.closedLoopDays", "date"])
+        med670g = pd.DataFrame(columns=["670g", "date"])
         nClosedLoopDays = 0
+        n670gDays = 0
 
     metadata["basal.closedLoopDays.count"] = nClosedLoopDays
+    metadata["med670gDays.count"] = n670gDays
 
-    return closedLoopDF, metadata
+    return closedLoopDF, med670g, metadata
 
 
 def removeInvalidCgmValues(df):
@@ -539,7 +550,7 @@ for dIndex in range(startIndex, endIndex):
                 getCalculatorCounts(groupedData, metadata)
 
             # %% GET CLOSED LOOP DAYS WITH TEMP BASAL DATA
-            isClosedLoopDay, metadata = \
+            isClosedLoopDay, is670g, metadata = \
                 getClosedLoopDays(groupedData, qualCriteria, metadata)
 
             # %% CONTIGUOUS DATA
@@ -561,6 +572,8 @@ for dIndex in range(startIndex, endIndex):
             contiguousData = pd.merge(contiguousData, calculatorRecordsPerDay,
                                       on="date", how="left")
             contiguousData = pd.merge(contiguousData, isClosedLoopDay,
+                                      on="date", how="left")
+            contiguousData = pd.merge(contiguousData, is670g,
                                       on="date", how="left")
 
             # fill in nan's with 0s
@@ -606,7 +619,8 @@ for dIndex in range(startIndex, endIndex):
                 contiguousData.to_csv(dSFileName)
 
                 # append meta data to the user results
-                allMetaData = pd.concat([allMetaData, metadata], axis=0)
+                allMetaData = pd.concat([allMetaData, metadata],
+                                        axis=0, sort=False)
 
                 # update on progress
                 print(round((dIndex - startIndex + 1) /
