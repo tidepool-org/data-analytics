@@ -170,28 +170,38 @@ def removeCgmDuplicates(df, timeCriterion):
                    ascending=[False, False],
                    inplace=True)
 
-    df, nDuplicatesRemoved = removeDuplicates(df, [timeCriterion, "value"])
+    dfIsNull = df[df[timeCriterion].isnull()]
+    dfNotNull = df[df[timeCriterion].notnull()]
+
+    dfNotNull, nDuplicatesRemoved = removeDuplicates(dfNotNull,
+                                                     [timeCriterion, "value"])
+    df = pd.concat([dfIsNull, dfNotNull])
+
+    df.sort_values(by=[timeCriterion, "uploadTime"],
+               ascending=[False, False],
+               inplace=True)
 
     return df, nDuplicatesRemoved
 
 
 def roundCgm5Minutes(df):
 
-    df.sort_values(by=["time", "uploadTime"],
-                   ascending=[True, False],
-                   inplace=True)
-
+    # sort ascendingly by time
+    df.sort_values(by="time", ascending=True, inplace=True)
     df.reset_index(drop=True, inplace=True)
 
+    # calculate the time-in-between (TIB) consecutive records
     t = pd.to_datetime(df.time)
     t_shift = pd.to_datetime(df.time.shift(1))
     df["TIB"] = round((t - t_shift).dt.days*(86400/300) +
                       (t - t_shift).dt.seconds/300) * 5
 
+    # separate the data into chunks if TIB is greater than 5 minutes
     largeGaps = list(df.query("TIB > 5").index)
     largeGaps.insert(0,0)
     largeGaps.append(len(df))
 
+    # loop through each chunk to get the cumulative sum and the rounded time
     for gIndex in range(0, len(largeGaps) - 1):
 
         df.loc[largeGaps[gIndex], "TIB"] = 0
@@ -203,6 +213,7 @@ def roundCgm5Minutes(df):
             pd.to_datetime(df.loc[largeGaps[gIndex], "time"]).round("5min") + \
             pd.to_timedelta(df.loc[largeGaps[gIndex]:(largeGaps[gIndex + 1] - 1), "TIB_cumsum"], unit="m")
 
+    # sort descendingly by time
     df.sort_values(by="time", ascending=False, inplace=True)
     df.reset_index(drop=True, inplace=True)
 
