@@ -165,21 +165,24 @@ def removeDuplicates(df, criteriaDF):
 
 
 def removeCgmDuplicates(df, timeCriterion):
+    if timeCriterion in df:
+        df.sort_values(by=[timeCriterion, "uploadTime"],
+                       ascending=[False, False],
+                       inplace=True)
 
-    df.sort_values(by=[timeCriterion, "uploadTime"],
+        dfIsNull = df[df[timeCriterion].isnull()]
+        dfNotNull = df[df[timeCriterion].notnull()]
+
+        dfNotNull, nDuplicatesRemoved = \
+            removeDuplicates(dfNotNull, [timeCriterion, "value"])
+
+        df = pd.concat([dfIsNull, dfNotNull])
+
+        df.sort_values(by=[timeCriterion, "uploadTime"],
                    ascending=[False, False],
                    inplace=True)
-
-    dfIsNull = df[df[timeCriterion].isnull()]
-    dfNotNull = df[df[timeCriterion].notnull()]
-
-    dfNotNull, nDuplicatesRemoved = removeDuplicates(dfNotNull,
-                                                     [timeCriterion, "value"])
-    df = pd.concat([dfIsNull, dfNotNull])
-
-    df.sort_values(by=[timeCriterion, "uploadTime"],
-               ascending=[False, False],
-               inplace=True)
+    else:
+        nDuplicatesRemoved = 0
 
     return df, nDuplicatesRemoved
 
