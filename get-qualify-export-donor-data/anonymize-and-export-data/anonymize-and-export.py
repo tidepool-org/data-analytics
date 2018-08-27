@@ -381,7 +381,6 @@ def filterAndSort(groupedDF, filterByField, sortByField):
 
 
 def removeManufacturersFromAnnotationsCode(df):
-
     # remove manufacturer from annotations.code
     manufacturers = ["animas/",
                      "bayer/",

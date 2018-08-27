@@ -17,6 +17,7 @@ TODO:
 
 # %% REQUIRED LIBRARIES
 import pandas as pd
+import numpy as np
 import datetime as dt
 import os
 import sys
@@ -88,6 +89,17 @@ def removeNegativeDurations(df):
     return df, nNegativeDurations
 
 
+def addUploadDate(df):
+    df["uploadTime"] = np.nan
+    uploadTimes = \
+        df[df.type == "upload"].groupby("uploadId").time.describe()["top"]
+
+    for upId in uploadTimes.index:
+        df.loc[df[df.uploadId == upId].index, "uploadTime"] = uploadTimes[upId]
+
+    return df
+
+
 def filterAndSort(groupedDF, filterByField, sortByField):
     filterDF = groupedDF.get_group(filterByField).dropna(axis=1, how="all")
     filterDF = filterDF.sort_values(sortByField)
@@ -134,19 +146,56 @@ def removeInvalidCgmValues(df):
 
 def removeDuplicates(df, criteriaDF):
     nBefore = len(df)
-    df = df.loc[~(criteriaDF.duplicated())]
+    df = df.loc[~(df[criteriaDF].duplicated())]
     df = df.reset_index(drop=True)
     nDuplicatesRemoved = nBefore - len(df)
 
     return df, nDuplicatesRemoved
 
 
-def roundTimeAndDropDups(df, timeInterval):
-    df["roundedTime"] = \
-        pd.DatetimeIndex(df["time"]).round(str(timeInterval) + "min")
+def removeCgmDuplicates(df, timeCriterion):
 
-    df, nDuplicatesRemoved = removeDuplicates(df, df["roundedTime"])
+    df.sort_values(by=[timeCriterion, "uploadTime"],
+                   ascending=[False, False],
+                   inplace=True)
+
+    df, nDuplicatesRemoved = removeDuplicates(df, [timeCriterion, "value"])
+
     return df, nDuplicatesRemoved
+
+
+def roundCgm5Minutes(df):
+
+    df.sort_values(by=["time", "uploadTime"],
+                   ascending=[True, False],
+                   inplace=True)
+
+    df.reset_index(drop=True, inplace=True)
+
+    t = pd.to_datetime(df.time)
+    t_shift = pd.to_datetime(df.time.shift(1))
+    df["TIB"] = round((t - t_shift).dt.days*(86400/300) +
+                      (t - t_shift).dt.seconds/300) * 5
+
+    largeGaps = list(df.query("TIB > 5").index)
+    largeGaps.insert(0,0)
+    largeGaps.append(len(df))
+
+    for gIndex in range(0, len(largeGaps) - 1):
+
+        df.loc[largeGaps[gIndex], "TIB"] = 0
+
+        df.loc[largeGaps[gIndex]:(largeGaps[gIndex + 1] - 1), "TIB_cumsum"] = \
+            df.loc[largeGaps[gIndex]:(largeGaps[gIndex + 1] - 1), "TIB"].cumsum()
+
+        df.loc[largeGaps[gIndex]:(largeGaps[gIndex + 1] - 1), "roundedTime"] = \
+            pd.to_datetime(df.loc[largeGaps[gIndex], "time"]).round("5min") + \
+            pd.to_timedelta(df.loc[largeGaps[gIndex]:(largeGaps[gIndex + 1] - 1), "TIB_cumsum"], unit="m")
+
+    df.sort_values(by="time", ascending=False, inplace=True)
+    df.reset_index(drop=True, inplace=True)
+
+    return df
 
 
 def getStartAndEndTimes(df, dateTimeField):
@@ -167,7 +216,7 @@ def getCalculatorCounts(groupedData, metadata):
         # get rid of duplicates
         calculatorData, nDuplicatesRemoved = \
             removeDuplicates(calculatorData,
-                             calculatorData.drop("jsonRowIndex", axis=1))
+                             calculatorData.columns.drop("jsonRowIndex"))
         metadata["calculator.duplicatesRemoved.count"] = nDuplicatesRemoved
 
         # get start and end times
@@ -395,6 +444,9 @@ for dIndex in range(startIndex, endIndex):
             metadata["all.negativeDurationsRemoved.count"] = \
                 numberOfNegativeDurations
 
+            # attach upload time to each record, for resolving duplicates
+            data = addUploadDate(data)
+
             # group data by type
             groupedData = data.groupby(by="type")
 
@@ -406,11 +458,29 @@ for dIndex in range(startIndex, endIndex):
             cgmData, numberOfInvalidCgmValues = removeInvalidCgmValues(cgmData)
             metadata["cgm.invalidValues.count"] = numberOfInvalidCgmValues
 
-            # round time to nearest timeFreqMin and get rid of duplicates
-            cgmData, nDuplicates = \
-                roundTimeAndDropDups(cgmData,
-                                     qualCriteria["timeFreqMin"])
-            metadata["cgm.duplicatesRemoved.count"] = nDuplicates
+            # get rid of duplicates that have the same ["deviceTime", "value"]
+            cgmData, nDuplicatesRemovedDeviceTime = \
+                removeCgmDuplicates(cgmData, "deviceTime")
+
+            metadata["cgm.nDuplicatesRemovedDeviceTime.count"] = \
+                nDuplicatesRemovedDeviceTime
+
+            # get rid of duplicates that have the same ["time", "value"]
+            cgmData, nDuplicatesRemovedUtcTime = \
+                removeCgmDuplicates(cgmData, "time")
+
+            metadata["cgm.nDuplicatesRemovedUtcTime.count"] = \
+                nDuplicatesRemovedUtcTime
+
+            # round time to the nearest 5 minutes
+            cgmData = roundCgm5Minutes(cgmData)
+
+            # get rid of duplicates that have the same "roundedTime"
+            cgmData, nDuplicatesRemovedRoundedTime = \
+                removeDuplicates(cgmData, "roundedTime")
+
+            metadata["cgm.nDuplicatesRemovedRoundedTime.count"] = \
+                nDuplicatesRemovedRoundedTime
 
             # calculate day or date of data
             cgmData["dayIndex"] = cgmData.roundedTime.dt.date
@@ -443,7 +513,8 @@ for dIndex in range(startIndex, endIndex):
             # get rid of duplicates
             bolusData, nDuplicatesRemoved = \
                 removeDuplicates(bolusData,
-                                 bolusData.drop("jsonRowIndex", axis=1))
+                                 bolusData.columns.drop("jsonRowIndex"))
+
             metadata["bolus.duplicatesRemoved.count"] = nDuplicatesRemoved
 
             # calculate day or date of data
