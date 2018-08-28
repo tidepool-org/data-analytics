@@ -524,22 +524,23 @@ def formatKeyValue(key, val):
     return output
 
 
-def formatRow(df, rIdx):
-    oneRow = \
-        df.loc[rIdx, df.columns[df.loc[rIdx].notnull()].tolist()].to_dict()
-
+def formatRow(oneRow):
     keyValList = [formatKeyValue(k, v) for k, v in oneRow.items()]
     keyValString = ",".join(keyValList)
-
     rowString = '\n {' + keyValString + '\n }'
 
     return rowString
 
 
+def rowToDict(rowData):
+    rowDict = formatRow(rowData[rowData.notnull()].to_dict())
+    return rowDict
+
+
 def exportPrettyJson(df, exportFolder, fileName):
     jsonExportFileName = exportFolder + fileName + ".json"
     outfile = open(jsonExportFileName, 'w')
-    rowList = [formatRow(df, rowIndex) for rowIndex in df.index]
+    rowList = df.apply(rowToDict, axis=1)
     allRows = ",".join(rowList)
     jsonString = '[' + allRows + '\n]'
     outfile.write(jsonString)
