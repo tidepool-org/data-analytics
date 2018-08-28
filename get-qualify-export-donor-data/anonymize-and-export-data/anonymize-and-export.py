@@ -513,17 +513,31 @@ def exportSingleCsv(df, exportFolder, fileName, exportDirectory, fileType):
     return bigTable
 
 
-def exportPrettyJson(df, exportFolder, fileName, exportDirectory):
-    # make a hidden file
-    hiddenJsonFile = exportFolder + "." + fileName + ".json"
-    df.to_json(hiddenJsonFile, orient='records')
-    # make a pretty json file for export
+def exportPrettyJson(df, exportFolder, fileName):
     jsonExportFileName = exportFolder + fileName + ".json"
-    # export pretty and remove nulls
-    os.system("jq 'del(.[][] | nulls)' " +
-              hiddenJsonFile + " > " + jsonExportFileName)
-    # delete the hidden file
-    os.remove(hiddenJsonFile)
+    outfile = open(jsonExportFileName, 'w')
+    outfile.write('[')
+    for rowIndex in df.index:
+        if rowIndex == df.index[0]:
+            outfile.write('\n {')
+        else:
+            outfile.write(',\n {')
+        oneRow = \
+            df.loc[rowIndex, df.columns[df.loc[rowIndex].notnull()].tolist()].to_dict()
+        i = 0
+        for k, v in oneRow.items():
+            if i != 0:
+                outfile.write(',')
+            if str(v) in ["True", "False"]:
+                outfile.write('\n  "{0}":{1}'.format(k, str(v).lower()))
+            elif isinstance(v, str):
+                outfile.write('\n  "{0}":"{1}"'.format(k, v))
+            else:
+                outfile.write('\n  "{0}":{1}'.format(k, v))
+            i = i + 1
+        outfile.write('\n }')
+    outfile.write('\n]')
+    outfile.close()
 
     return
 
@@ -600,7 +614,7 @@ def exportData(df, fileName, fileType, exportDirectory, mergeCalculatorData):
                                   fileName, csvExportFolder, fileType)
 
     if (("json" in fileType) | ("all" in fileType)):
-        exportPrettyJson(allData, exportDirectory, fileName, csvExportFolder)
+        exportPrettyJson(allData, exportDirectory, fileName)
 
     if (("xlsx" in fileType) | ("all" in fileType)):
         exportExcelFile(csvExportFolder, exportDirectory, fileName)
