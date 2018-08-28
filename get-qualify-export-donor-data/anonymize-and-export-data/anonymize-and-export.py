@@ -513,30 +513,36 @@ def exportSingleCsv(df, exportFolder, fileName, exportDirectory, fileType):
     return bigTable
 
 
+def formatKeyValue(key, val):
+    if str(val) in ["True", "False"]:
+        output = '\n  "{0}":{1}'.format(key, str(val).lower())
+    elif isinstance(val, str):
+        output = '\n  "{0}":"{1}"'.format(key, val)
+    else:
+        output = '\n  "{0}":{1}'.format(key, val)
+
+    return output
+
+
+def formatRow(df, rIdx):
+    oneRow = \
+        df.loc[rIdx, df.columns[df.loc[rIdx].notnull()].tolist()].to_dict()
+
+    keyValList = [formatKeyValue(k, v) for k, v in oneRow.items()]
+    keyValString = ",".join(keyValList)
+
+    rowString = '\n {' + keyValString + '\n }'
+
+    return rowString
+
+
 def exportPrettyJson(df, exportFolder, fileName):
     jsonExportFileName = exportFolder + fileName + ".json"
     outfile = open(jsonExportFileName, 'w')
-    outfile.write('[')
-    for rowIndex in df.index:
-        if rowIndex == df.index[0]:
-            outfile.write('\n {')
-        else:
-            outfile.write(',\n {')
-        oneRow = \
-            df.loc[rowIndex, df.columns[df.loc[rowIndex].notnull()].tolist()].to_dict()
-        i = 0
-        for k, v in oneRow.items():
-            if i != 0:
-                outfile.write(',')
-            if str(v) in ["True", "False"]:
-                outfile.write('\n  "{0}":{1}'.format(k, str(v).lower()))
-            elif isinstance(v, str):
-                outfile.write('\n  "{0}":"{1}"'.format(k, v))
-            else:
-                outfile.write('\n  "{0}":{1}'.format(k, v))
-            i = i + 1
-        outfile.write('\n }')
-    outfile.write('\n]')
+    rowList = [formatRow(df, rowIndex) for rowIndex in df.index]
+    allRows = ",".join(rowList)
+    jsonString = '[' + allRows + '\n]'
+    outfile.write(jsonString)
     outfile.close()
 
     return
