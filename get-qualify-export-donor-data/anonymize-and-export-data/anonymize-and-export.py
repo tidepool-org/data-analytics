@@ -312,32 +312,24 @@ def hashScheduleNames(df, salt, userID):
         if scheduleName in list(df):
             scheduleNameDataFrame = df[df[scheduleName].notnull()].copy()
             scheduleNameRows = scheduleNameDataFrame[scheduleName].index
-            # loop through each schedule name row
-            uniqueScheduleNames = []
-            for scheduleNameRow in scheduleNameRows:
-                # TODO: come up with a better work around
-                # work-around if input file is json vs. csv format
-                try: # this is the json version
-                    scheduleNameKeys = \
-                        list(scheduleNameDataFrame[scheduleName]
-                        [scheduleNameRow].keys())
-                except: # this is the csv version
-                    scheduleNameKeys = \
-                        list(ast.literal_eval(scheduleNameDataFrame[scheduleName]
-                        [scheduleNameRow]).keys())
 
-                uniqueScheduleNames = list(set(uniqueScheduleNames +
-                                               scheduleNameKeys))
-            # loop through each unique schedule name and create a hash
-            for uniqueScheduleName in uniqueScheduleNames:
-                hashedScheduleName = \
-                    hashlib.sha256((uniqueScheduleName + args.salt + userID).
-                                   encode()).hexdigest()[0:8]
-                # find and replace those names in the json blob
-                scheduleNameDataFrame.loc[:, scheduleName] = \
-                    scheduleNameDataFrame[scheduleName] \
-                    .astype(str).str.replace(uniqueScheduleName,
-                                             hashedScheduleName)
+            # loop through each schedule name row
+            for scheduleNameRow in scheduleNameRows:
+                # this is for the csv version, which loads the data as string
+                if isinstance(scheduleNameDataFrame.loc[scheduleNameRow, scheduleName], str):
+                    scheduleNameDataFrame.loc[scheduleNameRow, [scheduleName]] = \
+                        [ast.literal_eval(scheduleNameDataFrame.loc[scheduleNameRow, scheduleName])]
+
+                scheduleNameKeys = \
+                    list(scheduleNameDataFrame[scheduleName]
+                    [scheduleNameRow].keys())
+                # loop through each key and replace with hashed version
+                for scheduleNameKey in scheduleNameKeys:
+                    hashedScheduleName = \
+                    hashlib.sha256((scheduleNameKey + args.salt + userID).
+                               encode()).hexdigest()[0:8]
+                    scheduleNameDataFrame[scheduleName][scheduleNameRow][hashedScheduleName] = \
+                        scheduleNameDataFrame[scheduleName][scheduleNameRow].pop(scheduleNameKey)
 
             # drop and reattach the new data
             df = df.drop(columns=scheduleName)
@@ -389,7 +381,6 @@ def filterAndSort(groupedDF, filterByField, sortByField):
 
 
 def removeManufacturersFromAnnotationsCode(df):
-
     # remove manufacturer from annotations.code
     manufacturers = ["animas/",
                      "bayer/",
@@ -516,23 +507,44 @@ def exportSingleCsv(df, exportFolder, fileName, exportDirectory, fileType):
 
     # then sort
     bigTable = bigTable.sort_values("time")
-    if "csv" in fileType:
+    if (("csv" in fileType) | ("all" in fileType)):
         bigTable.to_csv(os.path.join(exportFolder, fileName + ".csv"))
 
     return bigTable
 
 
-def exportPrettyJson(df, exportFolder, fileName, exportDirectory):
-    # make a hidden file
-    hiddenJsonFile = exportFolder + "." + fileName + ".json"
-    df.to_json(hiddenJsonFile, orient='records')
-    # make a pretty json file for export
+def formatKeyValue(key, val):
+    if str(val) in ["True", "False"]:
+        output = '\n  "{0}":{1}'.format(key, str(val).lower())
+    elif isinstance(val, str):
+        output = '\n  "{0}":"{1}"'.format(key, val)
+    else:
+        output = '\n  "{0}":{1}'.format(key, val)
+
+    return output
+
+
+def formatRow(oneRow):
+    keyValList = [formatKeyValue(k, v) for k, v in oneRow.items()]
+    keyValString = ",".join(keyValList)
+    rowString = '\n {' + keyValString + '\n }'
+
+    return rowString
+
+
+def rowToDict(rowData):
+    rowDict = formatRow(rowData[rowData.notnull()].to_dict())
+    return rowDict
+
+
+def exportPrettyJson(df, exportFolder, fileName):
     jsonExportFileName = exportFolder + fileName + ".json"
-    # export pretty and remove nulls
-    os.system("jq 'del(.[][] | nulls)' " +
-              hiddenJsonFile + " > " + jsonExportFileName)
-    # delete the hidden file
-    os.remove(hiddenJsonFile)
+    outfile = open(jsonExportFileName, 'w')
+    rowList = df.apply(rowToDict, axis=1)
+    allRows = ",".join(rowList)
+    jsonString = '[' + allRows + '\n]'
+    outfile.write(jsonString)
+    outfile.close()
 
     return
 
@@ -609,7 +621,7 @@ def exportData(df, fileName, fileType, exportDirectory, mergeCalculatorData):
                                   fileName, csvExportFolder, fileType)
 
     if (("json" in fileType) | ("all" in fileType)):
-        exportPrettyJson(allData, exportDirectory, fileName, csvExportFolder)
+        exportPrettyJson(allData, exportDirectory, fileName)
 
     if (("xlsx" in fileType) | ("all" in fileType)):
         exportExcelFile(csvExportFolder, exportDirectory, fileName)
