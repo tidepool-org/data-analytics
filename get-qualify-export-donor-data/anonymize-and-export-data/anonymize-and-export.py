@@ -226,12 +226,10 @@ def flattenJson(df, dataFieldsForExport):
     newColHeadings = list(newDataFrame)
 
     # put df back into the main dataframe
+    # and add the fields that were removed back in
     columnFilter = list(set(newColHeadings) & set(dataFieldsForExport))
     tempDataFrame = newDataFrame.filter(items=columnFilter)
-    df = pd.concat([df, tempDataFrame], axis=1)
-
-    # add the fields that were removed back in
-    df = pd.concat([df, holdData], axis=1)
+    df = pd.concat([df, tempDataFrame, holdData], axis=1)
 
     return df
 
