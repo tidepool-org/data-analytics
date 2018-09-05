@@ -9,25 +9,21 @@ dependencies:
     * requires that donors are accepted (currently a manual process)
     * requires a list of qa accounts on production to be ignored
     * requires environmental variables: import environmentalVariables.py
-    * requires https://github.com/tidepool-org/command-line-data-tools
 license: BSD-2-Clause
 TODO:
 * [] once the process of accepting new donors is automated, the use of the
 dateStamp will make more sense. As it is being used now, it is possible that
 the dateStamp does NOT reflect all of the recent donors.
-* [] refactor script to get rid of commandline tools
 """
 
 
 # %% load in required libraries
-
 import pandas as pd
 import datetime as dt
 import numpy as np
 import hashlib
 import os
 import sys
-import subprocess as sub
 import requests
 import json
 import argparse
@@ -93,12 +89,10 @@ except KeyError:
 
 phiDateStamp = "PHI-" + args.dateStamp
 
-donorMetadataColumns = ["userID", "bDay", "dDay",
-                            "diagnosisType",
-                            "targetDevices",
-                            "targetTimezone",
-                            "termsAccepted",
-                            "hashID"]
+donorMetadataColumns = ["userID", "name", "email",
+                        "bDay", "dDay", "diagnosisType",
+                        "targetDevices", "targetTimezone",
+                        "termsAccepted", "hashID"]
 
 alldonorMetadataList = pd.DataFrame(columns=donorMetadataColumns)
 
@@ -116,42 +110,9 @@ uniqueDonorPath = os.path.join(donorFolder,
 
 
 # %% define functions
-def get_donor_lists(email, password, outputDonorList):
-    p = sub.Popen(["getusers", email,
-                   "-p", password, "-o",
-                   outputDonorList, "-v"], stdout=sub.PIPE, stderr=sub.PIPE)
-
-    output, errors = p.communicate()
-    output = output.decode("utf-8")
-    errors = errors.decode("utf-8")
-
-    if output.startswith("Successful login.\nSuccessful") is False:
-        sys.exit("ERROR with" + email +
-                 " ouput: " + output +
-                 " errorMessage: " + errors)
-
-    return
-
-
-def load_donors(outputDonorList, donorGroup):
-    donorList = []
-    if os.stat(outputDonorList).st_size > 0:
-        donorList = pd.read_csv(outputDonorList,
-                                header=None,
-                                usecols=[0, 1],
-                                names=["userID", "name"],
-                                low_memory=False)
-        if donorGroup == "":
-            donorGroup = "bigdata"
-        donorList[donorGroup] = True
-        donorList["donorGroup"] = donorGroup
-
-    return donorList
-
-
-def get_metadata(email, password, donorMetadataColumns):
-
-    tempBandDdayList = pd.DataFrame(columns=donorMetadataColumns)
+def get_donor_info(email, password, donorMetadataColumns):
+    
+    donorMetaData = pd.DataFrame(columns=donorMetadataColumns)
     url1 = "https://api.tidepool.org/auth/login"
     myResponse = requests.post(url1, auth=(email, password))
 
@@ -170,6 +131,10 @@ def get_metadata(email, password, donorMetadataColumns):
             usersData = json.loads(myResponse2.content.decode())
 
             for i in range(0, len(usersData)):
+                userID = usersData[i]["userid"]
+                userName = usersData[i]["profile"]["fullName"]
+                userEmail = usersData[i]["username"]
+                
                 try:
                     bDay = usersData[i]["profile"]["patient"]["birthday"]
                 except Exception:
@@ -195,12 +160,13 @@ def get_metadata(email, password, donorMetadataColumns):
                 except Exception:
                     termsAccepted = np.nan
 
-                userID = usersData[i]["userid"]
                 usr_string = userID + salt
                 hash_user = hashlib.sha256(usr_string.encode())
                 hashID = hash_user.hexdigest()
-                tempBandDdayList = tempBandDdayList.append(
+                donorMetaData = donorMetaData.append(
                         pd.DataFrame([[userID,
+                                       userName,
+                                       userEmail,
                                        bDay,
                                        dDay,
                                        diagnosisType,
@@ -209,13 +175,15 @@ def get_metadata(email, password, donorMetadataColumns):
                                        termsAccepted,
                                        hashID]],
                                      columns=donorMetadataColumns),
-                        ignore_index=True)
+                                     ignore_index=True)
         else:
             print(donorGroup, "ERROR", myResponse2.status_code)
+            sys.exit("Error with" + donorGroup + ":" + myResponse2.status_code)
     else:
         print(donorGroup, "ERROR", myResponse.status_code)
+        sys.exit("Error with" + donorGroup + ":" + myResponse.status_code)
 
-    return tempBandDdayList
+    return donorMetaData
 
 
 # %% loop through each donor group to get a list of donors, bdays, and ddays
@@ -229,42 +197,20 @@ for donorGroup in donorGroups:
     email, password = \
         environmentalVariables.get_environmental_variables(donorGroup)
 
-    # get the list of donors
-    get_donor_lists(email, password, outputDonorList)
-
-    # load in the donor list
-    donorList = load_donors(outputDonorList, donorGroup)
-
     # load in bdays and ddays and append to all donor list
-    donorMetadataList = get_metadata(email, password, donorMetadataColumns)
+    donorMetadataList = get_donor_info(email, password, donorMetadataColumns)
 
-    donorMetadataList = pd.merge(donorMetadataList,
-                                 donorList,
-                                 how="left",
-                                 on="userID")
+    donorMetadataList.to_csv(outputDonorList)
+    print("BIGDATA_" + donorGroup, "complete")
+    donorMetadataList["donorGroup"] = donorGroup
 
     alldonorMetadataList = alldonorMetadataList.append(donorMetadataList,
                                                        ignore_index=True,
                                                        sort=False)
 
-    print("BIGDATA_" + donorGroup, "complete")
-
-
 # %% save output
-
-uniqueDonors = alldonorMetadataList.loc[
-        ~alldonorMetadataList["userID"].duplicated(),
-        donorMetadataColumns + ["name", "donorGroup"]]
-
-# add donor groups to unique donors
-donorCounts = alldonorMetadataList.groupby("userID").count()
-donorCounts = donorCounts[donorGroups]
-donorCounts["userID"] = donorCounts.index
-
-uniqueDonors = pd.merge(uniqueDonors,
-                        donorCounts,
-                        how="left",
-                        on="userID")
+alldonorMetadataList.sort_values(by=['name', 'donorGroup'], inplace=True)
+uniqueDonors = alldonorMetadataList.loc[~alldonorMetadataList["userID"].duplicated()]
 
 # cross reference the QA users here and DROP them
 ignoreAccounts = pd.read_csv(ignoreAccountsPath, low_memory=False)
