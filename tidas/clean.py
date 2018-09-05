@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-description: load csv data
-created: 2018-02-21
+description: cleaning tools for TidAs (Tidepool Analytics)
+created: 2018-07
 author: Ed Nykaza
 license: BSD-2-Clause
 """
@@ -19,15 +19,47 @@ def remove_duplicates(df, criteriaDF):
     return df, nDuplicatesRemoved
 
 
-def round_time(df, timeInterval):
+def round_time(df, timeIntervalMinutes=5, timeField="time",
+               roundedTimeFieldName="roundedTime", verbose=False):
+    # A general purpose round time function that rounds the
+    # "time" field to nearest <timeIntervalMinutes> minutes
+    # INPUTS:
+    #   * a dataframe (df) that contains a time field
+    #   * timeIntervalMinutes defaults to 5 minutes given that most cgms output every 5 minutes
+    #   * timeField defaults to UTC time "time"
+    #   * verbose specifies whether the "TIB" and "TIB_cumsum" columns are returned
 
-    # first round to the nearest 30 seconds, which addresses edge case when
-    # data occurs right near increments of 2:30. For example, if cgm data
-    # occurs at 2:30 and 7:29, they both get rounded to 5:00
-    df["roundedTime"] = pd.DatetimeIndex(df["time"]).round("30S")
+    df.sort_values(by=timeField, ascending=True, inplace=True)
+    df.reset_index(drop=True, inplace=True)
 
-    # then round to the nearest user defined minutes
-    # (e.g., 5 or 15 minutes for cgm data)
-    df["roundedTime"] = df["roundedTime"].dt.round(str(timeInterval) + "min")
+    # calculate the time-in-between (TIB) consecutive records
+    t = pd.to_datetime(df.time)
+    t_shift = pd.to_datetime(df.time.shift(1))
+    df["TIB"] = round((t - t_shift).dt.days*(86400/(60 * timeIntervalMinutes)) +
+                      (t - t_shift).dt.seconds/(60 * timeIntervalMinutes)) * timeIntervalMinutes
+
+    # separate the data into chunks if TIB is greater than <timeIntervalMinutes> minutes
+    # so that rounding process can start over
+    largeGaps = list(df.query("TIB > " + str(timeIntervalMinutes)).index)
+    largeGaps.insert(0, 0)
+    largeGaps.append(len(df))
+
+    # loop through each chunk to get the cumulative sum and the rounded time
+    for gIndex in range(0, len(largeGaps) - 1):
+
+        df.loc[largeGaps[gIndex], "TIB"] = 0
+
+        df.loc[largeGaps[gIndex]:(largeGaps[gIndex + 1] - 1), "TIB_cumsum"] = \
+            df.loc[largeGaps[gIndex]:(largeGaps[gIndex + 1] - 1), "TIB"].cumsum()
+
+        df.loc[largeGaps[gIndex]:(largeGaps[gIndex + 1] - 1), roundedTimeFieldName] = \
+            pd.to_datetime(df.loc[largeGaps[gIndex], timeField]).round(str(timeIntervalMinutes) + "min") + \
+            pd.to_timedelta(df.loc[largeGaps[gIndex]:(largeGaps[gIndex + 1] - 1), "TIB_cumsum"], unit="m")
+
+    # sort descendingly by time and drop fieldsfields
+    df.sort_values(by=timeField, ascending=False, inplace=True)
+    df.reset_index(drop=True, inplace=True)
+    if verbose is False:
+        df.drop(columns=["TIB", "TIB_cumsum"], inplace=True)
 
     return df

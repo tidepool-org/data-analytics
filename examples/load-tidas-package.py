@@ -31,5 +31,5 @@ data = td.load_csv(dataPath)
 # get just the cgm data (utc-time and mmol/L values)
 cgm = data.loc[data.type == "cbg", ["time", "value"]]
 
-# round data to the nearest 5 minutes
-cgm = td.round_time(cgm, 5)
+# round data to the nearest 15 minutes
+cgm = td.round_time(cgm, timeIntervalMinutes=15)
