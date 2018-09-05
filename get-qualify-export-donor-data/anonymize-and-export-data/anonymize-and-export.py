@@ -675,5 +675,5 @@ if 'hashID' in locals():
 else:
     outputName = "PHI-" + userID
 
-exportData(data, outputName, args.exportFormat,
+exportData(data, outputName, ast.literal_eval(args.exportFormat),
            args.exportPath, args.mergeWizardDataWithBolusData)
