@@ -2,18 +2,13 @@
 # -*- coding: utf-8 -*-
 """
 description: download donors for each of the Tidepool donor groups
-version: 0.0.2
+version: 0.0.3
 created: 2018-02-21
 author: Ed Nykaza
 dependencies:
-    * requires that donors are accepted (currently a manual process)
     * requires a list of qa accounts on production to be ignored
     * requires environmental variables: import environmentalVariables.py
 license: BSD-2-Clause
-TODO:
-* [] once the process of accepting new donors is automated, the use of the
-dateStamp will make more sense. As it is being used now, it is possible that
-the dateStamp does NOT reflect all of the recent donors.
 """
 
 
@@ -47,7 +42,7 @@ parser.add_argument("-d",
 parser.add_argument("-i",
                     "--input-donor-groups",
                     dest="donorGroupsCsvFile",
-                    default="2018-02-28-donor-groups.csv",
+                    default="2018-09-04-donor-groups.csv",
                     help="a .csv file that contains a column heading " +
                     "'donorGroups' and a list of donor groups")
 
@@ -111,7 +106,6 @@ uniqueDonorPath = os.path.join(donorFolder,
 
 # %% define functions
 def get_donor_info(email, password, donorMetadataColumns):
-    
     donorMetaData = pd.DataFrame(columns=donorMetadataColumns)
     url1 = "https://api.tidepool.org/auth/login"
     myResponse = requests.post(url1, auth=(email, password))
@@ -134,7 +128,7 @@ def get_donor_info(email, password, donorMetadataColumns):
                 userID = usersData[i]["userid"]
                 userName = usersData[i]["profile"]["fullName"]
                 userEmail = usersData[i]["username"]
-                
+
                 try:
                     bDay = usersData[i]["profile"]["patient"]["birthday"]
                 except Exception:
@@ -178,10 +172,10 @@ def get_donor_info(email, password, donorMetadataColumns):
                                      ignore_index=True)
         else:
             print(donorGroup, "ERROR", myResponse2.status_code)
-            sys.exit("Error with" + donorGroup + ":" + myResponse2.status_code)
+            sys.exit("Error with" + donorGroup + ":" + str(myResponse2.status_code))
     else:
         print(donorGroup, "ERROR", myResponse.status_code)
-        sys.exit("Error with" + donorGroup + ":" + myResponse.status_code)
+        sys.exit("Error with" + donorGroup + ":" + str(myResponse.status_code))
 
     return donorMetaData
 
