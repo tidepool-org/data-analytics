@@ -208,26 +208,27 @@ def flattenJson(df, dataFieldsForExport):
     columnHeadings = list(df)  # ["payload", "suppressed"]
 
     # loop through each columnHeading
+    newDataFrame = pd.DataFrame()
+
     for colHead in columnHeadings:
         # if the df field has embedded json
-        if "{" in df[df[colHead].notnull()][colHead].astype(str).str[0].values:
+        if any(isinstance(item, dict) for item in df[colHead]):
             # grab the data that is in brackets
             jsonBlob = df[colHead][df[colHead].astype(str).str[0] == "{"]
 
             # replace those values with nan
             df.loc[jsonBlob.index, colHead] = np.nan
 
-            # turn jsonBlog to dataframe
-            newDataFrame = pd.DataFrame(jsonBlob.tolist(),
-                                        index=jsonBlob.index)
-            newDataFrame = newDataFrame.add_prefix(colHead + '.')
-            newColHeadings = list(newDataFrame)
+            # turn jsonBlob to dataframe
+            newDataFrame = pd.concat([newDataFrame, pd.DataFrame(jsonBlob.tolist(),
+                                        index=jsonBlob.index).add_prefix(colHead + '.')], axis=1)
 
-            # put df back into the main dataframe
-            for newColHeading in list(set(newColHeadings) &
-                                      set(dataFieldsForExport)):
-                tempDataFrame = newDataFrame[newColHeading]
-                df = pd.concat([df, tempDataFrame], axis=1)
+    newColHeadings = list(newDataFrame)
+
+    # put df back into the main dataframe
+    columnFilter = list(set(newColHeadings) & set(dataFieldsForExport))
+    tempDataFrame = newDataFrame.filter(items=columnFilter)
+    df = pd.concat([df, tempDataFrame], axis=1)
 
     # add the fields that were removed back in
     df = pd.concat([df, holdData], axis=1)
@@ -241,10 +242,9 @@ def filterByApprovedDataFields(df, dataFieldsForExport):
     df = flattenJson(df, dataFieldsForExport)
 
     dfExport = pd.DataFrame()
-    for fIndex in range(0, len(dataFieldsForExport)):
-        if dataFieldsForExport[fIndex] in df.columns.values:
-            dfExport = pd.concat([dfExport, df[dataFieldsForExport[fIndex]]],
-                                 axis=1)
+    colHeadings = list(df)
+    columnFilter = list(set(colHeadings) & set(dataFieldsForExport))
+    dfExport = df.filter(items=columnFilter)
 
     return dfExport
 
