@@ -64,13 +64,15 @@ parser.add_argument("--merge-wizard-data",
                     help="option to merge wizard data with bolus data, " +
                          "default, is true")
 
-parser.add_argument("--output-format",
+parser.add_argument("-f",
+                    "--output-format",
                     dest="exportFormat",
-                    default=["all"],
+                    # default=["all"],
+                    action="append",
                     help="the format of the exported data. Export options " +
-                         "include json, xlsx, csv, csvs, or all" +
-                         "NOTE: you can include multiple formats in a " +
-                         "list (e.g., ['json', 'csv'])")
+                         "include json, xlsx, csv, csvs, or all. " +
+                         "NOTE: you can include multiple formats by passing " +
+                         "the option multiple times (e.g., -f json -f csv)")
 
 parser.add_argument("--start-date",
                     dest="startDate",
@@ -90,7 +92,9 @@ parser.add_argument("--filterByDatesExceptUploadsAndSettings",
                          "upload and settings data in export")
 
 args = parser.parse_args()
-
+# Because having a default for an action="append" always includes the default...
+if args.exportFormat is None:
+    args.exportFormat = ['all']
 
 # %% LOAD DATA FUNCTIONS
 def checkInputFile(inputFile):
@@ -208,29 +212,28 @@ def flattenJson(df, dataFieldsForExport):
     columnHeadings = list(df)  # ["payload", "suppressed"]
 
     # loop through each columnHeading
+    newDataFrame = pd.DataFrame()
+
     for colHead in columnHeadings:
         # if the df field has embedded json
-        if "{" in df[df[colHead].notnull()][colHead].astype(str).str[0].values:
+        if any(isinstance(item, dict) for item in df[colHead]):
             # grab the data that is in brackets
             jsonBlob = df[colHead][df[colHead].astype(str).str[0] == "{"]
 
             # replace those values with nan
             df.loc[jsonBlob.index, colHead] = np.nan
 
-            # turn jsonBlog to dataframe
-            newDataFrame = pd.DataFrame(jsonBlob.tolist(),
-                                        index=jsonBlob.index)
-            newDataFrame = newDataFrame.add_prefix(colHead + '.')
-            newColHeadings = list(newDataFrame)
+            # turn jsonBlob to dataframe
+            newDataFrame = pd.concat([newDataFrame, pd.DataFrame(jsonBlob.tolist(),
+                                        index=jsonBlob.index).add_prefix(colHead + '.')], axis=1)
 
-            # put df back into the main dataframe
-            for newColHeading in list(set(newColHeadings) &
-                                      set(dataFieldsForExport)):
-                tempDataFrame = newDataFrame[newColHeading]
-                df = pd.concat([df, tempDataFrame], axis=1)
+    newColHeadings = list(newDataFrame)
 
-    # add the fields that were removed back in
-    df = pd.concat([df, holdData], axis=1)
+    # put df back into the main dataframe
+    # and add the fields that were removed back in
+    columnFilter = list(set(newColHeadings) & set(dataFieldsForExport))
+    tempDataFrame = newDataFrame.filter(items=columnFilter)
+    df = pd.concat([df, tempDataFrame, holdData], axis=1)
 
     return df
 
@@ -241,10 +244,9 @@ def filterByApprovedDataFields(df, dataFieldsForExport):
     df = flattenJson(df, dataFieldsForExport)
 
     dfExport = pd.DataFrame()
-    for fIndex in range(0, len(dataFieldsForExport)):
-        if dataFieldsForExport[fIndex] in df.columns.values:
-            dfExport = pd.concat([dfExport, df[dataFieldsForExport[fIndex]]],
-                                 axis=1)
+    colHeadings = list(df)
+    columnFilter = list(set(colHeadings) & set(dataFieldsForExport))
+    dfExport = df.filter(items=columnFilter)
 
     return dfExport
 
