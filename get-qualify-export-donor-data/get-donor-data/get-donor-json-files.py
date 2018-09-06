@@ -17,6 +17,7 @@ TODO:
 import environmentalVariables
 import pandas as pd
 import datetime as dt
+import numpy as np
 import os
 import sys
 import argparse
@@ -113,7 +114,7 @@ for userID, donorGroup in zip(uniqueDonors.userID, uniqueDonors.donorGroup):
     if not os.path.exists(outputFilePathName):
 
         # case where donorGroup is bigdata, but should be ""
-        if donorGroup == "bigdata":
+        if pd.isnull(donorGroup):
             donorGroup = ""
 
         # get environmental variables
