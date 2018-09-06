@@ -90,12 +90,10 @@ def removeNegativeDurations(df):
 
 
 def addUploadDate(df):
-    df["uploadTime"] = np.nan
-    uploadTimes = \
-        df[df.type == "upload"].groupby("uploadId").time.describe()["top"]
-
-    for upId in uploadTimes.index:
-        df.loc[df[df.uploadId == upId].index, "uploadTime"] = uploadTimes[upId]
+    uploadTimes = pd.DataFrame(df[df.type == "upload"].groupby("uploadId").time.describe()["top"])
+    uploadTimes.reset_index(inplace=True)
+    uploadTimes.rename(columns={"top": "uploadTime"}, inplace=True)
+    df = pd.merge(df, uploadTimes, how='left', on='uploadId')
 
     return df
 
