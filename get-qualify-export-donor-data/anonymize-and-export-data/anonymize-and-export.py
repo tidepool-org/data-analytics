@@ -64,13 +64,15 @@ parser.add_argument("--merge-wizard-data",
                     help="option to merge wizard data with bolus data, " +
                          "default, is true")
 
-parser.add_argument("--output-format",
+parser.add_argument("-f",
+                    "--output-format",
                     dest="exportFormat",
-                    default=["all"],
+                    # default=["all"],
+                    action="append",
                     help="the format of the exported data. Export options " +
-                         "include json, xlsx, csv, csvs, or all" +
-                         "NOTE: you can include multiple formats in a " +
-                         "list (e.g., ['json', 'csv'])")
+                         "include json, xlsx, csv, csvs, or all. " +
+                         "NOTE: you can include multiple formats by passing " +
+                         "the option multiple times (e.g., -f json -f csv)")
 
 parser.add_argument("--start-date",
                     dest="startDate",
@@ -90,7 +92,9 @@ parser.add_argument("--filterByDatesExceptUploadsAndSettings",
                          "upload and settings data in export")
 
 args = parser.parse_args()
-
+# Because having a default for an action="append" always includes the default...
+if args.exportFormat is None:
+    args.exportFormat = ['all']
 
 # %% LOAD DATA FUNCTIONS
 def checkInputFile(inputFile):
@@ -673,5 +677,5 @@ if 'hashID' in locals():
 else:
     outputName = "PHI-" + userID
 
-exportData(data, outputName, ast.literal_eval(args.exportFormat),
+exportData(data, outputName, args.exportFormat,
            args.exportPath, args.mergeWizardDataWithBolusData)
