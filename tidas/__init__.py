@@ -9,6 +9,5 @@ license: BSD-2-Clause
 """
 
 # List of functions in the tpanalyze package
-from load import load_csv
-from clean import round_time
-from clean import remove_duplicates
+from load import *
+from clean import *
