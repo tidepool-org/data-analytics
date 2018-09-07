@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-description: load csv data
+description: data loading tools for tidals (tidepool data analytics tools)
 created: 2018-02-21
 author: Ed Nykaza
 license: BSD-2-Clause

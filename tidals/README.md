@@ -1,4 +1,4 @@
-# tidas.py (Tidepool Analysis Tools)
+# tidals.py (__Ti__depool __D__ata __A__nalytics Too__ls__)
 This python package contains analysis tools and utility functions that
 may be helpful when loading, cleaning, and analyzing Tidepool data. This
 package is currently in development and you will need to add the following
@@ -9,8 +9,8 @@ nameDataAnalyticsRepository = "data-analytics"
 packagePath = cwd[:(cwd.find(nameDataAnalyticsRepository) +
                     len(nameDataAnalyticsRepository) + 1)]
 sys.path.append(packagePath)
-sys.path.append(os.path.join(packagePath, "tidas"))
-import tidas as td
+sys.path.append(os.path.join(packagePath, "tidals"))
+import tidals as td
 ```
 
 ## Adding modules and functions to the package
@@ -21,4 +21,4 @@ function is initiated when the package is loaded.
 ## Example
 An example of loading the package is located here:
 
-```/data-analytics/examples/load-tidas-package.py```
+```/data-analytics/examples/load-tidals-package.py```
