@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-description: example script of how to load the tidas package
+description: example script of how to load the tidals package
 created: 2018-02-21
 author: Ed Nykaza
 license: BSD-2-Clause
 """
 
 
-# PLEASE NOTE: THESE 10 LINES ARE NEEDED TO LOAD THE tidas PACKAGE
+# PLEASE NOTE: THESE 10 LINES ARE NEEDED TO LOAD THE tidals PACKAGE
 # ALSO NOTE: THIS PACKAGE IS STILL IN DEVELOPMENT
 import sys
 import os
@@ -19,12 +19,12 @@ nameDataAnalyticsRepository = "data-analytics"
 packagePath = cwd[:(cwd.find(nameDataAnalyticsRepository) +
                     len(nameDataAnalyticsRepository) + 1)]
 sys.path.append(packagePath)
-sys.path.append(os.path.join(packagePath, "tidas"))
-import tidas as td
+sys.path.append(os.path.join(packagePath, "tidals"))
+import tidals as td
 import pandas as pd
 
 
-# %% load in example data with the tidas package
+# %% load in example data with the tidals package
 dataPath = os.path.join(packagePath, "example-data", "example-from-j-jellyfish.csv")
 data = td.load_csv(dataPath)
 
