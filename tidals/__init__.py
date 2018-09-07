@@ -9,5 +9,5 @@ license: BSD-2-Clause
 """
 
 # List of functions in the tidals package
-from load import *
-from clean import *
+from load import load_json, load_csv, load_xlsx, load_data
+from clean import remove_duplicates, round_time, remove_brackets, flatten_json 
