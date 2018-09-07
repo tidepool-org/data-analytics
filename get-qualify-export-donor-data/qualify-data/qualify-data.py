@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-description: Qualify Tidepool datasets
+description: Qualify Tidepool Datasets
 version: 0.0.1
 created: 2018-02-21
 author: Ed Nykaza
@@ -23,6 +23,8 @@ import os
 import sys
 import argparse
 import json
+sys.path.insert(0, os.path.join("..", ".."))
+import tidals as td
 
 
 # %% USER INPUTS
@@ -101,6 +103,7 @@ def addUploadDate(df):
 def filterAndSort(groupedDF, filterByField, sortByField):
     filterDF = groupedDF.get_group(filterByField).dropna(axis=1, how="all")
     filterDF = filterDF.sort_values(sortByField)
+
     return filterDF
 
 
@@ -150,6 +153,7 @@ def removeInvalidCgmValues(df):
     df = df.query("(value >= 2.109284236597303) and" +
                   "(value <= 22.314006924003046)")
     nRemoved = nBefore - len(df)
+
     return df, nRemoved
 
 
@@ -167,63 +171,23 @@ def removeCgmDuplicates(df, timeCriterion):
         df.sort_values(by=[timeCriterion, "uploadTime"],
                        ascending=[False, False],
                        inplace=True)
-
         dfIsNull = df[df[timeCriterion].isnull()]
         dfNotNull = df[df[timeCriterion].notnull()]
-
-        dfNotNull, nDuplicatesRemoved = \
-            removeDuplicates(dfNotNull, [timeCriterion, "value"])
-
+        dfNotNull, nDuplicatesRemoved = removeDuplicates(dfNotNull, [timeCriterion, "value"])
         df = pd.concat([dfIsNull, dfNotNull])
-
         df.sort_values(by=[timeCriterion, "uploadTime"],
-                   ascending=[False, False],
-                   inplace=True)
+                       ascending=[False, False],
+                       inplace=True)
     else:
         nDuplicatesRemoved = 0
 
     return df, nDuplicatesRemoved
 
 
-def roundCgm5Minutes(df):
-
-    # sort ascendingly by time
-    df.sort_values(by="time", ascending=True, inplace=True)
-    df.reset_index(drop=True, inplace=True)
-
-    # calculate the time-in-between (TIB) consecutive records
-    t = pd.to_datetime(df.time)
-    t_shift = pd.to_datetime(df.time.shift(1))
-    df["TIB"] = round((t - t_shift).dt.days*(86400/300) +
-                      (t - t_shift).dt.seconds/300) * 5
-
-    # separate the data into chunks if TIB is greater than 5 minutes
-    largeGaps = list(df.query("TIB > 5").index)
-    largeGaps.insert(0,0)
-    largeGaps.append(len(df))
-
-    # loop through each chunk to get the cumulative sum and the rounded time
-    for gIndex in range(0, len(largeGaps) - 1):
-
-        df.loc[largeGaps[gIndex], "TIB"] = 0
-
-        df.loc[largeGaps[gIndex]:(largeGaps[gIndex + 1] - 1), "TIB_cumsum"] = \
-            df.loc[largeGaps[gIndex]:(largeGaps[gIndex + 1] - 1), "TIB"].cumsum()
-
-        df.loc[largeGaps[gIndex]:(largeGaps[gIndex + 1] - 1), "roundedTime"] = \
-            pd.to_datetime(df.loc[largeGaps[gIndex], "time"]).round("5min") + \
-            pd.to_timedelta(df.loc[largeGaps[gIndex]:(largeGaps[gIndex + 1] - 1), "TIB_cumsum"], unit="m")
-
-    # sort descendingly by time
-    df.sort_values(by="time", ascending=False, inplace=True)
-    df.reset_index(drop=True, inplace=True)
-
-    return df
-
-
 def getStartAndEndTimes(df, dateTimeField):
     dfBeginDate = df[dateTimeField].min()
     dfEndDate = df[dateTimeField].max()
+
     return dfBeginDate, dfEndDate
 
 
@@ -233,28 +197,24 @@ def getCalculatorCounts(groupedData, metadata):
         calculatorData = filterAndSort(groupedData, "wizard", "time")
 
         # add dayIndex
-        calculatorData["dayIndex"] = \
-            pd.DatetimeIndex(calculatorData["time"]).date
+        calculatorData["dayIndex"] = pd.DatetimeIndex(calculatorData["time"]).date
 
         # get rid of duplicates
         calculatorData, nDuplicatesRemoved = \
-            removeDuplicates(calculatorData,
-                             calculatorData.columns.drop("jsonRowIndex"))
+            removeDuplicates(calculatorData, ["time", "bolus"])
+
         metadata["calculator.duplicatesRemoved.count"] = nDuplicatesRemoved
 
         # get start and end times
-        calculatorBeginDate, calculatorEndDate = \
-            getStartAndEndTimes(calculatorData, "dayIndex")
+        calculatorBeginDate, calculatorEndDate = getStartAndEndTimes(calculatorData, "dayIndex")
         metadata["calculator.beginDate"] = calculatorBeginDate
         metadata["calculator.endDate"] = calculatorEndDate
 
         # group by day and get number of calculator boluses
         catDF = calculatorData.groupby(calculatorData["dayIndex"])
         calculatorPerDay = pd.DataFrame()
-        calculatorPerDay["calculator.count"] = catDF.jsonRowIndex.count()
+        calculatorPerDay["calculator.count"] = catDF.bolus.count()
         calculatorPerDay["date"] = calculatorPerDay.index
-        calculatorPerDay = calculatorPerDay.rename(
-                columns={"jsonRowIndex": "calculator.count"})
 
     else:
         calculatorPerDay = pd.DataFrame(columns=["calculator.count", "date"])
@@ -426,10 +386,10 @@ donorFolder = os.path.join(args.dataPath, phiDateStamp + "-donor-data")
 if not os.path.isdir(donorFolder):
     sys.exit("{0} is not a directory".format(donorFolder))
 
-donorCsvFolder = os.path.join(donorFolder,
-                              phiDateStamp + "-donorCsvFolder", "")
-if not os.path.isdir(donorCsvFolder):
-    sys.exit("{0} is not a directory".format(donorCsvFolder))
+donorJsonData = os.path.join(donorFolder,
+                             phiDateStamp + "-donorJsonData", "")
+if not os.path.isdir(donorJsonData):
+    sys.exit("{0} is not a directory".format(donorJsonData))
 
 # create output folder(s)
 donorQualifyFolder = os.path.join(donorFolder,
@@ -454,192 +414,187 @@ for dIndex in range(startIndex, endIndex):
     # load in all data for user
     metadata = pd.DataFrame(index=[dIndex])
     userID = uniqueDonors.loc[dIndex, "userID"]
-    csvFileName = os.path.join(donorCsvFolder, "PHI-" + userID + ".csv")
-    if os.path.exists(csvFileName):
-        phiUserID = "PHI-" + userID
-        data = pd.read_csv(os.path.join(donorCsvFolder, phiUserID + ".csv"),
-                           low_memory=False)
+    phiUserID = "PHI-" + userID
+    jsonFileName = os.path.join(donorJsonData, phiUserID + ".json")
+    fileSize = os.stat(jsonFileName).st_size
 
-        if (("cbg" in data.type.unique()) and ("bolus" in data.type.unique())):
+    if os.path.exists(jsonFileName):
+        metadata["fileSize"] = fileSize
+        if fileSize > 1000:
+            data = td.load_json(jsonFileName)
 
-            # get rid of all negative durations
-            data, numberOfNegativeDurations = removeNegativeDurations(data)
-            metadata["all.negativeDurationsRemoved.count"] = \
-                numberOfNegativeDurations
+            # flatten json
+            data = td.flatten_json(data)
 
-            # attach upload time to each record, for resolving duplicates
-            data = addUploadDate(data)
+            if (("cbg" in data.type.unique()) and ("bolus" in data.type.unique())):
 
-            # group data by type
-            groupedData = data.groupby(by="type")
+                # get rid of all negative durations
+                data, numberOfNegativeDurations = removeNegativeDurations(data)
+                metadata["all.negativeDurationsRemoved.count"] = numberOfNegativeDurations
 
-            # %% CGM
-            # filter by cgm and sort by time
-            cgmData = filterAndSort(groupedData, "cbg", "time")
+                # attach upload time to each record, for resolving duplicates
+                data = addUploadDate(data)
 
-            # get rid of cbg values too low/high (< 38 & > 402 mg/dL)
-            cgmData, numberOfInvalidCgmValues = removeInvalidCgmValues(cgmData)
-            metadata["cgm.invalidValues.count"] = numberOfInvalidCgmValues
+                # group data by type
+                groupedData = data.groupby(by="type")
 
-            # get rid of duplicates that have the same ["deviceTime", "value"]
-            cgmData, nDuplicatesRemovedDeviceTime = \
-                removeCgmDuplicates(cgmData, "deviceTime")
+                # %% CGM
+                # filter by cgm and sort by time
+                cgmData = filterAndSort(groupedData, "cbg", "time")
 
-            metadata["cgm.nDuplicatesRemovedDeviceTime.count"] = \
-                nDuplicatesRemovedDeviceTime
+                # get rid of cbg values too low/high (< 38 & > 402 mg/dL)
+                cgmData, numberOfInvalidCgmValues = removeInvalidCgmValues(cgmData)
+                metadata["cgm.invalidValues.count"] = numberOfInvalidCgmValues
 
-            # get rid of duplicates that have the same ["time", "value"]
-            cgmData, nDuplicatesRemovedUtcTime = \
-                removeCgmDuplicates(cgmData, "time")
+                # get rid of duplicates that have the same ["deviceTime", "value"]
+                cgmData, nDuplicatesRemovedDeviceTime = removeCgmDuplicates(cgmData, "deviceTime")
+                metadata["cgm.nDuplicatesRemovedDeviceTime.count"] = nDuplicatesRemovedDeviceTime
 
-            metadata["cgm.nDuplicatesRemovedUtcTime.count"] = \
-                nDuplicatesRemovedUtcTime
+                # get rid of duplicates that have the same ["time", "value"]
+                cgmData, nDuplicatesRemovedUtcTime = removeCgmDuplicates(cgmData, "time")
 
-            # round time to the nearest 5 minutes
-            cgmData = roundCgm5Minutes(cgmData)
+                metadata["cgm.nDuplicatesRemovedUtcTime.count"] = \
+                    nDuplicatesRemovedUtcTime
 
-            # get rid of duplicates that have the same "roundedTime"
-            cgmData, nDuplicatesRemovedRoundedTime = \
-                removeDuplicates(cgmData, "roundedTime")
+                # round time to the nearest 5 minutes
+                cgmData = td.round_time(cgmData, timeIntervalMinutes=5, timeField="time",
+                                        roundedTimeFieldName="roundedTime", verbose=False)
 
-            metadata["cgm.nDuplicatesRemovedRoundedTime.count"] = \
-                nDuplicatesRemovedRoundedTime
+                # get rid of duplicates that have the same "roundedTime"
+                cgmData, nDuplicatesRemovedRoundedTime = removeDuplicates(cgmData, "roundedTime")
 
-            # calculate day or date of data
-            cgmData["dayIndex"] = cgmData.roundedTime.dt.date
+                metadata["cgm.nDuplicatesRemovedRoundedTime.count"] = nDuplicatesRemovedRoundedTime
 
-            # get start and end times
-            cgmBeginDate, cgmEndDate = getStartAndEndTimes(cgmData, "dayIndex")
-            metadata["cgm.beginDate"] = cgmBeginDate
-            metadata["cgm.endDate"] = cgmEndDate
+                # calculate day or date of data
+                cgmData["dayIndex"] = cgmData.roundedTime.dt.date
 
-            # get a list of dexcom cgms
-            cgmData, percentDexcom = getListOfDexcomCGMDays(cgmData)
-            metadata["cgm.percentDexcomCGM"] = percentDexcom
+                # get start and end times
+                cgmBeginDate, cgmEndDate = getStartAndEndTimes(cgmData, "dayIndex")
+                metadata["cgm.beginDate"] = cgmBeginDate
+                metadata["cgm.endDate"] = cgmEndDate
 
-            # group by date (day) and get stats
-            catDF = cgmData.groupby(cgmData["dayIndex"])
-            cgmRecordsPerDay = \
-                pd.DataFrame(catDF.value.count()). \
-                rename(columns={"value": "cgm.count"})
-            dayDate = catDF.dayIndex.describe()["top"]
-            dexcomCGM = catDF.dexcomCGM.describe()["top"]
-            nTypesCGM = catDF.dexcomCGM.describe()["unique"]
-            cgmRecordsPerDay["cgm.dexcomOnly"] = \
-                (dexcomCGM & (nTypesCGM == 1))
-            cgmRecordsPerDay["date"] = cgmRecordsPerDay.index
+                # get a list of dexcom cgms
+                cgmData, percentDexcom = getListOfDexcomCGMDays(cgmData)
+                metadata["cgm.percentDexcomCGM"] = percentDexcom
 
-            # %% BOLUS
-            # filter by bolus and sort by time
-            bolusData = filterAndSort(groupedData, "bolus", "time")
+                # group by date (day) and get stats
+                catDF = cgmData.groupby(cgmData["dayIndex"])
+                cgmRecordsPerDay = \
+                    pd.DataFrame(catDF.value.count()). \
+                    rename(columns={"value": "cgm.count"})
+                dayDate = catDF.dayIndex.describe()["top"]
+                dexcomCGM = catDF.dexcomCGM.describe()["top"]
+                nTypesCGM = catDF.dexcomCGM.describe()["unique"]
+                cgmRecordsPerDay["cgm.dexcomOnly"] = \
+                    (dexcomCGM & (nTypesCGM == 1))
+                cgmRecordsPerDay["date"] = cgmRecordsPerDay.index
 
-            # get rid of duplicates
-            bolusData, nDuplicatesRemoved = \
-                removeDuplicates(bolusData,
-                                 bolusData.columns.drop("jsonRowIndex"))
+                # %% BOLUS
+                # filter by bolus and sort by time
+                bolusData = filterAndSort(groupedData, "bolus", "time")
 
-            metadata["bolus.duplicatesRemoved.count"] = nDuplicatesRemoved
+                # get rid of duplicates
+                bolusData, nDuplicatesRemoved = removeDuplicates(bolusData, ["time", "normal"])
+                metadata["bolus.duplicatesRemoved.count"] = nDuplicatesRemoved
 
-            # calculate day or date of data
-            bolusData["dayIndex"] = pd.DatetimeIndex(bolusData.time).date
+                # calculate day or date of data
+                bolusData["dayIndex"] = pd.DatetimeIndex(bolusData.time).date
 
-            # get start and end times
-            bolusBeginDate, bolusEndDate = getStartAndEndTimes(bolusData,
-                                                               "dayIndex")
-            metadata["bolus.beginDate"] = bolusBeginDate
-            metadata["bolus.endDate"] = bolusEndDate
+                # get start and end times
+                bolusBeginDate, bolusEndDate = getStartAndEndTimes(bolusData,
+                                                                   "dayIndex")
+                metadata["bolus.beginDate"] = bolusBeginDate
+                metadata["bolus.endDate"] = bolusEndDate
 
-            # group by date and get bolusRecordsPerDay
-            catDF = bolusData.groupby(bolusData["dayIndex"])
-            bolusRecordsPerDay = \
-                pd.DataFrame(catDF.subType.count()). \
-                rename(columns={"subType": "bolus.count"})
+                # group by date and get bolusRecordsPerDay
+                catDF = bolusData.groupby(bolusData["dayIndex"])
+                bolusRecordsPerDay = \
+                    pd.DataFrame(catDF.subType.count()). \
+                    rename(columns={"subType": "bolus.count"})
 
-            bolusRecordsPerDay["date"] = bolusRecordsPerDay.index
+                bolusRecordsPerDay["date"] = bolusRecordsPerDay.index
 
-            # %% GET CALCULATOR DATA (AKA WIZARD DATA)
-            calculatorRecordsPerDay, metadata = \
-                getCalculatorCounts(groupedData, metadata)
+                # %% GET CALCULATOR DATA (AKA WIZARD DATA)
+                calculatorRecordsPerDay, metadata = getCalculatorCounts(groupedData, metadata)
 
-            # %% GET CLOSED LOOP DAYS WITH TEMP BASAL DATA
-            isClosedLoopDay, is670g, metadata = \
-                getClosedLoopDays(groupedData, qualCriteria, metadata)
+                # %% GET CLOSED LOOP DAYS WITH TEMP BASAL DATA
+                isClosedLoopDay, is670g, metadata = \
+                    getClosedLoopDays(groupedData, qualCriteria, metadata)
 
-            # %% CONTIGUOUS DATA
-            # calculate the start and end of contiguous data
-            contiguousBeginDate = max(cgmBeginDate, bolusBeginDate)
-            contiguousEndDate = min(cgmEndDate, bolusEndDate)
-            metadata["contiguous.beginDate"] = contiguousBeginDate
-            metadata["contiguous.endDate"] = contiguousEndDate
+                # %% CONTIGUOUS DATA
+                # calculate the start and end of contiguous data
+                contiguousBeginDate = max(cgmBeginDate, bolusBeginDate)
+                contiguousEndDate = min(cgmEndDate, bolusEndDate)
+                metadata["contiguous.beginDate"] = contiguousBeginDate
+                metadata["contiguous.endDate"] = contiguousEndDate
 
-            # create a dataframe over the contiguous time series
-            rng = pd.date_range(contiguousBeginDate, contiguousEndDate).date
-            contiguousData = pd.DataFrame(rng, columns=["date"])
+                # create a dataframe over the contiguous time series
+                rng = pd.date_range(contiguousBeginDate, contiguousEndDate).date
+                contiguousData = pd.DataFrame(rng, columns=["date"])
 
-            # merge data
-            contiguousData = pd.merge(contiguousData, bolusRecordsPerDay,
-                                      on="date", how="left")
-            contiguousData = pd.merge(contiguousData, cgmRecordsPerDay,
-                                      on="date", how="left")
-            contiguousData = pd.merge(contiguousData, calculatorRecordsPerDay,
-                                      on="date", how="left")
-            contiguousData = pd.merge(contiguousData, isClosedLoopDay,
-                                      on="date", how="left")
-            contiguousData = pd.merge(contiguousData, is670g,
-                                      on="date", how="left")
+                # merge data
+                contiguousData = pd.merge(contiguousData, bolusRecordsPerDay,
+                                          on="date", how="left")
+                contiguousData = pd.merge(contiguousData, cgmRecordsPerDay,
+                                          on="date", how="left")
+                contiguousData = pd.merge(contiguousData, calculatorRecordsPerDay,
+                                          on="date", how="left")
+                contiguousData = pd.merge(contiguousData, isClosedLoopDay,
+                                          on="date", how="left")
+                contiguousData = pd.merge(contiguousData, is670g,
+                                          on="date", how="left")
 
-            # fill in nan's with 0s
-            for dataType in ["bolus", "cgm", "calculator", "basal.temp"]:
-                contiguousData[dataType + ".count"] = \
-                    contiguousData[dataType + ".count"].fillna(0)
+                # fill in nan's with 0s
+                for dataType in ["bolus", "cgm", "calculator", "basal.temp"]:
+                    contiguousData[dataType + ".count"] = \
+                        contiguousData[dataType + ".count"].fillna(0)
 
-            if ((len(contiguousData) > 0) &
-               (sum(contiguousData["cgm.count"] > 0) > 0) &
-               (sum(contiguousData["bolus.count"] > 0) > 0)):
+                if ((len(contiguousData) > 0) &
+                   (sum(contiguousData["cgm.count"] > 0) > 0) &
+                   (sum(contiguousData["bolus.count"] > 0) > 0)):
 
-                # create an output folder
-                userQualifyFolder = os.path.join(donorQualifyFolder, userID)
-                if not os.path.exists(userQualifyFolder):
-                    os.makedirs(userQualifyFolder)
+                    # create an output folder
+                    userQualifyFolder = os.path.join(donorQualifyFolder, userID)
+                    if not os.path.exists(userQualifyFolder):
+                        os.makedirs(userQualifyFolder)
 
-                # %% QUALIFICATION AT DAY LEVEL
-                # dexcom specific qualification criteria
-                if qualCriteria["name"] == "dexcom":
-                    contiguousData = dexcomCriteria(contiguousData)
+                    # %% QUALIFICATION AT DAY LEVEL
+                    # dexcom specific qualification criteria
+                    if qualCriteria["name"] == "dexcom":
+                        contiguousData = dexcomCriteria(contiguousData)
 
-                # determine if each day qualifies
-                contiguousData = \
-                    isQualifyingDay(contiguousData,
-                                    qualCriteria["bolusesPerDay"],
-                                    qualCriteria["cgmPercentPerDay"],
-                                    criteriaMaxCgmPointsPerDay)
-                # calcuate summary stats
-                metadata = getSummaryStats(metadata, contiguousData)
+                    # determine if each day qualifies
+                    contiguousData = \
+                        isQualifyingDay(contiguousData,
+                                        qualCriteria["bolusesPerDay"],
+                                        qualCriteria["cgmPercentPerDay"],
+                                        criteriaMaxCgmPointsPerDay)
+                    # calcuate summary stats
+                    metadata = getSummaryStats(metadata, contiguousData)
 
-                # %% QUALIFICATION OF DATASET
-                contiguousData, metadata = qualify(contiguousData, metadata,
-                                                   qualCriteria, dIndex)
+                    # %% QUALIFICATION OF DATASET
+                    contiguousData, metadata = qualify(contiguousData, metadata,
+                                                       qualCriteria, dIndex)
 
-                # %% SAVE RESULTS
-                contiguousData.index.name = "dayIndex"
-                dSFileName = os.path.join(
-                    userQualifyFolder, userID + "-qualified-as-" +
-                    metadata[qualCriteria["tierAbbr"] + ".topTier"].values[0] +
-                    "-on-" + qualifiedOn + "-for-" + qualCriteria["name"] +
-                    "-dayStats.csv")
+                    # %% SAVE RESULTS
+                    contiguousData.index.name = "dayIndex"
+                    dSFileName = os.path.join(
+                        userQualifyFolder, userID + "-qualified-as-" +
+                        metadata[qualCriteria["tierAbbr"] + ".topTier"].values[0] +
+                        "-on-" + qualifiedOn + "-for-" + qualCriteria["name"] +
+                        "-dayStats.csv")
 
-                contiguousData.to_csv(dSFileName)
+                    contiguousData.to_csv(dSFileName)
 
-                # append meta data to the user results
-                allMetaData = pd.concat([allMetaData, metadata],
-                                        axis=0, sort=False)
+                    # append meta data to the user results
+                    allMetaData = pd.concat([allMetaData, metadata], axis=0, sort=False)
 
-                # update on progress
-                print(round((dIndex - startIndex + 1) /
-                            (endIndex - startIndex) * 100, 1),
-                      "% ", dIndex, "of", endIndex - 1, "qualifed as:",
-                      metadata[qualCriteria["tierAbbr"] +
-                               ".topTier"].values)
+                    # update on progress
+                    print(round((dIndex - startIndex + 1) /
+                                (endIndex - startIndex) * 100, 1),
+                          "% ", dIndex, "of", endIndex - 1, "qualifed as:",
+                          metadata[qualCriteria["tierAbbr"] +
+                                   ".topTier"].values)
 
 allMetaData.index.name = "dIndex"
 uniqueDonors = pd.concat([uniqueDonors, allMetaData], axis=1)
