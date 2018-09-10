@@ -75,10 +75,6 @@ def remove_brackets(df, fieldName):
 
 
 def flatten_json(df):
-
-#    # remove fields that we don't want to flatten
-#    df, holdData = tempRemoveFields(df)
-
     # remove [] from annotations field
     df = remove_brackets(df, "annotations")
 
@@ -98,12 +94,6 @@ def flatten_json(df):
             newDataFrame = pd.concat([newDataFrame, pd.DataFrame(jsonBlob.tolist(),
                                       index=jsonBlob.index).add_prefix(colHead + '.')], axis=1)
 
-#    newColHeadings = list(newDataFrame)
-
-    # put df back into the main dataframe
-    # and add the fields that were removed back in
-#    columnFilter = list(set(newColHeadings)) # & set(dataFieldsForExport))
-#    tempDataFrame = newDataFrame.filter(items=columnFilter)
     df = pd.concat([df, newDataFrame], axis=1)
 
     return df
