@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-description: cleaning tools for TidAs (Tidepool Analytics)
+description: cleaning tools for tidals (tidepool data analytics tools)
 created: 2018-07
 author: Ed Nykaza
 license: BSD-2-Clause
 """
 
 import pandas as pd
+import numpy as np
 
 
 def remove_duplicates(df, criteriaDF):
@@ -61,5 +62,38 @@ def round_time(df, timeIntervalMinutes=5, timeField="time",
     df.reset_index(drop=True, inplace=True)
     if verbose is False:
         df.drop(columns=["TIB", "TIB_cumsum"], inplace=True)
+
+    return df
+
+
+def remove_brackets(df, fieldName):
+    if fieldName in list(df):
+        df.loc[df[fieldName].notnull(), fieldName] = \
+            df.loc[df[fieldName].notnull(), fieldName].str[0]
+
+    return df
+
+
+def flatten_json(df):
+    # remove [] from annotations field
+    df = remove_brackets(df, "annotations")
+
+    # loop through each columnHeading
+    newDataFrame = pd.DataFrame()
+
+    for colHead in list(df):
+        # if the df field has embedded json
+        if any(isinstance(item, dict) for item in df[colHead]):
+            # grab the data that is in brackets
+            jsonBlob = df[colHead][df[colHead].astype(str).str[0] == "{"]
+
+            # replace those values with nan
+            df.loc[jsonBlob.index, colHead] = np.nan
+
+            # turn jsonBlob to dataframe
+            newDataFrame = pd.concat([newDataFrame, pd.DataFrame(jsonBlob.tolist(),
+                                      index=jsonBlob.index).add_prefix(colHead + '.')], axis=1)
+
+    df = pd.concat([df, newDataFrame], axis=1)
 
     return df
