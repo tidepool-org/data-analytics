@@ -1,4 +1,4 @@
-public class SqaureGrid 
+public class SqaureGridUpdate1
 {
 
 	public static int getIndexOfLargest(int[] array)	//returns index of largest value in an array
