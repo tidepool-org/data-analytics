@@ -1,4 +1,4 @@
-public class SqaureGridUpdate1
+public class SqaureGridUpdate2
 {
 
 	public static int getIndexOfLargest(int[] array)	//returns index of largest value in an array
@@ -67,15 +67,6 @@ public class SqaureGridUpdate1
 		PrintMatrix(DistanceMX); //prints the Matrix it creates at the end
 	}
 
-	public static void PrintArray(int[]Array)
-	{
-		for (int i = 0; i < Array.length; i++)
-			{
-				System.out.print(" | " + Array[i] + " | ");
-				System.out.println();
-			}
-		System.out.println();
-	}
 
 
 	public static void PrintMatrix(int[][]Matrix) //prints the Distance Matrix given a Matrix
@@ -84,12 +75,10 @@ public class SqaureGridUpdate1
 			{ 
 			   	for (int j = 0; j < Matrix[i].length; j++) 
 				   	{
-				   		System.out.print("| ");
 				    	System.out.print(Matrix[i][j] + " | ");
 			    	}
 		    	System.out.println();
 			}
-		System.out.println();
 	}
 
 
