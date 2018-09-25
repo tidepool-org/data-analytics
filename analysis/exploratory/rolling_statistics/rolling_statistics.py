@@ -86,7 +86,7 @@ parser.add_argument("-s",
 
 parser.add_argument("-ds",
                     "--day-start",
-                    dest="",
+                    dest="day_start",
                     default="5:55",
                     help="The exact start of the 24-hour day period (24 hour format)")
 
@@ -526,11 +526,11 @@ def get_rolling_stats(df, rolling_prefixes):
         
     return rolling_df
 
-def get_daily_stats(df):
+def get_daily_stats(df, daytime_start):
     
     daily_df = df.copy()
     daily_df.set_index("est.localTime_rounded", inplace=True)
-    daily_df = daily_df.at_time('5:55')
+    daily_df = daily_df.at_time(daytime_start)
     daily_df.index = daily_df.index-dt.timedelta(hours=6)
     
     return daily_df
@@ -641,7 +641,7 @@ if "R" in args.outputMode:
     rolling_df.to_csv(os.path.join(args.outputPath, args.inputFile+'_rolling_output.csv'))
 
 if "D" in args.outputMode:
-    daily_df = get_daily_stats(rolling_df)
+    daily_df = get_daily_stats(rolling_df, args.day_start)
     daily_df.to_csv(os.path.join(args.outputPath, args.inputFile+'_daily_output.csv'))
 
 if "S" in args.outputMode:
