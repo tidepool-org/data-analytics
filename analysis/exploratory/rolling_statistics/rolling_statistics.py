@@ -1,43 +1,114 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-description: Process rolling statistics for Tidepool blood glucose 
+description: Process rolling statistics for Tidepool blood glucose
              and insulin pump data.
 version: 0.0.1
-Created: 8/1/2018
+Created: 9/15/2018
 author: Jason Meno
 dependencies:
-    * requires Tidepool user's datawith est.localTime
+    * requires Tidepool user's data with est.localTime
 license: BSD-2-Clause
 
 TODO:
+-Add to summary statistics:
+    "First date",
+    "Last date",
+    "CGM days",
+    "Pump days",
+    "CGM & Pump days"
     
-"""
+-Add additional CGM statistics:      
+    "MAGE",
+    "MODD",
+    "HBGI",
+    "LBGI",
+    "CONGA",
+    "GRADE",
+    "logCV",
+    "J-Index",
+    "LI",
+    "MAG",
+    "M-Value"
 
-# %% Import Libraries
+-Add basal/bolus/wizard statistics
+    [TBD]
+    
+-Add option to process only CGM/Pump data
+-Vectorize basal fill function
+-Vectorize insulin on board function
+-Vectorize round5minutes function
+-Verify basal suspends are correctly implemented
+"""
+# %% REQUIRED LIBRARIES
 import pandas as pd
 import numpy as np
-from math import exp,pow
 import datetime as dt
 import os
-import sys
 import argparse
-import json
 import time
-import matplotlib.pyplot as plt
-import plotly.plotly as py
-from plotly import tools
-import plotly.graph_objs as go
-from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot
-import cufflinks as cf
+
+
+# %% USER INPUTS
+codeDescription = "Tidepool Rolling Statistics Tool"
+
+parser = argparse.ArgumentParser(description=codeDescription)
+
+parser.add_argument("-d",
+                    "--dataPath",
+                    dest="dataPath",
+                    default="data",
+                    help="Path location containing data to be analyzed")
+
+parser.add_argument("-i",
+                    "--input",
+                    dest="inputFile",
+                    default="",
+                    help="Input filename of .csv to analyze")
+
+parser.add_argument("-o",
+                    "--outputPath",
+                    dest="outputPath",
+                    default="./output_results/",
+                    help="the output location where the results will be stored")
+
+parser.add_argument("-om",
+                    "--outputMode",
+                    dest="outputMode",
+                    default="DS",
+                    help="Three output files available: (R)olling, (D)aily, (S)ummary")
+
+parser.add_argument("-s",
+                    "--summaryFile",
+                    dest="summaryFile",
+                    default="default_rolling_summary_output",
+                    help="Output summary .csv filename to append summary statistics")
+
+parser.add_argument("-ds",
+                    "--day-start",
+                    dest="",
+                    default="5:55",
+                    help="The exact start of the 24-hour day period (24 hour format)")
+
+parser.add_argument("-rw",
+                    "--rollingWindow",
+                    dest="rollingWindow",
+                    nargs='+',
+                    default=["24hr", "7day", "14day", "30day", "90day", "1year"],
+                    help="An array of rolling window strings. Ex: [\"24hr\",\"30day\"]")
+
+args = parser.parse_args()
 
 # %% Function Definitions
-def classify_data(filename):
-    
+
+#Classify data by CGM, Pump, or Mixed (CGM+Pump)
+def classify_data(dataPath, filename):
+
+    print("Data Classification...", end=" ")
     cgm_bool = False
     class_type = "NA"
-    
-    file_loc = os.path.join(data_folder,filename+".csv")
+
+    file_loc = os.path.join(dataPath, filename+".csv")
     
     # Read the first line of file
     with open(file_loc, 'r') as f:
@@ -51,17 +122,20 @@ def classify_data(filename):
             class_type = "MIXED"
         else:
             class_type = "PUMP"
-            
+    
+    print("done")        
     return class_type
 
+#Read in data by class type
+#Returns separate dataframes for cgm/bolus/basal/uploads   
+def read_data(dataPath, filename, class_type):
     
-def read_data(filename, class_type):
-    
+    print("Reading Data...", end=" ")
     cgm_data = []
     bolus_data = []
     basal_data = []
     
-    file_loc = os.path.join(data_folder,filename+".csv")
+    file_loc = os.path.join(dataPath, filename+".csv")
     
     if class_type == "MIXED":
         #Both CGM & Pump data
@@ -75,6 +149,7 @@ def read_data(filename, class_type):
                      'value',
                      'est.type',
                      'est.localTime',
+                     'extended',
                      'normal',
                      'rate',
                      'duration'
@@ -83,7 +158,7 @@ def read_data(filename, class_type):
         df = pd.read_csv(file_loc, usecols=col_names, low_memory=False)
         
         #Removing "UNCERTAIN" est.type (since no est.localTime is evaluated)
-        df = df[df["est.type"]!="UNCERTAIN"].copy()
+        df = df[df["est.type"] != "UNCERTAIN"].copy()
         
         cgm_data = df[df["type"] == "cbg"].copy()
         bolus_data = df[df["type"] == "bolus"].copy()
@@ -100,6 +175,7 @@ def read_data(filename, class_type):
                      'uploadId',
                      'est.type',
                      'est.localTime',
+                     'extended',
                      'normal',
                      'rate',
                      'duration'
@@ -108,7 +184,7 @@ def read_data(filename, class_type):
         df = pd.read_csv(file_loc, usecols=col_names, low_memory=False)
         
         #Removing "UNCERTAIN" est.type (since no est.localTime is evaluated)
-        df = df[df["est.type"]!="UNCERTAIN"].copy()
+        df = df[df["est.type"] != "UNCERTAIN"].copy()
         
         bolus_data = df[df["type"] == "bolus"].copy()
         basal_data = df[df["type"] == "basal"].copy()
@@ -129,7 +205,7 @@ def read_data(filename, class_type):
         df = pd.read_csv(file_loc, usecols=col_names, low_memory=False)
         
         #Removing "UNCERTAIN" est.type (since no est.localTime is evaluated)
-        df = df[df["est.type"]!="UNCERTAIN"].copy()
+        df = df[df["est.type"] != "UNCERTAIN"].copy()
        
         cgm_data = df[df["type"] == "cbg"].copy()
         upload_data = df[df["type"] == "upload"].copy()
@@ -138,17 +214,18 @@ def read_data(filename, class_type):
     first_date = df["est.localTime"].min()
     last_date = df["est.localTime"].max()
     
+    print("done")
     return cgm_data, bolus_data, basal_data, upload_data, first_date, last_date
 
 def remove_duplicates(df, upload_data):
-  
+    
     #Sort uploads by oldest uploads first
     upload_data = upload_data.sort_values(ascending=True, by="est.localTime")
     
     #Create an ordered dictionary (i.e. uploadId1 = 1, ,uploadId2 = 2, etc)
     upload_order_dict = dict(
                         zip(upload_data["uploadId"],
-                        list(range(1,1+len(upload_data.uploadId.unique()
+                        list(range(1, 1+len(upload_data.uploadId.unique()
                             )))))
     
 
@@ -159,15 +236,15 @@ def remove_duplicates(df, upload_data):
     
     #Replace any healthkit data deviceTimes (NaN) with a unique id
     #This prevents healthkit data with blank deviceTimes from being removed
-    df.deviceTime.fillna(df.id,inplace=True)
+    df.deviceTime.fillna(df.id, inplace=True)
     
     #Drop duplicates using est.localTime+value, time(utc time)+value, 
     # deviceTime+value, and est.localTime alone
     #The last entry is kept, which contains the most recent upload data
     values_before_removal = len(df.value)
-    df = df.drop_duplicates(subset=["est.localTime","value"], keep="last")
-    df = df.drop_duplicates(subset=["time","value"], keep="last")
-    df = df.drop_duplicates(subset=["deviceTime","value"], keep="last")
+    df = df.drop_duplicates(subset=["est.localTime", "value"], keep="last")
+    df = df.drop_duplicates(subset=["time", "value"], keep="last")
+    df = df.drop_duplicates(subset=["deviceTime", "value"], keep="last")
     df = df.drop_duplicates(subset=["est.localTime"], keep="last")
     values_after_removal = len(df.value)
     duplicates_removed = values_before_removal-values_after_removal
@@ -177,50 +254,49 @@ def remove_duplicates(df, upload_data):
     
     return df, duplicates_removed
 
-def remove_rounded_duplicates(df,data_type):
+#Removes duplicates from 5-minute rounding dataframes
+#CGM drops any duplicate that are within 5 minutes of each other (calibrations)
+#Bolus combines duplicates that are within 5 minutes of each other 
+#Basal selects most recent basal from duplicates that are within 5 minutes of each other 
+def remove_rounded_duplicates(df, data_type):
+    print("Removing", data_type, "rounded duplicates...", end=" ")
+    
     new_df = df.copy()
     values_before_removal = len(new_df["est.localTime_rounded"])
     
-    if(data_type == "cgm"):
+    if data_type == "cgm":
         new_df = new_df.drop_duplicates(subset=["est.localTime_rounded"], keep="last")
-        
-        #Convert to mg_dL before merging 
-        #(casting to type int will not work with NaNs later)
-        #df = df.rename(columns={"value":"mmol_L"})
-        
         new_df["mg_dL"] = (new_df.value*18.01559).astype(int)
-        
-        #df["mmol_L"] = df.value.copy()
-        #df["value"] = df["mg_dL"].copy()
-    
-    elif(data_type == "bolus"):
-        
+    elif data_type == "bolus":
         new_df["normal"] = new_df.groupby(by="est.localTime_rounded")["normal"].transform('sum')
+        new_df["extended"] = new_df.groupby(by="est.localTime_rounded")["extended"].transform('sum')
         new_df = new_df.drop_duplicates(subset=["est.localTime_rounded"], keep="last")
-        
     else:
         new_df = new_df.drop_duplicates(subset=["est.localTime_rounded"], keep="last")
         
-
-
-
-
     values_after_removal = len(new_df["est.localTime_rounded"])
     duplicates_removed = values_before_removal-values_after_removal
+    print("done")
     
     return new_df, duplicates_removed
    
 def fill_basal_gaps(df):
+    
+    print("Filling in basal rates...", end=" ")
     #Old Forward Filling Method
-    #df["rate"].fillna(method='ffill', inplace=True)
+    #Fills basal until next basal rate is found
+    df["rate"].fillna(method='ffill', inplace=True)
     
+    #Accurate but slow
     #Fill basal by given duration
-    for dur in range(0,len(df.duration)):
-        if(~np.isnan(df.duration.iloc[dur])):
-            df.rate.iloc[dur:(dur+int(round(df.duration.iloc[dur]/1000/60/5)))].fillna(method='ffill',inplace=True)
+    #for dur in range(0,len(df.duration)):
+    #    if(~np.isnan(df.duration.iloc[dur])):
+    #        df.rate.iloc[dur:(dur+int(round(df.duration.iloc[dur]/1000/60/5)))].fillna(method='ffill',inplace=True)
     
+    print("done")
     return df
-    
+
+#Rounds est.localTime data properly    
 def round5Minutes(df):
 
     # sort ascendingly by est.localTime
@@ -235,7 +311,7 @@ def round5Minutes(df):
 
     # separate the data into chunks if TIB is greater than 5 minutes
     largeGaps = list(df.query("TIB > 5").index)
-    largeGaps.insert(0,0)
+    largeGaps.insert(0, 0)
     largeGaps.append(len(df))
 
     # loop through each chunk to get the cumulative sum and the rounded time
@@ -256,8 +332,10 @@ def round5Minutes(df):
 
     return df
 
+#Fits all data into 5-minute intervals
+def fill_time_gaps(df, first_date, last_date, data_type):
     
-def fill_time_gaps(df,first_date,last_date,data_type):
+    print("Filling in", data_type, "time gaps...", end=" ")
     first_date = pd.to_datetime(dt.datetime.fromtimestamp(pd.to_datetime(first_date).timestamp()+.000001)).round("30S")
     first_date = pd.to_datetime(dt.datetime.fromtimestamp(pd.to_datetime(first_date).timestamp()+.000001)).round("5min")
     
@@ -269,291 +347,220 @@ def fill_time_gaps(df,first_date,last_date,data_type):
     
     # round est.localTime to nearest 30 seconds, then 5 minutes
     
+    #SLOW BUT MORE ACCURATE
     #df = round5Minutes(df)
     
+    #FAST BUT LESS ACCURATE
     df["est.localTime_rounded"] = pd.to_datetime(pd.to_datetime(df["est.localTime"]).astype(np.int64)+1000).dt.round("30S")
-    
     df["est.localTime_rounded"] = pd.to_datetime(pd.to_datetime(df["est.localTime_rounded"]).astype(np.int64)+1000).dt.round("5min")
     
-  
-    df, rounded_duplicates = remove_rounded_duplicates(df.copy(),data_type)    
+    print("done")
+    df, rounded_duplicates = remove_rounded_duplicates(df.copy(), data_type)    
     
    
-    new_df = pd.merge(new_df,df,on="est.localTime_rounded",how="outer",indicator=True)
+    new_df = pd.merge(new_df, df, on="est.localTime_rounded", how="outer", indicator=True)
     
-    #If basal data, forward fill the rates by duration into the NaNs
-    if(data_type == "basal"):
+    #If basal data, forward fill the rates by duration
+    if data_type == "basal":
         fill_basal_gaps(new_df)
-        #new_df["rate"].fillna(method='ffill', inplace=True)
-    #Duplicate checking
-    #duplicates = new_df.loc[new_df["est.localTime"].duplicated(keep=False),:]
+
     return new_df, rounded_duplicates
 
-def get_cgm_stats(df):
+def get_rolling_stats(df, rolling_prefixes):
     
-    #Generic Form
-    #a.rolling(3,min_periods=3).apply(test_sum)
-    #for index in range(2,len(df["est.localTime_rounded"])):
-   
-    #Set up specialized rolling sub-functions to use
-    def get_perc_below(tmp, threshold):
-        total_below = np.sum(tmp<threshold)
-        perc_below = total_below / np.count_nonzero(~np.isnan(tmp))
-        return perc_below
     
-    def get_perc_above(tmp, threshold):
-        total_above = np.sum(tmp>threshold)
-        perc_above = total_above / np.count_nonzero(~np.isnan(tmp))
-        return perc_above
-    
-    def get_perc_between(tmp, threshold1, threshold2):
-        total_between = np.sum((tmp >= threshold1) & (tmp <= threshold2))
-        perc_between = total_between / np.count_nonzero(~np.isnan(tmp))
-        return perc_between
-    
-    def get_distance_traveled(tmp):
-        distance = np.abs(np.diff(tmp)).sum()
-        return distance
+    print("Preparing Variables... ", end=" ")        
         
-   # rolling_prefixes = ["15min","1hr","2hr","6hr","8hr","12hr","24hr",
-    #                    "7day","14day","30day","90day","1year"]
+    #Functions to calculate average daily hypo/hyper events and duration
+    def rle(inarray):
+        """ run length encoding. Partial credit to R rle function. 
+            Multi datatype arrays catered for including non Numpy
+            returns: tuple (runlengths, startpositions, values) """
+        ia = np.asarray(inarray)                  # force numpy
+        n = len(ia)
+        if n == 0: 
+            return (None, None, None)
+        else:
+            y = np.array(ia[1:] != ia[:-1])     # pairwise unequal (string safe)
+            i = np.append(np.where(y), n - 1)   # must include last element posi
+            z = np.diff(np.append(-1, i))       # run lengths
+            p = np.cumsum(np.append(0, z))[:-1] # positions
+            return(z, p, ia[i])
     
-    rolling_prefixes = ["24hr","7day","14day","30day","90day","1year"]
+    #Setup run length encoding for hypo/hyper events
+    rle_below54 = rle(df.mg_dL < 54)
+    rle_below70 = rle(df.mg_dL < 70)
+    rle_above140 = rle(df.mg_dL > 140)
+    rle_above180 = rle(df.mg_dL > 180)
+    rle_above250 = rle(df.mg_dL > 250)
+    
+    col_names = ["event-below54",
+                 "dur-below54",
+                 "event-below70",
+                 "dur-below70",
+                 "event-above140",
+                 "dur-above140",
+                 "event-above180",
+                 "dur-above180",
+                 "event-above250",
+                 "dur-above250"]
+    
+    df.reindex(columns=[df.columns.tolist()+col_names])
+    
+    below54_loc = rle_below54[1][np.where((rle_below54[2] == True) & (rle_below54[0] >= 3))]
+    below54_dur = 5*rle_below54[0][np.where((rle_below54[2] == True) & (rle_below54[0] >= 3))]
+    df["event-below54"] = False
+    df.loc[below54_loc, "event-below54"] = True
+    df["dur-below54"] = 0
+    df.loc[below54_loc, "dur-below54"] = below54_dur
+    
+    below70_loc = rle_below70[1][np.where((rle_below70[2] == True) & (rle_below70[0] >= 3))]
+    below70_dur = 5*rle_below70[0][np.where((rle_below70[2] == True) & (rle_below70[0] >= 3))]
+    df["event-below70"] = False
+    df.loc[below70_loc, "event-below70"] = True
+    df["dur-below70"] = 0
+    df.loc[below70_loc, "dur-below70"] = below70_dur
+    
+    above140_loc = rle_above140[1][np.where((rle_above140[2] == True) & (rle_above140[0] >= 3))]
+    above140_dur = 5*rle_above140[0][np.where((rle_above140[2] == True) & (rle_above140[0] >= 3))]
+    df["event-above140"] = False
+    df.loc[above140_loc, "event-above140"] = True
+    df["dur-above140"] = 0
+    df.loc[above140_loc, "dur-above140"] = above140_dur
+    
+    above180_loc = rle_above180[1][np.where((rle_above180[2] == True) & (rle_above180[0] >= 3))]
+    above180_dur = 5*rle_above180[0][np.where((rle_above180[2] == True) & (rle_above180[0] >= 3))]
+    df["event-above180"] = False
+    df.loc[above180_loc, "event-above180"] = True
+    df["dur-above180"] = 0
+    df.loc[above180_loc, "dur-above180"] = above180_dur
+    
+    above250_loc = rle_above250[1][np.where((rle_above250[2] == True) & (rle_above250[0] >= 3))]
+    above250_dur = 5*rle_above250[0][np.where((rle_above250[2] == True) & (rle_above250[0] >= 3))]
+    df["event-above250"] = False
+    df.loc[above250_loc, "event-above250"] = True
+    df["dur-above250"] = 0
+    df.loc[above250_loc, "dur-above250"] = above250_dur
+    
+    df["bool_below54"] = df.mg_dL < 54
+    df["bool_54-70"] = (df.mg_dL >= 54) & (df.mg_dL <= 70)
+    df["bool_below70"] = df.mg_dL < 70
+    df["bool_70-140"] = (df.mg_dL >= 70) & (df.mg_dL <= 140)
+    df["bool_70-180"] = (df.mg_dL >= 70) & (df.mg_dL <= 180)
+    df["bool_above180"] = df.mg_dL > 180
+    df["bool_above250"] = df.mg_dL > 250
+    
+    rolling_dictionary = dict(zip(
+                        ["15min", "30min", "1hr", "2hr", 
+                         "3hr", "4hr", "5hr", "6hr", 
+                         "8hr", "12hr", "24hr", "3day", 
+                         "7day", "14day", "30day", "60day", 
+                         "90day", "1year"],
+                         list(
+                            [3, 6, 12, 24, 
+                             36, 48, 60, 72, 
+                             96, 144, 288, 864, 
+                             2016, 4032, 8640, 17280, 
+                             25920, 105120]
+                        )))
+                        
     
     #Set number of points per rolling window
-    #rolling_points = [3,12,24,72,96,144,288,2016,4032,8640,25920,105120]
-    rolling_points = [288,2016,4032,8640,25920,105120]
+    rolling_points = np.array(pd.Series(args.rollingWindow).map(rolling_dictionary))
     #Set minimum percentage of points required to calculate rolling statistic
     percent_points = 0.7
-    rolling_min = np.floor(percent_points*pd.DataFrame(rolling_points)).astype(int)
+    rolling_min = np.floor(percent_points*rolling_points).astype(int)
     
+    print("done")
+    
+    print("Starting Rolling Stats")
+    rolling_df = pd.DataFrame(index=np.arange(len(df)))
+    rolling_df["est.localTime_rounded"] = df["est.localTime_rounded"]
     #Loop through rolling stats for each time prefix
-    for i in range(0,len(rolling_prefixes)):
-        start_time = time.time()
-        print("Mean")
-        df[rolling_prefixes[i]+"_cgm_mean"] = df.mg_dL.rolling(rolling_points[i],
-                                          min_periods=rolling_min.loc[i,0]).mean()
+    for i in range(0, len(rolling_prefixes)):
         
+        start_time = time.time()
+        rolling_window = df.mg_dL.rolling(rolling_points[i], min_periods=rolling_min[i])
+        
+        rolling_df[rolling_prefixes[i]+"_cgm_points"] = rolling_window.count()
+        rolling_df[rolling_prefixes[i]+"_cgm_mean"] = rolling_window.mean()
         # get estimated HbA1c or Glucose Management Index (GMI)
         # GMI(%) = 3.31 + 0.02392 x [mean glucose in mg/dL]
         # https://www.jaeb.org/gmi/
-        print("A1C")
-        df[rolling_prefixes[i]+"_cgm_a1c"] = 3.31 + (0.02392*df[rolling_prefixes[i]+"_cgm_mean"])
+        rolling_df[rolling_prefixes[i]+"_cgm_eA1c"] = 3.31 + (0.02392*rolling_df[rolling_prefixes[i]+"_cgm_mean"])
+        rolling_df[rolling_prefixes[i]+"_cgm_SD"] = rolling_window.std()
+        rolling_df[rolling_prefixes[i]+"_cgm_CV"] = rolling_df[rolling_prefixes[i]+"_cgm_SD"]/rolling_df[rolling_prefixes[i]+"_cgm_mean"]
+        rolling_df[rolling_prefixes[i]+"_cgm_percent-below54"] = df["bool_below54"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()/rolling_df[rolling_prefixes[i]+"_cgm_points"]
+        rolling_df[rolling_prefixes[i]+"_cgm_percent-54-70"] = df["bool_54-70"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()/rolling_df[rolling_prefixes[i]+"_cgm_points"]
+        rolling_df[rolling_prefixes[i]+"_cgm_percent-below70"] = df["bool_below70"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()/rolling_df[rolling_prefixes[i]+"_cgm_points"]
+        rolling_df[rolling_prefixes[i]+"_cgm_percent-70-140"] = df["bool_70-140"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()/rolling_df[rolling_prefixes[i]+"_cgm_points"]
+        rolling_df[rolling_prefixes[i]+"_cgm_percent-70-180"] = df["bool_70-180"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()/rolling_df[rolling_prefixes[i]+"_cgm_points"]
+        rolling_df[rolling_prefixes[i]+"_cgm_percent-above180"] = df["bool_above180"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()/rolling_df[rolling_prefixes[i]+"_cgm_points"]
+        rolling_df[rolling_prefixes[i]+"_cgm_percent-above250"] = df["bool_above250"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()/rolling_df[rolling_prefixes[i]+"_cgm_points"]
+        rolling_df[rolling_prefixes[i]+"_cgm_min"] = rolling_window.min()
         
-        print("Stddev")
-        df[rolling_prefixes[i]+"_cgm_stddev"] = df.mg_dL.rolling(rolling_points[i],
-                                          min_periods=rolling_min.loc[i,0]).std()
+        #Quartiles take a long time to process. 
+        #Uncomment if needed
         
-        print("Cov")
-        df[rolling_prefixes[i]+"_cgm_cov"] = df[rolling_prefixes[i]+"_cgm_stddev"]/df[rolling_prefixes[i]+"_cgm_mean"]
+        #rolling_df[rolling_prefixes[i]+"_cgm_10percentile"] = rolling_window.quantile(0.1)
+        #rolling_df[rolling_prefixes[i]+"_cgm_25percentile"] = rolling_window.quantile(0.25)
+        #rolling_df[rolling_prefixes[i]+"_cgm_50percentile"] = rolling_window.quantile(0.5)
+        #rolling_df[rolling_prefixes[i]+"_cgm_75percentile"] = rolling_window.quantile(0.75)
+        #rolling_df[rolling_prefixes[i]+"_cgm_90percentile"] = rolling_window.quantile(0.9)
+        #rolling_df[rolling_prefixes[i]+"_cgm_max"] = rolling_window.max()
+        #rolling_df[rolling_prefixes[i]+"_IQR"] = rolling_df[rolling_prefixes[i]+"_cgm_75percentile"]-rolling_df[rolling_prefixes[i]+"_cgm_25percentile"]
         
-        print("Traveled")
-        df[rolling_prefixes[i]+"_cgm_traveled"] = df.mg_dL.rolling(rolling_points[i],
-                                          min_periods=rolling_min.loc[i,0]).apply(func=get_distance_traveled)
         
-        print("<54")
-        df[rolling_prefixes[i]+"_cgm_percentBelow54"] = df.mg_dL.rolling(rolling_points[i],
-                                          min_periods=rolling_min.loc[i,0]).apply(func=get_perc_below,args=[54])
-        print("<70")
-        df[rolling_prefixes[i]+"_cgm_percentBelow70"] = df.mg_dL.rolling(rolling_points[i],
-                                          min_periods=rolling_min.loc[i,0]).apply(func=get_perc_below,args=[70])
-        print("TIR")
-        df[rolling_prefixes[i]+"_cgm_percentTimeInRange"] = df.mg_dL.rolling(rolling_points[i],
-                                          min_periods=rolling_min.loc[i,0]).apply(func=get_perc_between,args=[70,180])
-        print(">180")
-        df[rolling_prefixes[i]+"_cgm_percentAbove180"] = df.mg_dL.rolling(rolling_points[i],
-                                          min_periods=rolling_min.loc[i,0]).apply(func=get_perc_above,args=[180])
-        print(">250")
-        df[rolling_prefixes[i]+"_cgm_percentAbove250"] = df.mg_dL.rolling(rolling_points[i],
-                                          min_periods=rolling_min.loc[i,0]).apply(func=get_perc_above,args=[250])
-        print("min")
-        df[rolling_prefixes[i]+"_cgm_min"] = df.mg_dL.rolling(rolling_points[i],
-                                          min_periods=rolling_min.loc[i,0]).min()
-        print("Q10")
-        df[rolling_prefixes[i]+"_cgm_Q10"] = df.mg_dL.rolling(rolling_points[i],
-                                          min_periods=rolling_min.loc[i,0]).quantile(0.10)
-        print("Q25")
-        df[rolling_prefixes[i]+"_cgm_Q25"] = df.mg_dL.rolling(rolling_points[i],
-                                          min_periods=rolling_min.loc[i,0]).quantile(0.25)
-        print("median")
-        df[rolling_prefixes[i]+"_cgm_median"] = df.mg_dL.rolling(rolling_points[i],
-                                          min_periods=rolling_min.loc[i,0]).quantile(0.50)
-        print("Q75")
-        df[rolling_prefixes[i]+"_cgm_Q75"] = df.mg_dL.rolling(rolling_points[i],
-                                          min_periods=rolling_min.loc[i,0]).quantile(0.75)
-        print("Q90")
-        df[rolling_prefixes[i]+"_cgm_Q90"] = df.mg_dL.rolling(rolling_points[i],
-                                          min_periods=rolling_min.loc[i,0]).quantile(0.90)
-        print("max")
-        df[rolling_prefixes[i]+"_cgm_max"] = df.mg_dL.rolling(rolling_points[i],
-                                          min_periods=rolling_min.loc[i,0]).max()
+        rolling_df[rolling_prefixes[i]+"_events-below54"] = df["event-below54"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()
+        rolling_df[rolling_prefixes[i]+"_avg-dur-below54"] = df["dur-below54"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()/rolling_df[rolling_prefixes[i]+"_events-below54"]
+        rolling_df[rolling_prefixes[i]+"_events-below70"] = df["event-below70"].rolling(rolling_points[i] ,min_periods=rolling_min[i]).sum()
+        rolling_df[rolling_prefixes[i]+"_avg-dur-below70"] = df["dur-below70"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()/rolling_df[rolling_prefixes[i]+"_events-below70"]
+        rolling_df[rolling_prefixes[i]+"_events-above140"] = df["event-above140"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()
+        rolling_df[rolling_prefixes[i]+"_avg-dur-above140"] = df["dur-above140"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()/rolling_df[rolling_prefixes[i]+"_events-above140"]
+        rolling_df[rolling_prefixes[i]+"_events-above180"] = df["event-above180"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()
+        rolling_df[rolling_prefixes[i]+"_avg-dur-above180"] = df["dur-above180"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()/rolling_df[rolling_prefixes[i]+"_events-above180"]
+        rolling_df[rolling_prefixes[i]+"_events-above250"] = df["event-above250"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()
+        rolling_df[rolling_prefixes[i]+"_avg-dur-above250"] = df["dur-above250"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()/rolling_df[rolling_prefixes[i]+"_events-above250"]
         
         print(rolling_prefixes[i], ' took {0} seconds.'.format(time.time() - start_time))
-    return df
+        
+    return rolling_df
 
-def get_bolus_stats(df):
+def get_daily_stats(df):
     
-    #Generic Form
-    #a.rolling(3,min_periods=3).apply(test_sum)
-    #for index in range(2,len(df["est.localTime_rounded"])):
-        
-   # rolling_prefixes = ["15min","1hr","2hr","6hr","8hr","12hr","24hr",
-    #                    "7day","14day","30day","90day","1year"]
+    daily_df = df.copy()
+    daily_df.set_index("est.localTime_rounded", inplace=True)
+    daily_df = daily_df.at_time('5:55')
+    daily_df.index = daily_df.index-dt.timedelta(hours=6)
     
-    rolling_prefixes = ["24hr","7day","14day","30day","90day","1year"]
-    
-    #Set number of points per rolling window
-    #rolling_points = [3,12,24,72,96,144,288,2016,4032,8640,25920,105120]
-    rolling_points = [288,2016,4032,8640,25920,105120]
-    
-    #Loop through rolling stats for each time prefix
-    for i in range(0,len(rolling_prefixes)):
-        start_time = time.time()
-        print("Mean")
-        df[rolling_prefixes[i]+"_bolus_mean"] = df.normal.rolling(rolling_points[i],min_periods=1).mean()
-        
-        print("Stddev")
-        df[rolling_prefixes[i]+"_bolus_stddev"] = df.normal.rolling(rolling_points[i],min_periods=1).std()
-        
-        print("Cov")
-        df[rolling_prefixes[i]+"_bolus_cov"] = df[rolling_prefixes[i]+"_bolus_stddev"]/df[rolling_prefixes[i]+"_bolus_mean"]
-        
-        print("Total")
-        df[rolling_prefixes[i]+"_bolus_total"] = df.normal.rolling(rolling_points[i],min_periods=1).sum()
-        
-        print("min")
-        df[rolling_prefixes[i]+"_bolus_min"] = df.normal.rolling(rolling_points[i],min_periods=1).min()
-        print("Q10")
-        df[rolling_prefixes[i]+"_bolus_Q10"] = df.normal.rolling(rolling_points[i],min_periods=1).quantile(0.10)
-        print("Q25")
-        df[rolling_prefixes[i]+"_bolus_Q25"] = df.normal.rolling(rolling_points[i],min_periods=1).quantile(0.25)
-        print("median")
-        df[rolling_prefixes[i]+"_bolus_median"] = df.normal.rolling(rolling_points[i],min_periods=1).quantile(0.50)
-        print("Q75")
-        df[rolling_prefixes[i]+"_bolus_Q75"] = df.normal.rolling(rolling_points[i],min_periods=1).quantile(0.75)
-        print("Q90")
-        df[rolling_prefixes[i]+"_bolus_Q90"] = df.normal.rolling(rolling_points[i],min_periods=1).quantile(0.90)
-        print("max")
-        df[rolling_prefixes[i]+"_bolus_max"] = df.normal.rolling(rolling_points[i],min_periods=1).max()
-        
-        print(rolling_prefixes[i], ' took {0} seconds.'.format(time.time() - start_time))
-    return df  
+    return daily_df
 
-def get_basal_stats(df):
+def get_summary_stats(filename, df, day_df):
+    summary_df = pd.DataFrame(columns=day_df.columns.tolist())
+    summary_df.loc[0] = day_df.iloc[-1]
+    summary_df["filename"] = filename
+    summary_df.set_index("filename", inplace=True)
     
-    #Generic Form
-    #a.rolling(3,min_periods=3).apply(test_sum)
-    #for index in range(2,len(df["est.localTime_rounded"])):
-        
-   # rolling_prefixes = ["15min","1hr","2hr","6hr","8hr","12hr","24hr",
-    #                    "7day","14day","30day","90day","1year"]
-    
-    rolling_prefixes = ["24hr","7day","14day","30day","90day","1year"]
-    
-    #Set number of points per rolling window
-    #rolling_points = [3,12,24,72,96,144,288,2016,4032,8640,25920,105120]
-    rolling_points = [288,2016,4032,8640,25920,105120]
-    
-    #Loop through rolling stats for each time prefix
-    for i in range(0,len(rolling_prefixes)):
-        start_time = time.time()
-        print("Mean")
-        df[rolling_prefixes[i]+"_basal_mean"] = df.rate.rolling(rolling_points[i],min_periods=1).mean()
-        
-        print("Stddev")
-        df[rolling_prefixes[i]+"_basal_stddev"] = df.rate.rolling(rolling_points[i],min_periods=1).std()
-        
-        print("Cov")
-        df[rolling_prefixes[i]+"_basal_cov"] = df[rolling_prefixes[i]+"_basal_stddev"]/df[rolling_prefixes[i]+"_basal_mean"]
-        
-        print("Total")
-        df[rolling_prefixes[i]+"_basal_total"] = df.rate.rolling(rolling_points[i],min_periods=1).sum()
-        
-        print("min")
-        df[rolling_prefixes[i]+"_basal_min"] = df.rate.rolling(rolling_points[i],min_periods=1).min()
-        print("Q10")
-        df[rolling_prefixes[i]+"_basal_Q10"] = df.rate.rolling(rolling_points[i],min_periods=1).quantile(0.10)
-        print("Q25")
-        df[rolling_prefixes[i]+"_basal_Q25"] = df.rate.rolling(rolling_points[i],min_periods=1).quantile(0.25)
-        print("median")
-        df[rolling_prefixes[i]+"_basal_median"] = df.rate.rolling(rolling_points[i],min_periods=1).quantile(0.50)
-        print("Q75")
-        df[rolling_prefixes[i]+"_basal_Q75"] = df.rate.rolling(rolling_points[i],min_periods=1).quantile(0.75)
-        print("Q90")
-        df[rolling_prefixes[i]+"_basal_Q90"] = df.rate.rolling(rolling_points[i],min_periods=1).quantile(0.90)
-        print("max")
-        df[rolling_prefixes[i]+"_basal_max"] = df.rate.rolling(rolling_points[i],min_periods=1).max()
-        
-        print(rolling_prefixes[i], ' took {0} seconds.'.format(time.time() - start_time))
-    return df   
+    return summary_df
 
-#Calculate the running insulin on board with basal and bolus data
-def get_insulin_on_board(bolus_data,basal_data):
+########################################
+# %% Main Script - Begin Function Calls#
+########################################
     
-    # params
-    td = float(6*60) # duration
-    tp = float(75) # activity peak
-    
-    #Exponential model from Loop
-    #See https://github.com/ps2/LoopIOB/blob/master/ScalableExp.ipynb
-    def scalable_exp_iob(t, tp, td):
-        tau = tp*(1-tp/td)/(1-2*tp/td)
-        a = 2*tau/td
-        S = 1/(1-a+(1+a)*exp(-td/tau))
-        return 1-S*(1-a)*((pow(t,2)/(tau*td*(1-a)) - t/tau - 1)*exp(-t/tau)+1)
-    
-    x = np.linspace(0,int(td),num=int(td/5))
-    model_curve = np.array([scalable_exp_iob(t, tp=tp, td=td) for t in x])
-    model_length = len(model_curve)
-    
-    
-    iob_data = bolus_data[["est.localTime_rounded","normal"]].copy()
-    iob_data["rate"] = basal_data.rate.copy()
-    
-    iob_data["iob"] = 0
-    
-    #Calculate Bolus Curves for IOB
-    for dur in range(0,len(iob_data.normal)-model_length):
-        if(~np.isnan(iob_data.normal.iloc[dur])):
-            iob_data.loc[dur:(dur+model_length-1),"iob"] = iob_data.loc[dur:(dur+model_length-1),"iob"] + model_curve*iob_data.normal[dur]
-     
-    #Calculate Basal Curves for IOB (TOO LONG TO CALCULATE!!)
-    #for dur in range(0,len(iob_data.rate)-model_length):
-    #    if(~np.isnan(iob_data.rate.iloc[dur])):
-    #        print("Basal IOB:", dur)
-    #        iob_data.loc[dur:(dur+model_length-1),"iob"] = iob_data.loc[dur:(dur+model_length-1),"iob"] + model_curve*(iob_data.rate[dur]/12)
-    
-    iob_data["iob"].replace(0,np.NaN,inplace=True)
-    
-    return iob_data
+full_file_path = os.path.join(os.getcwd(), args.dataPath, args.inputFile+'.csv')
 
-def filter_stats(df,filter_type):
-    
-    new_df = df.copy()
-    new_df.set_index("est.localTime_rounded",inplace=True)
-    
-    if(filter_type == "daily"):
-        new_df = new_df.at_time('5:00')
-        new_df.index = new_df.index-dt.timedelta(hours=6)
+if not os.path.exists(full_file_path):
+       print("ERROR: No file found at "+full_file_path)
         
-    elif(filter_type == "weekdays"):
-        print("Weekdays script")
-    elif(filter_type == "24hr"):
-        print("24 hour script")
-    else:
-        print("No filter type selected (daily/weekdays/24hr)")
+donor_class = classify_data(args.dataPath, args.inputFile)
 
-    return new_df        
-# %% Main Script    
-csv_name = "CSV_FILENAME"
-data_folder = os.path.join(os.getcwd(),"CSV_DATA_PATH")
-donor_class = classify_data(csv_name)
 cgm_df, bolus_df, basal_df, upload_df, first_ts, last_ts = \
-                                read_data(csv_name, donor_class)
-
+                                read_data(args.dataPath, args.inputFile, donor_class)
+    
 #Class processing
 if(donor_class == "MIXED"):
     
+    print("Removing Duplicates...", end=" ")
     #Remove Duplicates
     cgm_df, cgm_duplicate_count = \
                     remove_duplicates(cgm_df, upload_df)
@@ -561,6 +568,7 @@ if(donor_class == "MIXED"):
                     remove_duplicates(bolus_df, upload_df)
     basal_df, basal_duplicate_count = \
                     remove_duplicates(basal_df, upload_df)
+    print("done")
     
     #Fill in time-series gaps
     cgm_df, cgm_rounded_duplicate_count = \
@@ -569,51 +577,83 @@ if(donor_class == "MIXED"):
         fill_time_gaps(bolus_df,first_ts,last_ts,"bolus")
     basal_df, basal_rounded_duplicate_count = \
         fill_time_gaps(basal_df,first_ts,last_ts,"basal")
-    
-    #Get Rolling Statistics    
-    cgm_df = get_cgm_stats(cgm_df)
-    bolus_df = get_bolus_stats(bolus_df)
-    basal_df = get_basal_stats(basal_df)
-    
-    #Get insulin on board
-    iob_df = get_insulin_on_board(bolus_df,basal_df)
-    
-    #Filter Rolling Stats - Continuous Daily (5am-5am)
-    cgm_daily = filter_stats(cgm_df, 'daily')
-    bolus_daily = filter_stats(bolus_df, 'daily')
-    basal_daily = filter_stats(basal_df, 'daily')
-    
-    #Filter Rolling Stats - By Weekday (Sunday-Saturday)
-    #cgm_weekday = filter_stats(cgm_df, 'weekdays')
-    #bolus_weekday = filter_stats(bolus_df, 'weekdays')
-    #basal_weekday = filter_stats(basal_df, 'weekdays')
-    
-    #Filter Rolling Stats - Static 24-hour Classic Summary
-    #cgm_24hr = filter_stats(cgm_df, '24hr')
-    #bolus_24hr = filter_stats(bolus_df, '24hr')
-    #basal_24hr = filter_stats(basal_df, '24hr')
+        
+    final_df = cgm_df.copy()
+    final_df["basal_rate"]= basal_df["rate"].copy()
+    final_df["bolus_normal"] = bolus_df["normal"].copy()
+    final_df["bolus_extended"] = bolus_df["extended"].copy()
+
    
 elif(donor_class == "PUMP"):
+    print("Removing Duplicates...", end=" ")
+    #Remove Duplicates
+
     bolus_df, bolus_duplicate_count = \
                     remove_duplicates(bolus_df, upload_df)
     basal_df, basal_duplicate_count = \
                     remove_duplicates(basal_df, upload_df)
-                    
+    print("done")
+    print("Removing Rounded Duplicates...", end=" ")
+    #Fill in time-series gaps
+
     bolus_df, bolus_rounded_duplicate_count = \
         fill_time_gaps(bolus_df,first_ts,last_ts,"bolus")
     basal_df, basal_rounded_duplicate_count = \
         fill_time_gaps(basal_df,first_ts,last_ts,"basal")
+    print("done")
         
-    #Get Rolling Statistics    
-    bolus_df = get_bolus_stats(bolus_df)
-    basal_df = get_basal_stats(basal_df)
+    final_df = bolus_df.copy()
+    final_df["value"] = np.NaN
+    final_df["basal_rate"]= basal_df["rate"].copy()
+    final_df["bolus_normal"] = bolus_df["normal"].copy()
+    final_df["bolus_extended"] = bolus_df["extended"].copy()
+    
     
 else:
+    print("Removing Duplicates...", end=" ")
+    #Remove Duplicates
     cgm_df, cgm_duplicate_count = \
                     remove_duplicates(cgm_df, upload_df)
-        
+
+    print("done")
+    print("Removing Rounded Duplicates...", end=" ")
+    #Fill in time-series gaps
     cgm_df, cgm_rounded_duplicate_count = \
-        fill_time_gaps(cgm_df,first_ts,last_ts,"cgm")
-      
-    #Get Rolling Statistics    
-    cgm_df = get_cgm_stats(cgm_df)
+        fill_time_gaps(cgm_df, first_ts, last_ts, "cgm")
+        
+    print("done")
+     
+    final_df = cgm_df.copy()
+    final_df["basal_rate"]= np.NaN
+    final_df["bolus_normal"] = np.NaN
+    final_df["bolus_extended"] = np.NaN
+
+        
+#%% Start statistics gathering and output
+rolling_df = get_rolling_stats(final_df, args.rollingWindow)
+
+if not os.path.exists(args.outputPath):
+    os.mkdir(args.outputPath)
+
+print("Saving files")
+
+if "R" in args.outputMode:
+    rolling_df.to_csv(os.path.join(args.outputPath, args.inputFile+'_rolling_output.csv'))
+
+if "D" in args.outputMode:
+    daily_df = get_daily_stats(rolling_df)
+    daily_df.to_csv(os.path.join(args.outputPath, args.inputFile+'_daily_output.csv'))
+
+if "S" in args.outputMode:
+    
+    summary_df = get_summary_stats(args.inputFile, final_df, daily_df)
+    
+    if not os.path.exists(args.summaryFile+'.csv'):
+        summary_df.to_csv(args.summaryFile+'.csv', header=True)
+    else:
+        summary_df.to_csv(args.summaryFile+'.csv', mode='a', header=False)
+    
+else:
+    print("WARNING: Summary file not specified. Defaulting to \"default_rolling_summary_output.csv\"")
+    
+print("done")
