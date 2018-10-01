@@ -57,6 +57,16 @@ parser.add_argument("--day-series-output-path",
                     help="optional path to store the contiguous day series" +
                     "data. If no path is specified, then data is not saved")
 
+parser.add_argument("--start-date",
+                    dest="startDate",
+                    default="2010-01-01",
+                    help="filter data by startDate and EndDate")
+
+parser.add_argument("--end-date",
+                    dest="endDate",
+                    default=dt.datetime.now().strftime("%Y-%m-%d"),
+                    help="filter data by startDate and EndDate")
+
 args = parser.parse_args()
 
 
@@ -850,9 +860,7 @@ if pd.notnull(args.daySeriesOutputPath):
 data = data[data.time.notnull()]
 
 # get rid of data that does not fall within a valid date range
-startDate = "2010-01-01"
-endDate = dt.datetime.now().strftime("%Y-%m-%d")
-data = filterByDates(data, startDate, endDate)
+data = filterByDates(data, args.startDate, args.endDate)
 
 # convert deprecated timezones to their aliases
 data = convertDeprecatedTimezoneToAlias(data, timezoneAliases)
