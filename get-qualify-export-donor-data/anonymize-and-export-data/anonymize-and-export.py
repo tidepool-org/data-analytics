@@ -389,6 +389,7 @@ def removeManufacturersFromAnnotationsCode(df):
                      "carelink/",
                      "insulet/",
                      "medtronic/",
+                     "medtronic600/",
                      "tandem/"]
 
     annotationFields = [
