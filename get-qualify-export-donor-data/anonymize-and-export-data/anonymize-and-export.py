@@ -67,7 +67,7 @@ parser.add_argument("--merge-wizard-data",
 parser.add_argument("-f",
                     "--output-format",
                     dest="exportFormat",
-                    # default=["all"],
+                    # default=["all"], NOTE: we define the default to be "all" below
                     action="append",
                     help="the format of the exported data. Export options " +
                          "include json, xlsx, csv, csvs, or all. " +
