@@ -7,7 +7,7 @@ created: 2018-08-01
 author: Ed Nykaza
 dependencies:
     * requires tidepool-analytics-env (see readme for instructions)
-    * requires a username and password
+    * requires a clinician or study username (email) and password
     * requires tidals (tidepool data analytics tools)
 license: BSD-2-Clause
 """
