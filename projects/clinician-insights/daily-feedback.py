@@ -138,7 +138,7 @@ def get_stats(df):
     # A.  incomplete dataset
     statDF["percentOfExpectedData"] = \
         (((endTime - startTime).days * 86400) +
-         ((endTime - startTime).seconds)) / 86400
+         ((endTime - startTime).seconds)) / (86400 - (5*60))
 
     if statDF.loc[0, "percentOfExpectedData"] < 0.834:  # greater than 4 hours of expected data
         statDF["GTE4hoursNoCgmSignal"] = "NA"
