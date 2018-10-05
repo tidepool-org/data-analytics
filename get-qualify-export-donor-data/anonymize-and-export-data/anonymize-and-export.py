@@ -96,6 +96,7 @@ args = parser.parse_args()
 if args.exportFormat is None:
     args.exportFormat = ['all']
 
+
 # %% LOAD DATA FUNCTIONS
 def checkInputFile(inputFile):
     if os.path.isfile(inputFile):
