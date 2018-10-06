@@ -25,7 +25,7 @@ from pytz import timezone
 from datetime import timedelta
 import datetime as dt
 import subprocess as sub
-sys.path.insert(0, os.path.join("..", ".."))
+sys.path.insert(0, os.path.abspath(os.path.join(__file__, "..", "..", "..")))
 import tidals as td
 
 
@@ -67,7 +67,7 @@ if pd.isnull(args.email):
     sys.exit("missing email address: this function requires an email as an input")
 
 if pd.isnull(args.password):
-    sys.exit("missing email address: this function requires an email as an input")
+    sys.exit("missing password: this function requires a password as an input")
 
 # create output folder if it doesn't exist
 if not os.path.isdir(args.outputPath):
@@ -77,10 +77,12 @@ if not os.path.isdir(args.outputPath):
 reportDate = args.dateStamp
 reportPath = os.path.join(args.outputPath, "reports")
 reportOutputPath = os.path.join(reportPath, reportDate)
-indvidualDataFolder = os.path.join(reportOutputPath, "individual-data-files")
 if not os.path.isdir(reportPath):
     os.makedirs(reportPath)
     os.makedirs(reportOutputPath)
+
+indvidualDataFolder = os.path.join(reportOutputPath, "individual-data-files")
+if not os.path.isdir(indvidualDataFolder):
     os.makedirs(indvidualDataFolder)
 
 # create a metadata output folder if it doesn't exist
