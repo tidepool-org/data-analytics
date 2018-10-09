@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-description: provide daily feedback to clinicians
+description: provide 24hr feedback to clinicians
 version: 0.0.1
 created: 2018-08-01
 author: Ed Nykaza
@@ -21,16 +21,24 @@ import sys
 import requests
 import json
 import argparse
+import getpass
 from pytz import timezone
 from datetime import timedelta
 import datetime as dt
 import subprocess as sub
-sys.path.insert(0, os.path.abspath(os.path.join(__file__, "..", "..", "..")))
+tidalsPath = os.path.abspath(os.path.join(__file__, "..", "..", ".."))
+if tidalsPath not in sys.path:
+    sys.path.insert(0, tidalsPath)
 import tidals as td
+envPath = os.path.abspath(os.path.join(__file__, "..", "..", "..",
+                                       "get-qualify-export-donor-data"))
+if envPath not in sys.path:
+    sys.path.insert(0, envPath)
+import environmentalVariables
 
 
 # %% USER INPUTS
-codeDescription = "Provide daily feedback to clinicians"
+codeDescription = "Provide feedback of last 24 hours (6am to 6am) to clinicians"
 
 parser = argparse.ArgumentParser(description=codeDescription)
 
@@ -40,34 +48,39 @@ parser.add_argument("-d",
                     default=dt.datetime.now().strftime("%Y-%m-%d"),
                     help="date of the daily report, defaults to current date")
 
-parser.add_argument("-e",
-                    "--email",
-                    dest="email",
+parser.add_argument("-a",
+                    "--accountAlias",
+                    dest="accountAlias",
                     default=np.nan,
-                    help="the email address of the master clinicain or study account")
-
-parser.add_argument("-p",
-                    "--password",
-                    dest="password",
-                    default=np.nan,
-                    help="the passwordof the master clinicain or study account")
+                    help="enter an account alias so the master clinician or study account" +
+                    "can be looked up in your environmental variables, OR leave this blank" +
+                    "and you will be prompted to enter in account credentials")
 
 parser.add_argument("-o",
                     "--output-data-path",
                     dest="outputPath",
-                    default=os.path.join(".", "data"),
+                    default=os.path.abspath(os.path.join(".", "data")),
                     help="the output path where the data is stored")
+
+parser.add_argument("-v",
+                    "--verbose",
+                    dest="verboseOutput",
+                    default=True,
+                    help="True if you want script progress to print to the console")
 
 args = parser.parse_args()
 
 
 # %% CHECK/DECLARE INPUTS AND OUTPUT VARIABLES
+if pd.isnull(args.accountAlias):
+    os.environ["TEMP_EMAIL"] = getpass.getpass(prompt="email: ")
+    os.environ["TEMP_PASSWORD"] = getpass.getpass(prompt="password: ")
+    if (pd.isnull(os.environ["TEMP_EMAIL"]) | pd.isnull(os.environ["TEMP_PASSWORD"])):
+        sys.exit("error in entering user email and password")
 
-if pd.isnull(args.email):
-    sys.exit("missing email address: this function requires an email as an input")
-
-if pd.isnull(args.password):
-    sys.exit("missing password: this function requires a password as an input")
+else:
+    os.environ["TEMP_EMAIL"] = os.environ[args.accountAlias + "_EMAIL"]
+    os.environ["TEMP_PASSWORD"] = os.environ[args.accountAlias + "_PASSWORD"]
 
 # create output folder if it doesn't exist
 if not os.path.isdir(args.outputPath):
@@ -276,8 +289,8 @@ def get_json_data(email, password, userid, outputFilePathName, startDate, endDat
             usersData = json.loads(myResponse2.content.decode())
             with open(outputFilePathName, "w") as outfile:
                 json.dump(usersData, outfile)
-
-            print("successfully downloaded to " + outputFilePathName)
+            if args.verboseOutput == True:
+                print("successfully downloaded to " + outputFilePathName)
 
         else:
             print("ERROR", myResponse2.status_code)
@@ -289,13 +302,15 @@ def get_json_data(email, password, userid, outputFilePathName, startDate, endDat
 
 # %% START OF CODE
 # get the list of donors if it doesn't already exist
-outputDonorList = os.path.join(args.outputPath, "PHI-study-participants.csv")
+outputDonorList = os.path.abspath(os.path.join(args.outputPath, "PHI-study-participants.csv"))
 if not os.path.exists(outputDonorList):
-    get_donor_lists(args.email, args.password, outputDonorList)
+    get_donor_lists(os.environ["TEMP_EMAIL"], os.environ["TEMP_PASSWORD"], outputDonorList)
 
     # load in the donor list
     studyPartipants = load_donors(outputDonorList)
-    studyPartipants = studyPartipants[studyPartipants["name"] !=
+    # deal with a specific use case called telet1d
+    if args.accountAlias in ["TELET1D"]:
+        studyPartipants = studyPartipants[studyPartipants["name"] !=
                           "James Jellyfish"].sort_values("name").reset_index(drop=True)
     studyPartipants.to_csv(outputDonorList, index_label="dIndex")
 else:
@@ -311,8 +326,8 @@ for dIndex in studyPartipants.index:
     startDate = pd.to_datetime(reportDate) - pd.Timedelta(2, unit="D")
     endDate = pd.to_datetime(reportDate) + pd.Timedelta(1, unit="D")
 
-    reponse1, reponse2 = \
-        get_json_data(args.email, args.password, userID, outputFileLocation, startDate, endDate)
+    reponse1, reponse2 = get_json_data(os.environ["TEMP_EMAIL"], os.environ["TEMP_PASSWORD"],
+                                       userID, outputFileLocation, startDate, endDate)
 
     metaData.loc[dIndex, ["getData.response1", "getData.response2"]] = \
         reponse1.status_code, reponse2.status_code
@@ -364,7 +379,7 @@ for dIndex in studyPartipants.index:
                                   - pd.Timedelta(tzo, unit="m"))
 
                     cgm = cgmData.loc[((pd.to_datetime(cgmData.time) > start6amDate) &
-                                       (pd.to_datetime(cgmData.time) < end6amDate)), ["time", "value"]]
+                           (pd.to_datetime(cgmData.time) < end6amDate)), ["time", "value"]]
 
                 cgm = cgm.rename(columns={"value": "mmol_L"})
                 cgm["mg_dL"] = (cgm["mmol_L"] * 18.01559).astype(int)
@@ -378,7 +393,7 @@ for dIndex in studyPartipants.index:
 
                 cgm["localTime"] = cgm["roundedTime"] + pd.to_timedelta(tzo, unit="m")
 
-                if len(cgm) > 0:
+                if len(cgm) > 1:
 
                     stats = get_stats(cgm)
 
@@ -392,7 +407,6 @@ for dIndex in studyPartipants.index:
                 else:
                     stats = pd.DataFrame(index=[dIndex])
                     stats["incompleteDataset"] = "no cgm data"
-
             else:
                 stats = pd.DataFrame(index=[dIndex])
                 stats["incompleteDataset"] = "no timezone information"
