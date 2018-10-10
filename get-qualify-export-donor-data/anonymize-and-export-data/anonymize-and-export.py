@@ -67,7 +67,7 @@ parser.add_argument("--merge-wizard-data",
 parser.add_argument("-f",
                     "--output-format",
                     dest="exportFormat",
-                    # default=["all"],
+                    # default=["all"], NOTE: we define the default to be "all" below
                     action="append",
                     help="the format of the exported data. Export options " +
                          "include json, xlsx, csv, csvs, or all. " +
@@ -95,6 +95,7 @@ args = parser.parse_args()
 # Because having a default for an action="append" always includes the default...
 if args.exportFormat is None:
     args.exportFormat = ['all']
+
 
 # %% LOAD DATA FUNCTIONS
 def checkInputFile(inputFile):
@@ -389,6 +390,7 @@ def removeManufacturersFromAnnotationsCode(df):
                      "carelink/",
                      "insulet/",
                      "medtronic/",
+                     "medtronic600/",
                      "tandem/"]
 
     annotationFields = [
