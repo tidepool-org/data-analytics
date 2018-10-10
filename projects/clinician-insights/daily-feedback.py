@@ -423,5 +423,5 @@ for dIndex in studyPartipants.index:
 # sort and save output
 feedback = sort_and_pretty_stat_output(allStats)
 
-feedback.to_csv(os.path.join(reportOutputPath, reportDate + "-cgm-report.csv"), index=False)
+feedback.to_csv(os.path.join(reportOutputPath, reportDate + "-daily-report.csv"), index=False)
 metaData.to_csv(os.path.join(metadataPath, "PHI-" + reportDate + "-metaData.csv"))
