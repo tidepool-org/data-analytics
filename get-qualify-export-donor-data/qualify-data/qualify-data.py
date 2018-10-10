@@ -42,7 +42,7 @@ parser.add_argument("-d",
 parser.add_argument("-o",
                     "--output-data-path",
                     dest="dataPath",
-                    default="../data/",
+                    default=os.path.join("..", "data"),
                     help="the output path where the data is stored")
 
 parser.add_argument("-s",
@@ -60,7 +60,7 @@ parser.add_argument("-e",
 parser.add_argument("-q",
                     "--qualification-criteria",
                     dest="qualificationCriteria",
-                    default="./tidepool-qualification-criteria.json",
+                    default=os.path.join(".", "tidepool-qualification-criteria.json"),
                     type=argparse.FileType('r'),
                     help="JSON file to be processed, see " +
                          "tidepool-qualification-critier.json " +
