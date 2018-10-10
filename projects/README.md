@@ -1,3 +1,3 @@
 # projects
 
-This directory contains the numerous projects used in Tidepool's internal data processing pipeline, exploratory analysis, and blog posts. 
+This directory contains projects that use Tidepool's donor datasets, which include exploratory analysis, blog post analyses, and a Tidepool internal data pipeline for ELT.
