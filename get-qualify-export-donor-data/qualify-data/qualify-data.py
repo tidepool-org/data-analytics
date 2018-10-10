@@ -423,6 +423,25 @@ for dIndex in range(startIndex, endIndex):
         if fileSize > 1000:
             data = td.load_json(jsonFileName)
 
+            # attach upload time to each record, for resolving duplicates
+            data = addUploadDate(data)
+
+            # filter by only hybridClosedLoop data
+            if "hClosedLoop" in qualCriteria["name"]:
+                if "basal" in data.type.unique():
+                    data["date"] = pd.to_datetime(data.time).dt.date
+                    bd = data[(data.type == "basal") & (data.deliveryType == "temp")]
+                    tempBasalCounts = pd.DataFrame(bd.groupby("date").deliveryType.count()).reset_index()
+                    tempBasalCounts.rename({"deliveryType": "tempBasalCounts"}, axis=1, inplace=True)
+                    data = pd.merge(data, tempBasalCounts, on="date")
+                    data = data[data.tempBasalCounts >= qualCriteria["nTempBasalsPerDayIsClosedLoop"]]
+                else:
+                    data = pd.DataFrame(columns=list(data))
+
+            # filter by only 670g data
+            if "m670g" in qualCriteria["name"]:
+                data = data[data.deviceId.str.contains("1780")]
+
             # flatten json
             data = td.flatten_json(data)
 
@@ -431,9 +450,6 @@ for dIndex in range(startIndex, endIndex):
                 # get rid of all negative durations
                 data, numberOfNegativeDurations = removeNegativeDurations(data)
                 metadata["all.negativeDurationsRemoved.count"] = numberOfNegativeDurations
-
-                # attach upload time to each record, for resolving duplicates
-                data = addUploadDate(data)
 
                 # group data by type
                 groupedData = data.groupby(by="type")
