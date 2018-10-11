@@ -1,6 +1,4 @@
 name: tidepool-analytics
-channels:
-  - conda-forge
 dependencies:
 - python=3
 - python-dotenv
