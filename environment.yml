@@ -1,7 +1,6 @@
 name: tidepool-analytics
 dependencies:
 - python=3
-- python-dotenv
 - pandas
 - requests
 - pylint
@@ -14,3 +13,5 @@ dependencies:
 - plotly
 - r
 - r-essentials
+pip:
+  - python-dotenv
