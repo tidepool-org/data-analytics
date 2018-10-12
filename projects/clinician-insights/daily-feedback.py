@@ -172,7 +172,7 @@ def get_stats(df):
     # 2.  >= 2 hours 54 <= BG < 70 mg/dl
     if statDF.loc[0, "total54to70"] > (2 * 60 / 5):
         statDF["GTE2hoursBetween54to70"] = \
-            "FLAG (" + str(round(statDF.loc[0, "GTE2hoursBetween54to70"] * 5)) + "min)"
+            "FLAG (" + str(round(statDF.loc[0, "total54to70"] * 5)) + "min)"
     else:
         statDF["GTE2hoursBetween54to70"] = np.nan
 
