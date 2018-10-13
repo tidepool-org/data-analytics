@@ -6,6 +6,10 @@
 .RHistory
 # Python
 __pycache__/
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
 # General
 .DS_Store
 work-record-archive/
