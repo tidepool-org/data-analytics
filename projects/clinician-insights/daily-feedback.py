@@ -26,7 +26,7 @@ from pytz import timezone
 from datetime import timedelta
 import datetime as dt
 import subprocess as sub
-tidalsPath = os.path.abspath(os.path.join(__file__, "..", "..", ".."))
+tidalsPath = os.path.abspath(os.path.join(__file__, "..", "..", "..", "tidals"))
 if tidalsPath not in sys.path:
     sys.path.insert(0, tidalsPath)
 import tidals as td
