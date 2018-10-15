@@ -23,7 +23,9 @@ import os
 import sys
 import argparse
 import json
-sys.path.insert(0, os.path.join("..", ".."))
+tidalsPath = os.path.abspath(os.path.join(__file__, "..", "..", "..", "tidals"))
+if tidalsPath not in sys.path:
+    sys.path.insert(0, tidalsPath)
 import tidals as td
 
 
