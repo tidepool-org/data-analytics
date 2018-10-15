@@ -296,6 +296,7 @@ def get_json_data(email, password, userid, outputFilePathName, startDate, endDat
             print("ERROR", myResponse2.status_code)
     else:
         print("ERROR", myResponse.status_code)
+        myResponse2 = np.nan
 
     return myResponse, myResponse2
 
