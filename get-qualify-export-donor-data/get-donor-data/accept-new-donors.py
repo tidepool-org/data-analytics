@@ -58,7 +58,7 @@ args = parser.parse_args()
 
 # %% Make sure the data directory exists
 if not os.path.isdir(args.dataPath):
-    sys.exit("{0} is not a directory".format(args.dataPath))
+    os.makedirs(args.dataPath)
 
 
 # %% define global variables
