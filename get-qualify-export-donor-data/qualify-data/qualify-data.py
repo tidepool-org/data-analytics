@@ -62,7 +62,8 @@ parser.add_argument("-e",
 parser.add_argument("-q",
                     "--qualification-criteria",
                     dest="qualificationCriteria",
-                    default=os.path.join(".", "tidepool-qualification-criteria.json"),
+                    default=os.path.abspath(os.path.join(__file__, "..",
+                                            "tidepool-qualification-criteria.json")),
                     type=argparse.FileType('r'),
                     help="JSON file to be processed, see " +
                          "tidepool-qualification-critier.json " +
