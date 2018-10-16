@@ -546,7 +546,7 @@ def rowToDict(rowData):
 
 
 def exportPrettyJson(df, exportFolder, fileName):
-    jsonExportFileName = exportFolder + fileName + ".json"
+    jsonExportFileName = os.path.join(exportFolder, fileName + ".json")
     outfile = open(jsonExportFileName, 'w')
     rowList = df.apply(rowToDict, axis=1)
     allRows = ",".join(rowList)
@@ -559,7 +559,7 @@ def exportPrettyJson(df, exportFolder, fileName):
 
 def exportExcelFile(exportDirectory, exportFolder, fileName):
     mylen = np.vectorize(len)
-    writer = pd.ExcelWriter(exportFolder + fileName + ".xlsx",
+    writer = pd.ExcelWriter(os.path.join(exportFolder, fileName + ".xlsx"),
                             engine='xlsxwriter')
 
     workbook = writer.book

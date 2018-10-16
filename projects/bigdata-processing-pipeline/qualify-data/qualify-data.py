@@ -6,26 +6,30 @@ version: 0.0.1
 created: 2018-02-21
 author: Ed Nykaza
 dependencies:
-    *
+    * this requires the tidals package, which is automatically downloaded when
+you load in the tidepool data analytics development (tda-dev) environment
+
 license: BSD-2-Clause
+
 TODO:
-* [] some of the todo-list moved to readme file
 * [] make saving the metadata optional, and by default to no
-* []
 """
 
 
 # %% REQUIRED LIBRARIES
-import pandas as pd
-import numpy as np
-import datetime as dt
 import os
 import sys
 import argparse
 import json
-tidalsPath = os.path.abspath(os.path.join(__file__, "..", "..", "..", "tidals"))
-if tidalsPath not in sys.path:
-    sys.path.insert(0, tidalsPath)
+import pandas as pd
+import datetime as dt
+# LEAVING THIS IN, IN THE CASE SOMEONE WANTS TO LOAD TIDALS LOCALLY
+#tidalsPath = os.path.abspath(
+#            os.path.join(
+#            os.path.dirname(__file__),
+#            "..", "..", "tidals"))
+#if tidalsPath not in sys.path:
+#    sys.path.insert(0, tidalsPath)
 import tidals as td
 
 

@@ -22,7 +22,9 @@ import sys
 import requests
 import json
 import argparse
-envPath = os.path.abspath(os.path.join(__file__, "..", ".."))
+envPath = os.path.abspath(
+        os.path.join(
+        os.path.dirname(__file__), ".."))
 if envPath not in sys.path:
     sys.path.insert(0, envPath)
 import environmentalVariables

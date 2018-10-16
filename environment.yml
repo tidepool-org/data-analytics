@@ -1,4 +1,4 @@
-name: tidepool-analytics
+name: tda-dev
 dependencies:
 - python=3
 - cython
