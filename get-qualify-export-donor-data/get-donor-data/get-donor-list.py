@@ -22,7 +22,10 @@ import sys
 import requests
 import json
 import argparse
-sys.path.insert(0, "../")
+envPath = os.path.abspath(os.path.join(__file__, "..", "..", "..",
+                                       "get-qualify-export-donor-data"))
+if envPath not in sys.path:
+    sys.path.insert(0, envPath)
 import environmentalVariables
 
 
