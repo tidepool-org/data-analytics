@@ -4,9 +4,10 @@
 .ipynb_checkpoints
 # General
 .DS_Store
-work-record-archive/
-data/
-*csvs/
-*jill-jellyfish*
+work-record-archive
+data
+*csvs
+export
+PHI-jill-jellyfish.json
 # Python
-__pycache__/
+__pycache__
