@@ -5,10 +5,15 @@
 # R Environment
 .RHistory
 # Python
-__pycache__/
+__pycache__
+# Distribution / packaging
+build
+dist
+src
+*.egg-info
 # General
 .DS_Store
-work-record-archive/
-export/
-internal/
+work-record-archive
+export
+internal
 data

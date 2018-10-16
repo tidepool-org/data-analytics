@@ -20,7 +20,11 @@ import sys
 import requests
 import json
 import argparse
-sys.path.insert(0, "../")
+envPath = os.path.abspath(
+        os.path.join(
+        os.path.dirname(__file__), ".."))
+if envPath not in sys.path:
+    sys.path.insert(0, envPath)
 import environmentalVariables
 
 
@@ -47,7 +51,9 @@ parser.add_argument("-i",
 parser.add_argument("-o",
                     "--output-data-path",
                     dest="dataPath",
-                    default=os.path.join("..", "data"),
+                    default=os.path.abspath(
+                            os.path.join(
+                            os.path.dirname(__file__), "..", "data")),
                     help="the output path where the data is stored")
 
 args = parser.parse_args()
@@ -55,7 +61,7 @@ args = parser.parse_args()
 
 # %% Make sure the data directory exists
 if not os.path.isdir(args.dataPath):
-    sys.exit("{0} is not a directory".format(args.dataPath))
+    os.makedirs(args.dataPath)
 
 
 # %% define global variables

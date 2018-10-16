@@ -14,7 +14,6 @@ TODO:
 """
 
 # %% load in required libraries
-import environmentalVariables
 import pandas as pd
 import datetime as dt
 import numpy as np
@@ -23,6 +22,12 @@ import sys
 import argparse
 import requests
 import json
+envPath = os.path.abspath(
+        os.path.join(
+        os.path.dirname(__file__), ".."))
+if envPath not in sys.path:
+    sys.path.insert(0, envPath)
+import environmentalVariables
 
 
 # %% define functions
@@ -74,19 +79,21 @@ phiDateStamp = "PHI-" + args.dateStamp
 parser.add_argument("-i",
                     "--input-data-path",
                     dest="donorListPath",
-                    default=os.path.join("..",
-                                         "data",
-                                         phiDateStamp + "-donor-data",
-                                         phiDateStamp + "-uniqueDonorList.csv"),
+                    default=os.path.abspath(
+                            os.path.join(
+                            os.path.dirname(__file__), "..", "data",
+                            phiDateStamp + "-donor-data",
+                            phiDateStamp + "-uniqueDonorList.csv")),
                     help="csv file that contains the a list of donors")
 
 parser.add_argument("-o",
                     "--output-data-path",
                     dest="donorJsonDataFolder",
-                    default=os.path.join("..",
-                                         "data",
-                                         phiDateStamp + "-donor-data",
-                                         phiDateStamp + "-donorJsonData"),
+                    default=os.path.abspath(
+                            os.path.join(
+                            os.path.dirname(__file__), "..", "data",
+                            phiDateStamp + "-donor-data",
+                            phiDateStamp + "-donorJsonData")),
                     help="the output path where the data is stored")
 
 args = parser.parse_args()

@@ -1,9 +1,7 @@
-name: tidepool-analytics
-channels:
-  - conda-forge
+name: tda-dev
 dependencies:
 - python=3
-- python-dotenv
+- cython
 - pandas
 - requests
 - pylint
@@ -16,3 +14,6 @@ dependencies:
 - plotly
 - r
 - r-essentials
+- pip:
+  - python-dotenv
+  - -e git+https://github.com/tidepool-org/data-analytics@etn/aws-linux-compatibility#egg=tidals\&subdirectory=tidals

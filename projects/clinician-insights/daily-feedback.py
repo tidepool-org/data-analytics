@@ -26,7 +26,7 @@ from pytz import timezone
 from datetime import timedelta
 import datetime as dt
 import subprocess as sub
-tidalsPath = os.path.abspath(os.path.join(__file__, "..", "..", ".."))
+tidalsPath = os.path.abspath(os.path.join(__file__, "..", "..", "..", "tidals"))
 if tidalsPath not in sys.path:
     sys.path.insert(0, tidalsPath)
 import tidals as td
@@ -172,7 +172,7 @@ def get_stats(df):
     # 2.  >= 2 hours 54 <= BG < 70 mg/dl
     if statDF.loc[0, "total54to70"] > (2 * 60 / 5):
         statDF["GTE2hoursBetween54to70"] = \
-            "FLAG (" + str(round(statDF.loc[0, "GTE2hoursBetween54to70"] * 5)) + "min)"
+            "FLAG (" + str(round(statDF.loc[0, "total54to70"] * 5)) + "min)"
     else:
         statDF["GTE2hoursBetween54to70"] = np.nan
 
@@ -296,6 +296,7 @@ def get_json_data(email, password, userid, outputFilePathName, startDate, endDat
             print("ERROR", myResponse2.status_code)
     else:
         print("ERROR", myResponse.status_code)
+        myResponse2 = np.nan
 
     return myResponse, myResponse2
 

@@ -6,9 +6,8 @@ version: 0.0.2
 created: 2018-05-22
 author: Ed Nykaza
 dependencies:
-    * requires tidepool-data-env (see readme for instructions)
-    * requires Tidepool data (e.g., PHI-jill-jellyfish.json)
-    * requires commandline tool 'jq' for making the pretty json file
+    * requires tidepool-analytics environment (see readme for instructions)
+    * requires Tidepool data (e.g., PHI-jill-jellyfish.json in example-data folder)
 license: BSD-2-Clause
 """
 
@@ -33,16 +32,20 @@ parser = argparse.ArgumentParser(description=codeDescription)
 parser.add_argument("-i",
                     "--input-tidepool-data",
                     dest="inputFilePathAndName",
-                    default=os.path.join("..",
-                                         "example-data",
-                                         "PHI-jill-jellyfish-lite.json"),
+                    default=os.path.abspath(
+                            os.path.join(
+                            os.path.dirname(__file__),
+                            "example-data",
+                            "jill-jellyfish-lite.json")),
                     help="csv, xlsx, or json file that contains Tidepool data")
 
 parser.add_argument("--data-field-list",
                     dest="dataFieldExportList",
-                    default=os.path.join("..",
-                                         "example-data",
-                                         "dataFieldExportList.csv"),
+                    default=os.path.abspath(
+                            os.path.join(
+                            os.path.dirname(__file__),
+                            "example-data",
+                            "dataFieldExportList.csv")),
                     help="a csv file that contains a list of fields to export")
 
 parser.add_argument("--salt",
@@ -53,9 +56,10 @@ parser.add_argument("--salt",
 parser.add_argument("-o",
                     "--output-data-path",
                     dest="exportPath",
-                    default=os.path.join("..",
-                                         "example-data",
-                                         "export", ""),
+                    default=os.path.abspath(
+                            os.path.join(
+                            os.path.dirname(__file__),
+                            "example-data", "export")),
                     help="the path where the data is exported")
 
 parser.add_argument("--merge-wizard-data",
@@ -542,7 +546,7 @@ def rowToDict(rowData):
 
 
 def exportPrettyJson(df, exportFolder, fileName):
-    jsonExportFileName = exportFolder + fileName + ".json"
+    jsonExportFileName = os.path.join(exportFolder, fileName + ".json")
     outfile = open(jsonExportFileName, 'w')
     rowList = df.apply(rowToDict, axis=1)
     allRows = ",".join(rowList)
@@ -555,7 +559,7 @@ def exportPrettyJson(df, exportFolder, fileName):
 
 def exportExcelFile(exportDirectory, exportFolder, fileName):
     mylen = np.vectorize(len)
-    writer = pd.ExcelWriter(exportFolder + fileName + ".xlsx",
+    writer = pd.ExcelWriter(os.path.join(exportFolder, fileName + ".xlsx"),
                             engine='xlsxwriter')
 
     workbook = writer.book

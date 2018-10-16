@@ -6,24 +6,30 @@ version: 0.0.1
 created: 2018-02-21
 author: Ed Nykaza
 dependencies:
-    *
+    * this requires the tidals package, which is automatically downloaded when
+you load in the tidepool data analytics development (tda-dev) environment
+
 license: BSD-2-Clause
+
 TODO:
-* [] some of the todo-list moved to readme file
 * [] make saving the metadata optional, and by default to no
-* []
 """
 
 
 # %% REQUIRED LIBRARIES
-import pandas as pd
-import numpy as np
-import datetime as dt
 import os
 import sys
 import argparse
 import json
-sys.path.insert(0, os.path.join("..", ".."))
+import pandas as pd
+import datetime as dt
+# LEAVING THIS IN, IN THE CASE SOMEONE WANTS TO LOAD TIDALS LOCALLY
+#tidalsPath = os.path.abspath(
+#            os.path.join(
+#            os.path.dirname(__file__),
+#            "..", "..", "tidals"))
+#if tidalsPath not in sys.path:
+#    sys.path.insert(0, tidalsPath)
 import tidals as td
 
 
@@ -42,7 +48,9 @@ parser.add_argument("-d",
 parser.add_argument("-o",
                     "--output-data-path",
                     dest="dataPath",
-                    default=os.path.join("..", "data"),
+                    default=os.path.abspath(
+                            os.path.join(
+                            os.path.dirname(__file__), "..", "data")),
                     help="the output path where the data is stored")
 
 parser.add_argument("-s",
@@ -60,7 +68,10 @@ parser.add_argument("-e",
 parser.add_argument("-q",
                     "--qualification-criteria",
                     dest="qualificationCriteria",
-                    default=os.path.join(".", "tidepool-qualification-criteria.json"),
+                    default=os.path.abspath(
+                            os.path.join(
+                            os.path.dirname(__file__),
+                            "tidepool-qualification-criteria.json")),
                     type=argparse.FileType('r'),
                     help="JSON file to be processed, see " +
                          "tidepool-qualification-critier.json " +
