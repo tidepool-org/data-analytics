@@ -33,16 +33,20 @@ parser = argparse.ArgumentParser(description=codeDescription)
 parser.add_argument("-i",
                     "--input-tidepool-data",
                     dest="inputFilePathAndName",
-                    default=os.path.join("..",
-                                         "example-data",
-                                         "PHI-jill-jellyfish-lite.json"),
+                    default=os.path.abspath(
+                            os.path.join(
+                            os.path.dirname(__file__),
+                            "example-data",
+                            "PHI-jill-jellyfish-lite.json")),
                     help="csv, xlsx, or json file that contains Tidepool data")
 
 parser.add_argument("--data-field-list",
                     dest="dataFieldExportList",
-                    default=os.path.join("..",
-                                         "example-data",
-                                         "dataFieldExportList.csv"),
+                    default=os.path.abspath(
+                            os.path.join(
+                            os.path.dirname(__file__),
+                            "example-data",
+                            "dataFieldExportList.csv")),
                     help="a csv file that contains a list of fields to export")
 
 parser.add_argument("--salt",
@@ -53,9 +57,10 @@ parser.add_argument("--salt",
 parser.add_argument("-o",
                     "--output-data-path",
                     dest="exportPath",
-                    default=os.path.join("..",
-                                         "example-data",
-                                         "export", ""),
+                    default=os.path.abspath(
+                            os.path.join(
+                            os.path.dirname(__file__),
+                            "example-data", "export")),
                     help="the path where the data is exported")
 
 parser.add_argument("--merge-wizard-data",

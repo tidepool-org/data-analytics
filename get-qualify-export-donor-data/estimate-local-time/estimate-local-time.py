@@ -35,26 +35,35 @@ parser = argparse.ArgumentParser(description=codeDescription)
 parser.add_argument("-i",
                     "--input-data-file",
                     dest="inputFilePathAndName",
-                    default="example-csv.csv",
+                    default=os.path.abspath(
+                            os.path.join(
+                            os.path.dirname(__file__), "example-csv.csv")),
                     help="csv, xlsx, or json file that contains Tidepool data")
 
 parser.add_argument("--deprecated-timezone-list",
                     dest="timezoneAliasesFilePathAndName",
-                    default=os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])),
-                                         "wikipedia-timezone-aliases-2018-04-28.csv"),
+                    default=os.path.abspath(
+                            os.path.join(
+                            os.path.dirname(__file__),
+                            "wikipedia-timezone-aliases-2018-04-28.csv")),
                     help="a .csv file that contains a list of deprecated " +
                     "timezones and their alias")
 
 parser.add_argument("-o",
                     "--output-data-path",
                     dest="outputPath",
-                    default=os.path.join("output",
-                                         "dataWithLocalTimeEstimates"),
+                    default=os.path.abspath(
+                            os.path.join(
+                            os.path.dirname(__file__),
+                            "output", "dataWithLocalTimeEstimates")),
                     help="the output where the data is stored")
 
 parser.add_argument("--day-series-output-path",
                     dest="daySeriesOutputPath",
-                    default=os.path.join("output", "daySeriesData"),
+                    default=os.path.abspath(
+                            os.path.join(
+                            os.path.dirname(__file__),
+                            "output", "daySeriesData")),
                     help="optional path to store the contiguous day series" +
                     "data. If no path is specified, then data is not saved")
 

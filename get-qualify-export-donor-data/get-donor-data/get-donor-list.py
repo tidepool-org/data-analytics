@@ -51,7 +51,9 @@ parser.add_argument("-i",
 parser.add_argument("-o",
                     "--output-data-path",
                     dest="dataPath",
-                    default=os.path.abspath(os.path.join(__file__, "..", "..", "data")),
+                    default=os.path.abspath(
+                            os.path.join(
+                            os.path.dirname(__file__), "..", "data")),
                     help="the output path where the data is stored")
 
 parser.add_argument("--ignore-accounts",

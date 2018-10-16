@@ -77,17 +77,21 @@ phiDateStamp = "PHI-" + args.dateStamp
 parser.add_argument("-i",
                     "--input-data-path",
                     dest="donorListPath",
-                    default=os.path.abspath(os.path.join(__file__, "..", "..", "data",
-                                                         phiDateStamp + "-donor-data",
-                                                         phiDateStamp + "-uniqueDonorList.csv")),
+                    default=os.path.abspath(
+                            os.path.join(
+                            os.path.dirname(__file__), "..", "data",
+                            phiDateStamp + "-donor-data",
+                            phiDateStamp + "-uniqueDonorList.csv")),
                     help="csv file that contains the a list of donors")
 
 parser.add_argument("-o",
                     "--output-data-path",
                     dest="donorJsonDataFolder",
-                    default=os.path.abspath(os.path.join(__file__, "..", "..", "data",
-                                                         phiDateStamp + "-donor-data",
-                                                         phiDateStamp + "-donorJsonData")),
+                    default=os.path.abspath(
+                            os.path.join(
+                            os.path.dirname(__file__), "..", "data",
+                            phiDateStamp + "-donor-data",
+                            phiDateStamp + "-donorJsonData")),
                     help="the output path where the data is stored")
 
 args = parser.parse_args()
