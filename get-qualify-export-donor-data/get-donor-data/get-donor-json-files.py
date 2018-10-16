@@ -14,7 +14,6 @@ TODO:
 """
 
 # %% load in required libraries
-import environmentalVariables
 import pandas as pd
 import datetime as dt
 import numpy as np
@@ -23,6 +22,10 @@ import sys
 import argparse
 import requests
 import json
+envPath = os.path.abspath(os.path.join(__file__, "..", ".."))
+if envPath not in sys.path:
+    sys.path.insert(0, envPath)
+import environmentalVariables
 
 
 # %% define functions
