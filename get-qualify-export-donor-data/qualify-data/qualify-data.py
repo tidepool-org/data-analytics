@@ -44,7 +44,7 @@ parser.add_argument("-d",
 parser.add_argument("-o",
                     "--output-data-path",
                     dest="dataPath",
-                    default=os.path.join("..", "data"),
+                    default=os.path.abspath(os.path.join(__file__, "..", "..", "data")),
                     help="the output path where the data is stored")
 
 parser.add_argument("-s",
