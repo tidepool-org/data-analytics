@@ -6,9 +6,8 @@ version: 0.0.2
 created: 2018-05-22
 author: Ed Nykaza
 dependencies:
-    * requires tidepool-data-env (see readme for instructions)
-    * requires Tidepool data (e.g., PHI-jill-jellyfish.json)
-    * requires commandline tool 'jq' for making the pretty json file
+    * requires tidepool-analytics environment (see readme for instructions)
+    * requires Tidepool data (e.g., PHI-jill-jellyfish.json in example-data folder)
 license: BSD-2-Clause
 """
 
