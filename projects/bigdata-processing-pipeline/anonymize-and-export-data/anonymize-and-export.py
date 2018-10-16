@@ -36,7 +36,7 @@ parser.add_argument("-i",
                             os.path.join(
                             os.path.dirname(__file__),
                             "example-data",
-                            "PHI-jill-jellyfish-lite.json")),
+                            "jill-jellyfish-lite.json")),
                     help="csv, xlsx, or json file that contains Tidepool data")
 
 parser.add_argument("--data-field-list",
