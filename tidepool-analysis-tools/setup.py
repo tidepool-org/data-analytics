@@ -57,7 +57,7 @@ allFiles = files + hidFiles
 # create a source file (src) and clone the entire data-analytics repo
 for i in allFiles:
     # make sure you are in the src/tidals/ directory
-    if "src" in i.split(sep=os.sep)[-2]:
+    if "src" in i.split(sep=os.sep)[-3]:
         # delete all BUT files in tidals package
         if "tidepool-analysis-tools" not in i:
             if os.path.isdir(i):
