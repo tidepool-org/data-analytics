@@ -19,7 +19,7 @@ import tidals as td
 
 # %% load in example data with the tidals package
 dataPath = os.path.join(packagePath, "examples", "example-data", "example-from-j-jellyfish.csv")
-data = td.load.load_csv(dataPath)
+data, fileName = td.load.load_data(dataPath)
 
 # get just the cgm data (utc-time and mmol/L values)
 cgm = data.loc[data.type == "cbg", ["time", "value"]]
