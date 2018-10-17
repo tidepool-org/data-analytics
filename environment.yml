@@ -16,4 +16,3 @@ dependencies:
 - r-essentials
 - pip:
   - python-dotenv
-  - -e git+https://github.com/tidepool-org/data-analytics@etn/tidals-updates#egg=tidals\&subdirectory=tidepool-analysis-tools
