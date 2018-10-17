@@ -9,11 +9,14 @@ license: BSD-2-Clause
 
 import os
 import sys
+import importlib
 
 nameDataAnalyticsRepository = "data-analytics"
 packagePath = os.getcwd()[:(os.getcwd().find(nameDataAnalyticsRepository) +
                           len(nameDataAnalyticsRepository) + 1)]
-sys.path.append(os.path.abspath(os.path.join(packagePath, "tidepool-analysis-tools")))
+# if the tidals package is not available, install locally
+if importlib.util.find_spec("tidals") is None:
+    sys.path.append(os.path.abspath(os.path.join(packagePath, "tidepool-analysis-tools")))
 import tidals as td
 
 
