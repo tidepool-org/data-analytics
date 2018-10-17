@@ -10,18 +10,19 @@ license: BSD-2-Clause
 import os
 import sys
 import importlib
-
-nameDataAnalyticsRepository = "data-analytics"
-packagePath = os.getcwd()[:(os.getcwd().find(nameDataAnalyticsRepository) +
-                          len(nameDataAnalyticsRepository) + 1)]
-# if the tidals package is not available, install locally
+# load tidals package locally if it does not exist globally
 if importlib.util.find_spec("tidals") is None:
-    sys.path.append(os.path.abspath(os.path.join(packagePath, "tidepool-analysis-tools")))
+    tidalsPath = os.path.abspath(
+                    os.path.join(
+                    os.path.dirname(__file__),
+                    "..", "tidepool-analysis-tools"))
+    if tidalsPath not in sys.path:
+        sys.path.insert(0, tidalsPath)
 import tidals as td
 
 
 # %% load in example data with the tidals package
-dataPath = os.path.join(packagePath, "examples", "example-data", "example-from-j-jellyfish.csv")
+dataPath = os.path.join(os.path.dirname(__file__), "example-data", "example-from-j-jellyfish.csv")
 data, fileName = td.load.load_data(dataPath)
 
 # get just the cgm data (utc-time and mmol/L values)
