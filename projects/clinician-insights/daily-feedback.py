@@ -26,12 +26,25 @@ from pytz import timezone
 from datetime import timedelta
 import datetime as dt
 import subprocess as sub
-tidalsPath = os.path.abspath(os.path.join(__file__, "..", "..", "..", "tidals"))
-if tidalsPath not in sys.path:
-    sys.path.insert(0, tidalsPath)
+import importlib
+import pdb
+
+# load tidals package locally if it does not exist globally
+if importlib.util.find_spec("tidals") is None:
+    tidalsPath = os.path.abspath(
+                    os.path.join(
+                    os.path.dirname(__file__),
+                    "..", "..", "tidepool-analysis-tools"))
+    if tidalsPath not in sys.path:
+        sys.path.insert(0, tidalsPath)
 import tidals as td
-envPath = os.path.abspath(os.path.join(__file__, "..", "..", "..",
-                                       "get-qualify-export-donor-data"))
+
+# load environmental variables from .env file and environmentalVariables.py
+# TODO: load environment variables when conda env is loaded
+envPath = os.path.abspath(
+            os.path.join(
+            os.path.dirname(__file__),
+            "..", "..", "projects", "bigdata-processing-pipeline"))
 if envPath not in sys.path:
     sys.path.insert(0, envPath)
 import environmentalVariables
@@ -238,33 +251,44 @@ def get_timeZoneOffset(currentDate, userTz):
     return tzo
 
 
-def get_donor_lists(email, password, outputDonorList):
-    p = sub.Popen(["getusers", email,
-                   "-p", password, "-o",
-                   outputDonorList, "-v"], stdout=sub.PIPE, stderr=sub.PIPE)
+def get_donor_info(email, password, outputDonorList):
+    donorMetadataColumns = ["userID", "name"]
+    donorMetaData = pd.DataFrame(columns=donorMetadataColumns)
+    url1 = "https://api.tidepool.org/auth/login"
+    myResponse = requests.post(url1, auth=(email, password))
 
-    output, errors = p.communicate()
-    output = output.decode("utf-8")
-    errors = errors.decode("utf-8")
+    if(myResponse.ok):
+        xtoken = myResponse.headers["x-tidepool-session-token"]
+        userid = json.loads(myResponse.content.decode())["userid"]
+        url2 = "https://api.tidepool.org/metadata/users/" + userid + "/users"
+        headers = {
+            "x-tidepool-session-token": xtoken,
+            "Content-Type": "application/json"
+        }
 
-    if output.startswith("Successful login.\nSuccessful") is False:
-        sys.exit("ERROR with" + email +
-                 " ouput: " + output +
-                 " errorMessage: " + errors)
+        myResponse2 = requests.get(url2, headers=headers)
+        if(myResponse2.ok):
+
+            usersData = json.loads(myResponse2.content.decode())
+
+            for i in range(0, len(usersData)):
+                userID = usersData[i]["userid"]
+                userEmail = usersData[i]["username"]
+
+                donorMetaData = donorMetaData.append(
+                        pd.DataFrame([[userID, userEmail]],
+                                     columns=donorMetadataColumns),
+                                     ignore_index=True)
+        else:
+            print("ERROR", myResponse2.status_code)
+            sys.exit("Error with" + str(myResponse2.status_code))
+    else:
+        print("ERROR", myResponse.status_code)
+        sys.exit("Error with" + str(myResponse.status_code))
+
+    donorMetaData.to_csv(outputDonorList, index_label="dIndex")
 
     return
-
-
-def load_donors(outputDonorList):
-    donorList = []
-    if os.stat(outputDonorList).st_size > 0:
-        donorList = pd.read_csv(outputDonorList,
-                                header=None,
-                                usecols=[0, 1],
-                                names=["userID", "name"],
-                                low_memory=False)
-
-    return donorList
 
 
 def get_json_data(email, password, userid, outputFilePathName, startDate, endDate):
@@ -305,14 +329,14 @@ def get_json_data(email, password, userid, outputFilePathName, startDate, endDat
 # get the list of donors if it doesn't already exist
 outputDonorList = os.path.abspath(os.path.join(args.outputPath, "PHI-study-participants.csv"))
 if not os.path.exists(outputDonorList):
-    get_donor_lists(os.environ["TEMP_EMAIL"], os.environ["TEMP_PASSWORD"], outputDonorList)
+    get_donor_info(os.environ["TEMP_EMAIL"], os.environ["TEMP_PASSWORD"], outputDonorList)
 
     # load in the donor list
-    studyPartipants = load_donors(outputDonorList)
+    studyPartipants = pd.read_csv(outputDonorList, index_col=["dIndex"])
     # deal with a specific use case called telet1d
     if args.accountAlias in ["TELET1D"]:
         studyPartipants = studyPartipants[studyPartipants["name"] !=
-                          "James Jellyfish"].sort_values("name").reset_index(drop=True)
+                          "demo+james@tidepool.org"].sort_values("name").reset_index(drop=True)
     studyPartipants.to_csv(outputDonorList, index_label="dIndex")
 else:
     studyPartipants = pd.read_csv(outputDonorList, index_col="dIndex", low_memory=False)
@@ -386,10 +410,10 @@ for dIndex in studyPartipants.index:
                 cgm["mg_dL"] = (cgm["mmol_L"] * 18.01559).astype(int)
 
                 # round time to the nearest 5 minutes
-                cgm = td.round_time(cgm)
+                cgm = td.clean.round_time(cgm)
 
                 # drop any duplicates
-                cgm, nDuplicatesRemoved = td.remove_duplicates(cgm, cgm["roundedTime"])
+                cgm, nDuplicatesRemoved = td.clean.remove_duplicates(cgm, cgm["roundedTime"])
                 metaData.loc[dIndex, ["nDuplicatesRemoved"]] = nDuplicatesRemoved
 
                 cgm["localTime"] = cgm["roundedTime"] + pd.to_timedelta(tzo, unit="m")
