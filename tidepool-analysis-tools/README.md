@@ -17,7 +17,7 @@ import sys
 nameDataAnalyticsRepository = "data-analytics"
 packagePath = os.getcwd()[:(os.getcwd().find(nameDataAnalyticsRepository) +
                           len(nameDataAnalyticsRepository) + 1)]
-sys.path.append(os.path.abspath(os.path.join(packagePath, "tidepool-analysis-tools", "tidals")))
+sys.path.append(os.path.abspath(os.path.join(packagePath, "tidepool-analysis-tools")))
 import tidals as td
 ```
 
