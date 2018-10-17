@@ -21,15 +21,15 @@ import os
 import sys
 import argparse
 import json
-import importlib
 import pandas as pd
 import datetime as dt
+import importlib
 # load tidals package locally if it does not exist globally
-if importlib.util.find_spec("tidal") is None:
+if importlib.util.find_spec("tidals") is None:
     tidalsPath = os.path.abspath(
                     os.path.join(
                     os.path.dirname(__file__),
-                    "..", "..", "tidals"))
+                    "..", "..", "tidepool-analysis-tools"))
     if tidalsPath not in sys.path:
         sys.path.insert(0, tidalsPath)
 import tidals as td
