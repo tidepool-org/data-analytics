@@ -21,15 +21,17 @@ import os
 import sys
 import argparse
 import json
+import importlib
 import pandas as pd
 import datetime as dt
-# LEAVING THIS IN, IN THE CASE SOMEONE WANTS TO LOAD TIDALS LOCALLY
-#tidalsPath = os.path.abspath(
-#            os.path.join(
-#            os.path.dirname(__file__),
-#            "..", "..", "tidals"))
-#if tidalsPath not in sys.path:
-#    sys.path.insert(0, tidalsPath)
+# load tidals package locally if it does not exist globally
+if importlib.util.find_spec("tidal") is None:
+    tidalsPath = os.path.abspath(
+                    os.path.join(
+                    os.path.dirname(__file__),
+                    "..", "..", "tidals"))
+    if tidalsPath not in sys.path:
+        sys.path.insert(0, tidalsPath)
 import tidals as td
 
 
@@ -432,7 +434,7 @@ for dIndex in range(startIndex, endIndex):
     if os.path.exists(jsonFileName):
         metadata["fileSize"] = fileSize
         if fileSize > 1000:
-            data = td.load_json(jsonFileName)
+            data = td.load.load_json(jsonFileName)
 
             # attach upload time to each record, for resolving duplicates
             if "upload" in data.type.unique():
@@ -455,7 +457,7 @@ for dIndex in range(startIndex, endIndex):
                     data = data[data.deviceId.str.contains("1780")]
 
                 # flatten json
-                data = td.flatten_json(data)
+                data = td.clean.flatten_json(data)
 
                 if (("cbg" in data.type.unique()) and ("bolus" in data.type.unique())):
 
@@ -485,7 +487,7 @@ for dIndex in range(startIndex, endIndex):
                         nDuplicatesRemovedUtcTime
 
                     # round time to the nearest 5 minutes
-                    cgmData = td.round_time(cgmData, timeIntervalMinutes=5, timeField="time",
+                    cgmData = td.clean.round_time(cgmData, timeIntervalMinutes=5, timeField="time",
                                             roundedTimeFieldName="roundedTime", verbose=False)
 
                     # get rid of duplicates that have the same "roundedTime"
