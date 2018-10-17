@@ -16,4 +16,4 @@ dependencies:
 - r-essentials
 - pip:
   - python-dotenv
-  - -e git+https://github.com/tidepool-org/data-analytics@etn/aws-linux-compatibility#egg=tidals\&subdirectory=tidals
+  - -e git+https://github.com/tidepool-org/data-analytics@etn/clean-tidals#egg=tidals\&subdirectory=tidepool-analysis-tools
