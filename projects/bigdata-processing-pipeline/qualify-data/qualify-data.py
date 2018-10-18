@@ -65,7 +65,10 @@ parser.add_argument("-e",
                     "--end-index",
                     dest="endIndex",
                     default=-1,
-                    help="donor index (integer) to end at")
+                    help="donor index (integer) to end at," +
+                    "-1 will result in 1 file if startIndex != 0," +
+                    "and will default to number of unique donors" +
+                    "if startIndex = 0, or endIndex = -2")
 
 parser.add_argument("-q",
                     "--qualification-criteria",
@@ -91,7 +94,8 @@ def defineStartAndEndIndex(args):
             endIndex = len(uniqueDonors)
         else:
             endIndex = startIndex + 1
-
+    if endIndex == -2:
+        endIndex = len(uniqueDonors)
     return startIndex, endIndex
 
 
