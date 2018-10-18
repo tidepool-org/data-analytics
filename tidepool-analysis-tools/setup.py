@@ -15,20 +15,6 @@ import os
 import glob
 import shutil
 
-# %% remove the excess files that were downloaded from github
-# TODO: make tidals its own repository under tidepool_org
-# once tidals becomes its own github repository, then this step will no longer be necessary
-# TODO: publish tidals as a PyPi pacakge
-
-scrFiles = glob.glob(os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "*")))
-
-for i in scrFiles:
-    if "tidepool-analysis-tools" not in i:
-        if os.path.isdir(i):
-            shutil.rmtree(i)
-        else:
-            os.remove(i)
 
 # %% START OF SETUP
 with open("README.md", "r") as fh:
@@ -42,9 +28,10 @@ setuptools.setup(
     description="Tidepool Data Analysis Tools",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/tidepool-org/data-analytics/tree/master/tidal-analysis-tools/tidals",
+    url="https://github.com/tidepool-org/data-analytics/tree/master/tidepool-analysis-tools",
     packages=setuptools.find_packages(),
     classifiers=[
+        "Development Status :: 3 - Alpha"
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: BSD-2-Clause",
         "Operating System :: OS Independent",
@@ -52,3 +39,28 @@ setuptools.setup(
 )
 
 
+# %% CLEAN UP
+# remove the excess files if package is installed with pip from github
+# TODO: make tidals its own repository under tidepool_org
+# once tidals becomes its own github repository, then this step will no longer be necessary
+# TODO: publish tidals as a PyPi pacakge
+
+files = glob.glob(os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "*")))
+
+hidFiles = glob.glob(os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", ".*")))
+
+allFiles = files + hidFiles
+
+# if loaded from github with pip in environmental.yml, then when it will
+# create a source file (src) and clone the entire data-analytics repo
+for i in allFiles:
+    # make sure you are in the src/tidals/ directory
+    if "src" in i.split(sep=os.sep)[-3]:
+        # delete all BUT files in tidals package
+        if "tidepool-analysis-tools" not in i:
+            if os.path.isdir(i):
+                shutil.rmtree(i)
+            else:
+                os.remove(i)

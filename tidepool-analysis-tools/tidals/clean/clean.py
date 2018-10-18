@@ -7,10 +7,6 @@ author: Ed Nykaza
 license: BSD-2-Clause
 """
 
-import pandas as pd
-import numpy as np
-
-
 def remove_duplicates(df, criteriaDF):
     nBefore = len(df)
     df = df.loc[~(criteriaDF.duplicated())]
@@ -22,6 +18,7 @@ def remove_duplicates(df, criteriaDF):
 
 def round_time(df, timeIntervalMinutes=5, timeField="time",
                roundedTimeFieldName="roundedTime", verbose=False):
+    import pandas as pd
     # A general purpose round time function that rounds the
     # "time" field to nearest <timeIntervalMinutes> minutes
     # INPUTS:
@@ -75,6 +72,8 @@ def remove_brackets(df, fieldName):
 
 
 def flatten_json(df):
+    import pandas as pd
+    import numpy as np
     # remove [] from annotations field
     df = remove_brackets(df, "annotations")
 

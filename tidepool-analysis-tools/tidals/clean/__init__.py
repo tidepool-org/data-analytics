@@ -7,6 +7,3 @@ created: 2018-07-21
 author: Ed Nykaza
 license: BSD-2-Clause
 """
-
-from .clean import clean
-from .load import load
