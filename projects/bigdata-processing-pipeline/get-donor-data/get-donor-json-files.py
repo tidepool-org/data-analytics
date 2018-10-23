@@ -113,12 +113,16 @@ uniqueDonors = pd.read_csv(args.donorListPath,
 
 
 # %% pull the json files for all of the unique donors
+blankDF = pd.DataFrame()
 for userID, donorGroup in zip(uniqueDonors.userID, uniqueDonors.donorGroup):
     outputFilePathName = os.path.join(args.donorJsonDataFolder,
                                       "PHI-" + userID + ".json")
 
     # if the json file already exists, do NOT pull it again
     if not os.path.exists(outputFilePathName):
+
+        # create a temp file so that other processes know that the download in in progress
+        blankDF.to_json(outputFilePathName)
 
         # case where donorGroup is bigdata, but should be ""
         if pd.isnull(donorGroup):
