@@ -186,6 +186,29 @@ def filterByDatesExceptUploadsAndSettings(df, startDate, endDate):
     return df
 
 
+def sortColumns(df):
+    allSettingsFields = ["basalSchedules",
+                         "bgTarget",
+                         "bgTargets",
+                         "carbRatio",
+                         "carbRatios",
+                         "insulinSensitivity",
+                         "insulinSensitivities"]
+
+    existingSettingsFields = list(set(df) & set(allSettingsFields))
+    columnsWithoutSettings = list(set(df) - set(existingSettingsFields))
+    columsWithDots = []
+    for col in columnsWithoutSettings:
+        if "." in col:
+            columsWithDots.append(col)
+    columnsWithoutSettingsAndDots = list(set(columnsWithoutSettings) - set(columsWithDots))
+    newColOrder = sorted(columnsWithoutSettingsAndDots) + sorted(columsWithDots) + \
+                  sorted(existingSettingsFields)
+    df = df[newColOrder]
+
+    return df
+
+
 def tempRemoveFields(df):
     removeFields = ["basalSchedules",
                     "bgTarget",
@@ -490,17 +513,18 @@ def cleanDiretory(exportFolder, fileName):
 
 def exportCsvFiles(df, exportFolder, fileName, mergeCalculatorData):
     hiddenCsvExportFolder = cleanDiretory(exportFolder, fileName)
-
     groupedData = df.groupby(by="type")
+
     for dataType in set(df[df.type.notnull()].type):
         csvData = filterAndSort(groupedData, dataType, "time")
-        csvData.index.name = "jsonRowIndex"
-        csvData.to_csv(hiddenCsvExportFolder + dataType + ".csv")
+        csvData = sortColumns(csvData)
+        csvData.to_csv(hiddenCsvExportFolder + dataType + ".csv", index=False)
 
     # merge wizard data with bolus data, and delete wizard data
     if mergeCalculatorData:
         bolusWithWizardData = mergeWizardWithBolus(df, hiddenCsvExportFolder)
         if len(bolusWithWizardData) > 0:
+            bolusWithWizardData = sortColumns(bolusWithWizardData)
             bolusWithWizardData.to_csv(hiddenCsvExportFolder + "bolus.csv",
                                        index=False)
         if os.path.exists(hiddenCsvExportFolder + "wizard.csv"):
@@ -509,19 +533,18 @@ def exportCsvFiles(df, exportFolder, fileName, mergeCalculatorData):
     return hiddenCsvExportFolder
 
 
-def exportSingleCsv(df, exportFolder, fileName, exportDirectory, fileType):
+def exportSingleCsv(exportFolder, fileName, exportDirectory, fileType):
     # first load in all csv files
     csvFiles = glob.glob(exportDirectory + "*.csv")
     bigTable = pd.DataFrame()
     for csvFile in csvFiles:
-        bigTable = \
-            pd.concat([bigTable, pd.read_csv(csvFile, low_memory=False,
-                      index_col="jsonRowIndex")], sort=False)
+        bigTable = pd.concat([bigTable, pd.read_csv(csvFile, low_memory=False)], sort=False)
 
-    # then sort
+    # first sort by time and then put columns in alphabetical order
     bigTable = bigTable.sort_values("time")
+    bigTable = sortColumns(bigTable)
     if (("csv" in fileType) | ("all" in fileType)):
-        bigTable.to_csv(os.path.join(exportFolder, fileName + ".csv"))
+        bigTable.to_csv(os.path.join(exportFolder, fileName + ".csv"), index=False)
 
     return bigTable
 
