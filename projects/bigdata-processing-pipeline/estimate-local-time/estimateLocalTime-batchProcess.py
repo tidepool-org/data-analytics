@@ -17,17 +17,18 @@ import sys
 import datetime as dt
 import argparse
 import subprocess as sub
+import time
 from multiprocessing import Pool
 # load tidals package locally if it does not exist globally
 import importlib
 if importlib.util.find_spec("tidals") is None:
-    tidalsPath = os.path.abspath(
-                    os.path.join(
-                    os.path.dirname(__file__),
-                    "..", "..", "tidepool-analysis-tools"))
+    tidalsPath = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                      "..", "..", "tidepool-analysis-tools"))
     if tidalsPath not in sys.path:
         sys.path.insert(0, tidalsPath)
 import tidals as td
+startTime = time.time()
+print("starting at " + dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 
 # %% USER INPUTS
@@ -122,7 +123,6 @@ pool = Pool(os.cpu_count())
 pool.map(run_estimate_local_time, donors.dIndex)
 pool.close()
 
-# I am leaving this code in for debugging purposes:
-#for dIndex in donors.dIndex:
-#    run_estimate_local_time(dIndex)
-
+endTime = time.time()
+print("finshed at " + dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+print("total duration was " + str(round((endTime - startTime) / 60, 1)) + " minutes")

@@ -16,7 +16,6 @@ TODO:
 # %% load in required libraries
 import pandas as pd
 import datetime as dt
-import numpy as np
 import os
 import sys
 import argparse
@@ -24,14 +23,12 @@ import requests
 import json
 from multiprocessing import Pool
 import time
-startTime = time.time()
-print("starting at " + dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-envPath = os.path.abspath(
-        os.path.join(
-        os.path.dirname(__file__), ".."))
+envPath = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if envPath not in sys.path:
     sys.path.insert(0, envPath)
 import environmentalVariables
+startTime = time.time()
+print("starting at " + dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 
 # %% define functions
