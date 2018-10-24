@@ -64,9 +64,14 @@ parser.add_argument("-o",
 
 parser.add_argument("--merge-wizard-data",
                     dest="mergeWizardDataWithBolusData",
-                    default=True,
-                    help="option to merge wizard data with bolus data, " +
-                         "default, is true")
+                    default="True",
+                    help="specify boolean with a string (e.g., 'True', 'False', 'T', or 'F'")
+
+parser.add_argument("-a",
+                    "--anonymize",
+                    dest="anonymize",
+                    default="True",
+                    help="specify boolean with a string (e.g., 'True', 'False', 'T', or 'F'")
 
 parser.add_argument("-f",
                     "--output-format",
