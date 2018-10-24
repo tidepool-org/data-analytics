@@ -23,6 +23,8 @@ import argparse
 import requests
 import json
 from multiprocessing import Pool
+import time
+startTime = time.time()
 envPath = os.path.abspath(
         os.path.join(
         os.path.dirname(__file__), ".."))
@@ -146,7 +148,11 @@ def get_json_file(dIndex):
 
     return
 
+
 # use multiple cores to process
 pool = Pool(os.cpu_count())
 pool.map(get_json_file, uniqueDonors.index)
 pool.close()
+
+endTime = time.time()
+print(endTime - startTime)
