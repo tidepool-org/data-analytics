@@ -25,6 +25,7 @@ import json
 from multiprocessing import Pool
 import time
 startTime = time.time()
+print("starting at " + dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 envPath = os.path.abspath(
         os.path.join(
         os.path.dirname(__file__), ".."))
@@ -155,4 +156,5 @@ pool.map(get_json_file, uniqueDonors.index)
 pool.close()
 
 endTime = time.time()
-print(endTime - startTime)
+print("finshed at " + dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+print("total duration was " + str(round((endTime - startTime) / 60, 1)) + " minutes")
