@@ -22,6 +22,7 @@ import sys
 import argparse
 import requests
 import json
+from multiprocessing import Pool
 envPath = os.path.abspath(
         os.path.join(
         os.path.dirname(__file__), ".."))
@@ -114,7 +115,10 @@ uniqueDonors = pd.read_csv(args.donorListPath,
 
 # %% pull the json files for all of the unique donors
 blankDF = pd.DataFrame()
-for userID, donorGroup in zip(uniqueDonors.userID, uniqueDonors.donorGroup):
+def get_json_file(dIndex):
+    userID = uniqueDonors.userID[dIndex]
+    donorGroup = uniqueDonors.donorGroup[dIndex]
+
     outputFilePathName = os.path.join(args.donorJsonDataFolder,
                                       "PHI-" + userID + ".json")
 
@@ -139,3 +143,10 @@ for userID, donorGroup in zip(uniqueDonors.userID, uniqueDonors.donorGroup):
 
     else:
         print(userID, "data already downloaded")
+
+    return
+
+# use multiple cores to process
+pool = Pool(os.cpu_count())
+pool.map(get_json_file, uniqueDonors.index)
+pool.close()
