@@ -65,7 +65,10 @@ parser.add_argument("-e",
                     "--end-index",
                     dest="endIndex",
                     default=-1,
-                    help="donor index (integer) to end at")
+                    help="donor index (integer) to end at," +
+                    "-1 will result in 1 file if startIndex != 0," +
+                    "and will default to number of unique donors" +
+                    "if startIndex = 0, or endIndex = -2")
 
 parser.add_argument("-q",
                     "--qualification-criteria",
@@ -83,15 +86,16 @@ args = parser.parse_args()
 
 
 # %% FUNCTIONS
-def defineStartAndEndIndex(args):
+def defineStartAndEndIndex(args, nDonors):
     startIndex = int(args.startIndex)
     endIndex = int(args.endIndex)
     if endIndex == -1:
         if startIndex == 0:
-            endIndex = len(uniqueDonors)
+            endIndex = nDonors
         else:
             endIndex = startIndex + 1
-
+    if endIndex == -2:
+        endIndex = nDonors
     return startIndex, endIndex
 
 
@@ -413,11 +417,13 @@ if not os.path.exists(donorQualifyFolder):
 # load in list of unique donors
 donorPath = os.path.join(donorFolder, phiDateStamp + "-uniqueDonorList.csv")
 uniqueDonors = pd.read_csv(donorPath, index_col="dIndex")
+nUniqueDonors = len(uniqueDonors)
+
 
 allMetaData = pd.DataFrame()
 
 # define start and end index
-startIndex, endIndex = defineStartAndEndIndex(args)
+startIndex, endIndex = defineStartAndEndIndex(args, nUniqueDonors)
 
 
 # %% START OF CODE

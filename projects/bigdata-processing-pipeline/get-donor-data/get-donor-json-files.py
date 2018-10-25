@@ -16,18 +16,19 @@ TODO:
 # %% load in required libraries
 import pandas as pd
 import datetime as dt
-import numpy as np
 import os
 import sys
 import argparse
 import requests
 import json
-envPath = os.path.abspath(
-        os.path.join(
-        os.path.dirname(__file__), ".."))
+from multiprocessing import Pool
+import time
+envPath = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if envPath not in sys.path:
     sys.path.insert(0, envPath)
 import environmentalVariables
+startTime = time.time()
+print("starting at " + dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 
 # %% define functions
@@ -113,12 +114,19 @@ uniqueDonors = pd.read_csv(args.donorListPath,
 
 
 # %% pull the json files for all of the unique donors
-for userID, donorGroup in zip(uniqueDonors.userID, uniqueDonors.donorGroup):
+blankDF = pd.DataFrame()
+def get_json_file(dIndex):
+    userID = uniqueDonors.userID[dIndex]
+    donorGroup = uniqueDonors.donorGroup[dIndex]
+
     outputFilePathName = os.path.join(args.donorJsonDataFolder,
                                       "PHI-" + userID + ".json")
 
     # if the json file already exists, do NOT pull it again
     if not os.path.exists(outputFilePathName):
+
+        # create a temp file so that other processes know that the download in in progress
+        blankDF.to_json(outputFilePathName)
 
         # case where donorGroup is bigdata, but should be ""
         if pd.isnull(donorGroup):
@@ -135,3 +143,15 @@ for userID, donorGroup in zip(uniqueDonors.userID, uniqueDonors.donorGroup):
 
     else:
         print(userID, "data already downloaded")
+
+    return
+
+
+# use multiple cores to process
+pool = Pool(os.cpu_count())
+pool.map(get_json_file, uniqueDonors.index)
+pool.close()
+
+endTime = time.time()
+print("finshed at " + dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+print("total duration was " + str(round((endTime - startTime) / 60, 1)) + " minutes")

@@ -22,6 +22,7 @@ import glob
 import argparse
 import hashlib
 import ast
+import time
 
 
 # %% USER INPUTS
@@ -64,9 +65,14 @@ parser.add_argument("-o",
 
 parser.add_argument("--merge-wizard-data",
                     dest="mergeWizardDataWithBolusData",
-                    default=True,
-                    help="option to merge wizard data with bolus data, " +
-                         "default, is true")
+                    default="True",
+                    help="specify boolean with a string (e.g., 'True', 'False', 'T', or 'F'")
+
+parser.add_argument("-a",
+                    "--anonymize",
+                    dest="anonymize",
+                    default="True",
+                    help="specify boolean with a string (e.g., 'True', 'False', 'T', or 'F'")
 
 parser.add_argument("-f",
                     "--output-format",
@@ -177,6 +183,29 @@ def filterByDatesExceptUploadsAndSettings(df, startDate, endDate):
                           (theRest["time"] <= (endDate + "T23:59:59"))]
 
     df = pd.concat([uploadEventsSettings, theRest])
+
+    return df
+
+
+def sortColumns(df):
+    allSettingsFields = ["basalSchedules",
+                         "bgTarget",
+                         "bgTargets",
+                         "carbRatio",
+                         "carbRatios",
+                         "insulinSensitivity",
+                         "insulinSensitivities"]
+
+    existingSettingsFields = list(set(df) & set(allSettingsFields))
+    columnsWithoutSettings = list(set(df) - set(existingSettingsFields))
+    columsWithDots = []
+    for col in columnsWithoutSettings:
+        if "." in col:
+            columsWithDots.append(col)
+    columnsWithoutSettingsAndDots = list(set(columnsWithoutSettings) - set(columsWithDots))
+    newColOrder = sorted(columnsWithoutSettingsAndDots) + sorted(columsWithDots) + \
+                  sorted(existingSettingsFields)
+    df = df[newColOrder]
 
     return df
 
@@ -340,10 +369,7 @@ def hashScheduleNames(df, salt, userID):
 
             # drop and reattach the new data
             df = df.drop(columns=scheduleName)
-            df = pd.merge(df,
-                          scheduleNameDataFrame.loc[:,
-                                                    ["time", scheduleName]],
-                                                    how="left", on="time")
+            df = pd.merge(df, scheduleNameDataFrame.loc[:, ["time", scheduleName]], how="left", on="time")
     return df
 
 
@@ -485,17 +511,18 @@ def cleanDiretory(exportFolder, fileName):
 
 def exportCsvFiles(df, exportFolder, fileName, mergeCalculatorData):
     hiddenCsvExportFolder = cleanDiretory(exportFolder, fileName)
-
     groupedData = df.groupby(by="type")
+
     for dataType in set(df[df.type.notnull()].type):
         csvData = filterAndSort(groupedData, dataType, "time")
-        csvData.index.name = "jsonRowIndex"
-        csvData.to_csv(hiddenCsvExportFolder + dataType + ".csv")
+        csvData = sortColumns(csvData)
+        csvData.to_csv(hiddenCsvExportFolder + dataType + ".csv", index=False)
 
     # merge wizard data with bolus data, and delete wizard data
     if mergeCalculatorData:
         bolusWithWizardData = mergeWizardWithBolus(df, hiddenCsvExportFolder)
         if len(bolusWithWizardData) > 0:
+            bolusWithWizardData = sortColumns(bolusWithWizardData)
             bolusWithWizardData.to_csv(hiddenCsvExportFolder + "bolus.csv",
                                        index=False)
         if os.path.exists(hiddenCsvExportFolder + "wizard.csv"):
@@ -504,19 +531,18 @@ def exportCsvFiles(df, exportFolder, fileName, mergeCalculatorData):
     return hiddenCsvExportFolder
 
 
-def exportSingleCsv(df, exportFolder, fileName, exportDirectory, fileType):
+def exportSingleCsv(exportFolder, fileName, exportDirectory, fileType):
     # first load in all csv files
     csvFiles = glob.glob(exportDirectory + "*.csv")
     bigTable = pd.DataFrame()
     for csvFile in csvFiles:
-        bigTable = \
-            pd.concat([bigTable, pd.read_csv(csvFile, low_memory=False,
-                      index_col="jsonRowIndex")], sort=False)
+        bigTable = pd.concat([bigTable, pd.read_csv(csvFile, low_memory=False)], sort=False)
 
-    # then sort
+    # first sort by time and then put columns in alphabetical order
     bigTable = bigTable.sort_values("time")
+    bigTable = sortColumns(bigTable)
     if (("csv" in fileType) | ("all" in fileType)):
-        bigTable.to_csv(os.path.join(exportFolder, fileName + ".csv"))
+        bigTable.to_csv(os.path.join(exportFolder, fileName + ".csv"), index=False)
 
     return bigTable
 
@@ -585,7 +611,7 @@ def exportExcelFile(exportDirectory, exportFolder, fileName):
                     pd.to_datetime(tempCsvData[col_heading])
 
         tempCsvData.to_excel(writer, dataName, startrow=1, header=False,
-                             index=False, freeze_panes=(1, 1))
+                             index=False, freeze_panes=(1, 0))
 
         worksheet = writer.sheets[dataName]
         workbook.add_format({'align': 'center'})
@@ -593,8 +619,7 @@ def exportExcelFile(exportDirectory, exportFolder, fileName):
         # Write the column headers with the defined format
         for col_num, value in enumerate(tempCsvData.columns.values):
             worksheet.write(0, col_num, value, header_format)
-            colWidth = max(len(value),
-                           max(mylen(tempCsvData.iloc[:, col_num].astype(str))))
+            colWidth = max(len(value), max(mylen(tempCsvData.iloc[:, col_num].astype(str))))
             worksheet.set_column(col_num, col_num, colWidth, cell_format)
 
     writer.save()
@@ -606,7 +631,7 @@ def readXlsxData(xlsxPathAndFileName):
     # load xlsx
     df = pd.read_excel(xlsxPathAndFileName, sheet_name=None, ignore_index=True)
     cdf = pd.concat(df.values(), ignore_index=True)
-    cdf = cdf.set_index('jsonRowIndex')
+    cdf = cdf.set_index('rowIndex')
 
     return cdf
 
@@ -621,12 +646,10 @@ def exportData(df, fileName, fileType, exportDirectory, mergeCalculatorData):
 
     # all of the exports are based off of csvs table, which are needed to
     # merge the bolus and wizard (AKA calculator) data
-    csvExportFolder = exportCsvFiles(df, exportDirectory,
-                                     fileName, mergeCalculatorData)
+    csvExportFolder = exportCsvFiles(df, exportDirectory, fileName, mergeCalculatorData)
 
     if (("csv" in fileType) | ("json" in fileType) | ("all" in fileType)):
-        allData = exportSingleCsv(df, exportDirectory,
-                                  fileName, csvExportFolder, fileType)
+        allData = exportSingleCsv(exportDirectory, fileName, csvExportFolder, fileType)
 
     if (("json" in fileType) | ("all" in fileType)):
         exportPrettyJson(allData, exportDirectory, fileName)
@@ -646,12 +669,17 @@ def exportData(df, fileName, fileType, exportDirectory, mergeCalculatorData):
 
 
 # %% LOAD DATA
+startTime = time.time()
+print("loading data...", end="")
 # check input file and load data. File must be bigger than 2 bytes,
 # and in either json, xlsx, or csv format
 data, userID = checkInputFile(args.inputFilePathAndName)
+print("done, took", round(time.time() - startTime, 1), "seconds")
 
 
 # %% FILTER DATA
+startTime = time.time()
+print("filtering data...", end="")
 # check export/approved data field list
 outputFields, anonymizeFields = checkDataFieldList(args.dataFieldExportList)
 
@@ -665,9 +693,12 @@ else:
 
 # only keep the data fields that are approved
 data = filterByApprovedDataFields(data, outputFields)
+print("done, took", round(time.time() - startTime, 1), "seconds")
 
 
 # %% CLEAN DATA
+startTime = time.time()
+print("cleaning data...", end="")
 # remove negative durations
 data = removeNegativeDurations(data)
 
@@ -676,24 +707,33 @@ data, numberOfInvalidCgmValues = removeInvalidCgmValues(data)
 
 # Tslim calibration bug fix
 data, numberOfTandemAndPayloadCalReadings = tslimCalibrationFix(data)
+print("done, took", round(time.time() - startTime, 1), "seconds")
 
 
 # %% ANONYMIZE DATA
 
-# remove manufacturer from annotations.code
-data = removeManufacturersFromAnnotationsCode(data)
+if "t" in args.anonymize.lower():
+    startTime = time.time()
+    print("anonymzing data...", end="")
+    # remove manufacturer from annotations.code
+    data = removeManufacturersFromAnnotationsCode(data)
 
-# hash the required data fields
-data = anonymizeData(data, anonymizeFields, args.salt, userID)
-hashID = hashUserId(userID, args.salt)
-
+    # hash the required data fields
+    data = anonymizeData(data, anonymizeFields, args.salt, userID)
+    hashID = hashUserId(userID, args.salt)
+    print("done, took", round(time.time() - startTime, 1), "seconds")
+else:
+    print("skipping anonymization")
 
 # %% EXPORT DATA
 # if a hashID is defined, then use the hashID, if not use the PHI userID
+startTime = time.time()
+print("exporting data...", end="")
 if 'hashID' in locals():
     outputName = hashID
 else:
     outputName = "PHI-" + userID
 
 exportData(data, outputName, args.exportFormat,
-           args.exportPath, args.mergeWizardDataWithBolusData)
+           args.exportPath, "t" in args.mergeWizardDataWithBolusData.lower())
+print("done, took", round(time.time() - startTime, 1), "seconds")
