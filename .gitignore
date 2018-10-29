@@ -17,3 +17,5 @@ work-record-archive
 export
 internal
 data
+node-data-tools/node_modules
+node-data-tools/.eslintcache
