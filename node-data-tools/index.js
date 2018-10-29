@@ -13,6 +13,22 @@ import * as CSV from 'csv-string';
 import config from './config.json';
 /* eslint no-console: ["error", { allow: ["warn", "error", "info"] }] */
 
+function stringifyFields(data, fieldsToStringify) {
+  _.each(
+    _.chain(data)
+      .pick(fieldsToStringify)
+      .keys()
+      .value(),
+    item => _.set(data, item, JSON.stringify(data[item])),
+  );
+}
+
+function flatMap(data, toFields) {
+  return _.pick(flatten(data, {
+    maxDepth: 2,
+  }), toFields);
+}
+
 const allFields = _.chain(config)
   .flatMap(field => Object.keys(field))
   .uniq()
@@ -87,19 +103,10 @@ if (require.main === module) {
       .pipe(parser)
       .pipe(es.mapSync((data) => {
         // Stringify objects configured with { "stringify": true }
-        _.each(
-          _.chain(data)
-            .pick(fieldsToStringify)
-            .keys()
-            .value(),
-          item => _.set(data, item, JSON.stringify(data[item])),
-        );
-        return data;
-      }))
-      .pipe(es.mapSync(data => _.pick(flatten(data, {
-        // Map to flattened layout
-        maxDepth: 2,
-      }), allFields)));
+        stringifyFields(data, fieldsToStringify);
+        // Return flattened layout mapped to all fields in the config
+        return flatMap(data, allFields);
+      }));
 
     // Single CSV
     if (_.includes(program.outputFormat, 'csv') || _.includes(program.outputFormat, 'all')) {
