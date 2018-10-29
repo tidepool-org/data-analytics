@@ -29,6 +29,41 @@ function flatMap(data, toFields) {
   }), toFields);
 }
 
+function xlsxStreamWriter(outStream) {
+  const options = {
+    stream: outStream,
+    useStyles: true,
+    useSharedStrings: true,
+  };
+  const wb = new Excel.stream.xlsx.WorkbookWriter(options);
+
+  return es.through(
+    (data) => {
+      if (data.type) {
+        let sheet = wb.getWorksheet(data.type);
+        if (_.isUndefined(sheet)) {
+          sheet = wb.addWorksheet(data.type);
+          try {
+            sheet.columns = Object.keys(config[data.type]).map(field => ({
+              header: field,
+              key: field,
+            }));
+          } catch (e) {
+            console.warn(`Warning: configuration ignores data type: '${data.type}'`);
+          }
+        }
+        sheet.addRow(data).commit();
+      } else {
+        console.warn(`Invalid data type specified: '${JSON.stringify(data)}'`);
+      }
+    },
+    async function end() {
+      await wb.commit();
+      this.emit('end');
+    },
+  );
+}
+
 const allFields = _.chain(config)
   .flatMap(field => Object.keys(field))
   .uniq()
@@ -144,38 +179,10 @@ if (require.main === module) {
     // XLSX
     if (_.includes(program.outputFormat, 'xlsx') || _.includes(program.outputFormat, 'all')) {
       const xlsxStream = fs.createWriteStream(`${outFilename}.xlsx`);
-      const options = {
-        stream: xlsxStream,
-        useStyles: true,
-        useSharedStrings: true,
-      };
-      const wb = new Excel.stream.xlsx.WorkbookWriter(options);
 
       events.EventEmitter.defaultMaxListeners += 1;
       processingStream
-        .pipe(es.mapSync((data) => {
-          if (data.type) {
-            let sheet = wb.getWorksheet(data.type);
-            if (_.isUndefined(sheet)) {
-              sheet = wb.addWorksheet(data.type);
-              try {
-                sheet.columns = Object.keys(config[data.type]).map(field => ({
-                  header: field,
-                  key: field,
-                }));
-              } catch (e) {
-                console.warn(`Warning: configuration ignores data type: '${data.type}'`);
-              }
-            }
-            sheet.addRow(data).commit();
-          } else {
-            console.warn(`Invalid data type specified: '${JSON.stringify(data)}'`);
-          }
-        }));
-
-      processingStream.on('end', async () => {
-        await wb.commit();
-      });
+        .pipe(xlsxStreamWriter(xlsxStream));
     }
 
     readStream.on('end', () => {
