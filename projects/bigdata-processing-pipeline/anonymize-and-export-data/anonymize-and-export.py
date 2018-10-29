@@ -369,7 +369,7 @@ def hashScheduleNames(df, salt, userID):
 
             # drop and reattach the new data
             df = df.drop(columns=scheduleName)
-            df = pd.merge(df, scheduleNameDataFrame.loc[:, ["time", scheduleName]], how="left", on="time")
+            df = pd.merge(df, scheduleNameDataFrame.loc[:, ["id", scheduleName]], how="left", on="id")
     return df
 
 
