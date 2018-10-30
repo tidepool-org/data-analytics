@@ -13,62 +13,89 @@ import * as CSV from 'csv-string';
 import config from './config.json';
 /* eslint no-console: ["error", { allow: ["warn", "error", "info"] }] */
 
-function stringifyFields(data, fieldsToStringify) {
-  _.each(
-    _.chain(data)
-      .pick(fieldsToStringify)
-      .keys()
-      .value(),
-    item => _.set(data, item, JSON.stringify(data[item])),
-  );
-}
+// TODO: Having this as a class seems to slow down performance
+export default class TidepoolDataTools {
+  static get fieldsToStringify() {
+    return _.flatMap(
+      config,
+      field => Object.keys(
+        _.pickBy(field, n => n.stringify),
+      ),
+    );
+  }
 
-function flatMap(data, toFields) {
-  return _.pick(flatten(data, {
-    maxDepth: 2,
-  }), toFields);
-}
+  static get allFields() {
+    return _.chain(config)
+      .flatMap(field => Object.keys(field))
+      .uniq()
+      .sort()
+      .value();
+  }
 
-function xlsxStreamWriter(outStream) {
-  const options = {
-    stream: outStream,
-    useStyles: true,
-    useSharedStrings: true,
-  };
-  const wb = new Excel.stream.xlsx.WorkbookWriter(options);
+  static stringifyFields(data) {
+    _.each(
+      _.chain(data)
+        .pick(this.fieldsToStringify)
+        .keys()
+        .value(),
+      item => _.set(data, item, JSON.stringify(data[item])),
+    );
+  }
 
-  return es.through(
-    (data) => {
-      if (data.type) {
-        let sheet = wb.getWorksheet(data.type);
-        if (_.isUndefined(sheet)) {
-          sheet = wb.addWorksheet(data.type);
-          try {
-            sheet.columns = Object.keys(config[data.type]).map(field => ({
-              header: field,
-              key: field,
-            }));
-          } catch (e) {
-            console.warn(`Warning: configuration ignores data type: '${data.type}'`);
+  static flatMap(data, toFields) {
+    return _.pick(flatten(data, {
+      maxDepth: 2,
+    }), toFields);
+  }
+
+  static jsonParser() {
+    return JSONStream.parse('*');
+  }
+
+  static tidepoolProcessor() {
+    return es.mapSync((data) => {
+      // Stringify objects configured with { "stringify": true }
+      this.stringifyFields(data, this.fieldsToStringify);
+      // Return flattened layout mapped to all fields in the config
+      return this.flatMap(data, this.allFields);
+    });
+  }
+
+  static xlsxStreamWriter(outStream) {
+    const options = {
+      stream: outStream,
+      useStyles: true,
+      useSharedStrings: true,
+    };
+    const wb = new Excel.stream.xlsx.WorkbookWriter(options);
+
+    return es.through(
+      (data) => {
+        if (data.type) {
+          let sheet = wb.getWorksheet(data.type);
+          if (_.isUndefined(sheet)) {
+            sheet = wb.addWorksheet(data.type);
+            try {
+              sheet.columns = Object.keys(config[data.type]).map(field => ({
+                header: field,
+                key: field,
+              }));
+            } catch (e) {
+              console.warn(`Warning: configuration ignores data type: '${data.type}'`);
+            }
           }
+          sheet.addRow(data).commit();
+        } else {
+          console.warn(`Invalid data type specified: '${JSON.stringify(data)}'`);
         }
-        sheet.addRow(data).commit();
-      } else {
-        console.warn(`Invalid data type specified: '${JSON.stringify(data)}'`);
-      }
-    },
-    async function end() {
-      await wb.commit();
-      this.emit('end');
-    },
-  );
+      },
+      async function end() {
+        await wb.commit();
+        this.emit('end');
+      },
+    );
+  }
 }
-
-const allFields = _.chain(config)
-  .flatMap(field => Object.keys(field))
-  .uniq()
-  .sort()
-  .value();
 
 if (require.main === module) {
   program
@@ -125,33 +152,20 @@ if (require.main === module) {
     let counter = 0;
 
     // Data processing
-    const parser = JSONStream.parse('*');
-    const fieldsToStringify = _.flatMap(
-      config,
-      field => Object.keys(
-        _.pickBy(field, n => n.stringify),
-      ),
-    );
-
     events.EventEmitter.defaultMaxListeners = 3;
     const processingStream = readStream
-      .pipe(parser)
-      .pipe(es.mapSync((data) => {
-        // Stringify objects configured with { "stringify": true }
-        stringifyFields(data, fieldsToStringify);
-        // Return flattened layout mapped to all fields in the config
-        return flatMap(data, allFields);
-      }));
+      .pipe(TidepoolDataTools.jsonParser())
+      .pipe(TidepoolDataTools.tidepoolProcessor());
 
     // Single CSV
     if (_.includes(program.outputFormat, 'csv') || _.includes(program.outputFormat, 'all')) {
       events.EventEmitter.defaultMaxListeners += 2;
       const csvStream = fs.createWriteStream(`${outFilename}.csv`);
-      csvStream.write(CSV.stringify(allFields));
+      csvStream.write(CSV.stringify(TidepoolDataTools.allFields));
       processingStream
         .pipe(es.mapSync((data) => {
           counter += 1;
-          return CSV.stringify(allFields.map(field => data[field] || ''));
+          return CSV.stringify(TidepoolDataTools.allFields.map(field => data[field] || ''));
         }))
         .pipe(csvStream);
     }
@@ -182,7 +196,7 @@ if (require.main === module) {
 
       events.EventEmitter.defaultMaxListeners += 1;
       processingStream
-        .pipe(xlsxStreamWriter(xlsxStream));
+        .pipe(TidepoolDataTools.xlsxStreamWriter(xlsxStream));
     }
 
     readStream.on('end', () => {
