@@ -109,7 +109,7 @@ if (require.main === module) {
       list.push(val);
       return list;
     }, [])
-    /*
+    // TODO: Implement options below this TODO
     .option('--start-date [date]', 'filter data by startDate and EndDate')
     .option('--end-date [date]', 'filter data by startDate and EndDate')
     .option('--merge-wizard-data', 'option to merge wizard data with bolus data. Default is true')
@@ -117,7 +117,6 @@ if (require.main === module) {
       '--filterByDatesExceptUploadsAndSettings',
       'upload and settings data can occur before and after start and end dates, so include ALL upload and settings data in export',
     )
-    */
     .parse(process.argv);
 
   if (!program.inputTidepoolData) program.help();
@@ -166,9 +165,9 @@ if (require.main === module) {
       const csvStream = fs.createWriteStream(`${outFilename}.csv`);
       csvStream.write(CSV.stringify(TidepoolDataTools.allFields));
       processingStream
-        .pipe(es.mapSync((data) => {
-          return CSV.stringify(TidepoolDataTools.allFields.map(field => data[field] || ''));
-        }))
+        .pipe(es.mapSync(
+          data => CSV.stringify(TidepoolDataTools.allFields.map(field => data[field] || '')),
+        ))
         .pipe(csvStream);
     }
 
