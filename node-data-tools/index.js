@@ -155,7 +155,10 @@ if (require.main === module) {
     events.EventEmitter.defaultMaxListeners = 3;
     const processingStream = readStream
       .pipe(TidepoolDataTools.jsonParser())
-      .pipe(TidepoolDataTools.tidepoolProcessor());
+      .pipe(TidepoolDataTools.tidepoolProcessor())
+      .pipe(es.mapSync(() => {
+        counter += 1;
+      }));
 
     // Single CSV
     if (_.includes(program.outputFormat, 'csv') || _.includes(program.outputFormat, 'all')) {
@@ -164,7 +167,6 @@ if (require.main === module) {
       csvStream.write(CSV.stringify(TidepoolDataTools.allFields));
       processingStream
         .pipe(es.mapSync((data) => {
-          counter += 1;
           return CSV.stringify(TidepoolDataTools.allFields.map(field => data[field] || ''));
         }))
         .pipe(csvStream);
