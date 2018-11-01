@@ -1,0 +1,5 @@
+node_modules
+example-data
+test
+.eslintcache
+yarn.lock

@@ -99,9 +99,10 @@ export default class TidepoolDataTools {
 
 if (require.main === module) {
   program
+    .name('tidepool-data-tools')
     .version('0.1.0')
     .option('-i, --input-tidepool-data <file>', 'csv, xlsx, or json file that contains Tidepool data')
-    .option('-c', '--config <file>', 'a JSON file that contains the field export configuration')
+    .option('-c, --config <file>', 'a JSON file that contains the field export configuration')
     .option('--salt <salt>', 'salt used in the hashing algorithm', 'no salt specified')
     .option('-o, --output-data-path <path>', 'the path where the data is exported',
       path.join(__dirname, 'example-data', 'export'))

@@ -2,11 +2,14 @@
   "name": "@tidepool/data-tools",
   "version": "2.0.0",
   "description": "Export data from the Tidepool API to various file formats",
-  "main": "index.js",
   "repository": "https://github.com/tidepool-org/data-analytics.git",
   "author": "Lennart Goedhart <lennart@tidepool.org>",
   "license": "BSD-2-Clause",
   "private": false,
+  "main": "index.js",
+  "bin": {
+    "tidepool-data-tools": "./cli.sh"
+  },
   "scripts": {
     "lint": "eslint --cache --format=node_modules/eslint-formatter-pretty .",
     "lint-fix": "npm run lint -- --fix"
