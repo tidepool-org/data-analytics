@@ -97,53 +97,31 @@ export default class TidepoolDataTools {
   }
 }
 
-if (require.main === module) {
-  program
-    .name('tidepool-data-tools')
-    .version('0.1.0')
-    .option('-i, --input-tidepool-data <file>', 'csv, xlsx, or json file that contains Tidepool data')
-    .option('-c, --config <file>', 'a JSON file that contains the field export configuration')
-    .option('--salt <salt>', 'salt used in the hashing algorithm', 'no salt specified')
-    .option('-o, --output-data-path <path>', 'the path where the data is exported',
-      path.join(__dirname, 'example-data', 'export'))
-    .option('-f, --output-format <format>', 'the path where the data is exported', (val, list) => {
-      list.push(val);
-      return list;
-    }, [])
-    // TODO: Implement options below this TODO
-    .option('--start-date [date]', 'filter data by startDate and EndDate')
-    .option('--end-date [date]', 'filter data by startDate and EndDate')
-    .option('--merge-wizard-data', 'option to merge wizard data with bolus data. Default is true')
-    .option(
-      '--filterByDatesExceptUploadsAndSettings',
-      'upload and settings data can occur before and after start and end dates, so include ALL upload and settings data in export',
-    )
-    .parse(process.argv);
-
-  if (!program.inputTidepoolData) program.help();
-  if (!program.outputFormat.length) {
-    program.outputFormat.push('all');
+function convert(command) {
+  if (!command.inputTidepoolData) command.help();
+  if (!command.outputFormat.length) {
+    command.outputFormat.push('all');
   }
 
-  const inFilename = path.basename(program.inputTidepoolData, '.json');
-  const outFilename = path.join(program.outputDataPath,
+  const inFilename = path.basename(command.inputTidepoolData, '.json');
+  const outFilename = path.join(command.outputDataPath,
     crypto
       .createHash('sha256')
-      .update(`${inFilename}${program.salt}`)
+      .update(`${inFilename}${command.salt}`)
       .digest('hex'));
 
-  const readStream = fs.createReadStream(program.inputTidepoolData);
+  const readStream = fs.createReadStream(command.inputTidepoolData);
 
   readStream.on('error', () => {
-    console.error(`Could not read input file '${program.inputTidepoolData}'`);
+    console.error(`Could not read input file '${command.inputTidepoolData}'`);
     process.exit(1);
   });
 
   readStream.on('open', () => {
-    if (!fs.existsSync(program.outputDataPath)) {
-      mkdirp.sync(program.outputDataPath, (err) => {
+    if (!fs.existsSync(command.outputDataPath)) {
+      mkdirp.sync(command.outputDataPath, (err) => {
         if (err) {
-          console.error(`Could not create export output path '${program.outputDataPath}'`);
+          console.error(`Could not create export output path '${command.outputDataPath}'`);
           process.exit(1);
         }
       });
@@ -161,7 +139,7 @@ if (require.main === module) {
       }));
 
     // Single CSV
-    if (_.includes(program.outputFormat, 'csv') || _.includes(program.outputFormat, 'all')) {
+    if (_.includes(command.outputFormat, 'csv') || _.includes(command.outputFormat, 'all')) {
       events.EventEmitter.defaultMaxListeners += 2;
       const csvStream = fs.createWriteStream(`${outFilename}.csv`);
       csvStream.write(CSV.stringify(TidepoolDataTools.allFields));
@@ -173,7 +151,7 @@ if (require.main === module) {
     }
 
     // Multiple CSVs
-    if (_.includes(program.outputFormat, 'csvs') || _.includes(program.outputFormat, 'all')) {
+    if (_.includes(command.outputFormat, 'csvs') || _.includes(command.outputFormat, 'all')) {
       if (!fs.existsSync(outFilename)) {
         fs.mkdirSync(outFilename);
       }
@@ -193,7 +171,7 @@ if (require.main === module) {
     }
 
     // XLSX
-    if (_.includes(program.outputFormat, 'xlsx') || _.includes(program.outputFormat, 'all')) {
+    if (_.includes(command.outputFormat, 'xlsx') || _.includes(command.outputFormat, 'all')) {
       const xlsxStream = fs.createWriteStream(`${outFilename}.xlsx`);
 
       events.EventEmitter.defaultMaxListeners += 1;
@@ -205,4 +183,62 @@ if (require.main === module) {
       console.info(`Exported ${counter} records.`);
     });
   });
+}
+
+/*
+function getData() {
+  // Implement this command
+}
+*/
+
+if (require.main === module) {
+  program
+    .name('tidepool-data-tools')
+    .version('0.1.0');
+
+  let commandInvoked = false;
+
+  program
+    .command('convert')
+    .description('Convert data between different formats')
+    .option('-i, --input-tidepool-data <file>', 'csv, xlsx, or json file that contains Tidepool data')
+    .option('-c, --config <file>', 'a JSON file that contains the field export configuration')
+    .option('--salt <salt>', 'salt used in the hashing algorithm', 'no salt specified')
+    .option('-o, --output-data-path <path>', 'the path where the data is exported',
+      path.join(__dirname, 'example-data', 'export'))
+    .option('-f, --output-format <format>', 'the path where the data is exported', (val, list) => {
+      list.push(val);
+      return list;
+    }, [])
+    // TODO: Implement options below this TODO
+    .option('--start-date [date]', 'filter data by startDate and EndDate')
+    .option('--end-date [date]', 'filter data by startDate and EndDate')
+    .option('--merge-wizard-data', 'option to merge wizard data with bolus data. Default is true')
+    .option(
+      '--filterByDatesExceptUploadsAndSettings',
+      'upload and settings data can occur before and after start and end dates, so include ALL upload and settings data in export',
+    )
+    .action((command, options) => {
+      convert(command, options);
+      commandInvoked = true;
+    });
+
+  /*
+  program
+    .command('getdata')
+    .description('Get data from the Tidepool API')
+    .option('-e, --env <envirnoment>',
+      'Environment to pull the Tidepool data from. dev, stg, int or prd')
+    .action((command, options) => {
+      getData(command, options);
+      commandInvoked = true;
+    });
+  */
+
+  program
+    .parse(process.argv);
+
+  if (!commandInvoked) {
+    program.outputHelp();
+  }
 }
