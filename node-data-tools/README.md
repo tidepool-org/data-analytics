@@ -58,6 +58,16 @@ Install globally:
  
 ```sh
 $ npm i -g @tidepool/data-tools && tidepool-data-tools --help
+Usage: tidepool-data-tools [options] [command]
+
+Options:
+  -V, --version      output the version number
+  -h, --help         output usage information
+
+Commands:
+  convert [options]  Convert data between different formats
+
+$ tidepool-data-tools convert --help
 Usage: tidepool-data-tools [options]
 
 Options:
@@ -65,7 +75,7 @@ Options:
   -i, --input-tidepool-data <file>         csv, xlsx, or json file that contains Tidepool data
   -c, --config <file>                      a JSON file that contains the field export configuration
   --salt <salt>                            salt used in the hashing algorithm (default: "no salt specified")
-  -o, --output-data-path <path>            the path where the data is exported (default: "/Users/lennart/Documents/Tidepool/data-analytics/node-data-tools/example-data/export")
+  -o, --output-data-path <path>            the path where the data is exported (default: "./example-data/export")
   -f, --output-format <format>             the path where the data is exported (default: [])
   --start-date [date]                      filter data by startDate and EndDate
   --end-date [date]                        filter data by startDate and EndDate
