@@ -27,8 +27,7 @@ def round_time(df, timeIntervalMinutes=5, timeField="time",
         * timeIntervalMinutes (defaults to 5 minutes given that most cgms output every 5 minutes)
         * timeField to round (defaults to the UTC time "time" field)
         * roundedTimeFieldName is a user specified column name (defaults to roundedTime)
-        * startWithFirstRecord starts the rounding with the first record if True, and the
-            last record if False (defaults to True)
+        * startWithFirstRecord starts the rounding with the first record if True, and the last record if False (defaults to True)
         * verbose specifies whether the extra columns used to make calculations are returned
     '''
 
@@ -37,10 +36,10 @@ def round_time(df, timeIntervalMinutes=5, timeField="time",
     df.reset_index(drop=True, inplace=True)
 
     # make sure the time field is in the right form
-    t = pd.to_datetime(df.time)
+    t = pd.to_datetime(df[timeField])
 
     # calculate the time between consecutive records
-    t_shift = pd.to_datetime(df.time.shift(1))
+    t_shift = pd.to_datetime(df[timeField].shift(1))
     df["timeBetweenRecords"] = \
         round((t - t_shift).dt.days*(86400/(60 * timeIntervalMinutes)) +
               (t - t_shift).dt.seconds/(60 * timeIntervalMinutes)) * timeIntervalMinutes
