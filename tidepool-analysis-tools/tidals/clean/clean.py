@@ -46,7 +46,7 @@ def round_time(df, timeIntervalMinutes=5, timeField="time",
               (t - t_shift).dt.seconds/(60 * timeIntervalMinutes)) * timeIntervalMinutes
 
     # separate the data into chunks if timeBetweenRecords is greater than
-    # 2 times the <timeIntervalMinutes> minutes so that rounding process can start over
+    # 2 times the <timeIntervalMinutes> minutes so the rounding process starts over
     largeGaps = list(df.query("abs(timeBetweenRecords) > " + str(timeIntervalMinutes * 2)).index)
     largeGaps.insert(0, 0)
     largeGaps.append(len(df))
