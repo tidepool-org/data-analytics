@@ -32,8 +32,6 @@ const excludedFields = [
   'client',
   'dataSetType',
   'guid',
-  'payload', // TODO: should this be excluded?
-  'annotations', // TODO: should this be excluded?
   'clockDriftOffset',
   'conversionOffset',
   'timezoneOffset',
@@ -53,8 +51,9 @@ const wb = new Excel.Workbook();
           let cellValue = row.values[valueIdx];
           try {
             cellValue = JSON.parse(cellValue);
+            console.log(typeof cellValue);
             if (typeof cellValue !== 'object') {
-              // cellValue = row.values[valueIdx];
+              cellValue = row.values[valueIdx];
             }
           } catch (e) {
             // Don't care.

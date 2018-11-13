@@ -133,7 +133,10 @@ function convert(command) {
     events.EventEmitter.defaultMaxListeners = 3;
     const processingStream = readStream
       .pipe(TidepoolDataTools.jsonParser())
-      .pipe(TidepoolDataTools.tidepoolProcessor())
+      .pipe(TidepoolDataTools.tidepoolProcessor());
+
+    events.EventEmitter.defaultMaxListeners += 1;
+    processingStream
       .pipe(es.mapSync(() => {
         counter += 1;
       }));

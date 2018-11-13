@@ -13,6 +13,8 @@
     "suppressed.deliveryType": {},
     "suppressed.type": {},
     "suppressed.rate": {},
+    "payload": {"stringify": true},
+    "annotations": {"stringify": true},
     "deviceId": {},
     "id": {},
     "uploadId": {}
@@ -23,6 +25,8 @@
     "type": {},
     "value": {},
     "units": {},
+    "payload": {"stringify": true},
+    "annotations": {"stringify": true},
     "deviceId": {},
     "id": {},
     "uploadId": {}
@@ -38,6 +42,8 @@
     "units.carb": {},
     "units.bg": {},
     "basalSchedules": {"stringify": true},
+    "payload": {"stringify": true},
+    "annotations": {"stringify": true},
     "deviceId": {},
     "id": {},
     "uploadId": {}
@@ -49,6 +55,8 @@
     "subType": {},
     "value": {},
     "units": {},
+    "payload": {"stringify": true},
+    "annotations": {"stringify": true},
     "deviceId": {},
     "id": {},
     "uploadId": {}
@@ -68,6 +76,8 @@
     "recommended.carb": {},
     "recommended.correction": {},
     "recommended.net": {},
+    "payload": {"stringify": true},
+    "annotations": {"stringify": true},
     "deviceId": {},
     "id": {},
     "uploadId": {}
@@ -79,6 +89,8 @@
     "subType": {},
     "normal": {},
     "expectedNormal": {},
+    "payload": {"stringify": true},
+    "annotations": {"stringify": true},
     "deviceId": {},
     "id": {},
     "uploadId": {}
@@ -99,6 +111,8 @@
     "volume": {},
     "reason.suspended": {},
     "reason.resumed": {},
+    "payload": {"stringify": true},
+    "annotations": {"stringify": true},
     "deviceId": {},
     "id": {},
     "uploadId": {}
@@ -114,6 +128,8 @@
     "deviceModel": {},
     "deviceManufacturers": {"stringify": true},
     "deviceTags": {"stringify": true},
+    "payload": {"stringify": true},
+    "annotations": {"stringify": true},
     "deviceId": {},
     "id": {},
     "byUser": {},
