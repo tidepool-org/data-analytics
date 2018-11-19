@@ -15,10 +15,8 @@ dependencies:
 - r
 - r-essentials
 - pytest
-- py.test --cov=myproj tests/
+- pytest-cov
 
 - pip:
   - python-dotenv
-  - pytest
-  - pytest-cov
   - -e git+https://github.com/tidepool-org/data-analytics#egg=tidals\&subdirectory=tidepool-analysis-tools
