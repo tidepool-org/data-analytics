@@ -16,18 +16,16 @@ from dotenv import load_dotenv
 import pandas as pd
 import datetime as dt
 import numpy as np
-import os
 import sys
 import requests
 import json
-import argparse
 import hashlib
-import time
 from pytz import timezone
 from datetime import timedelta
+import pdb
+
 
 # %% Functions
-
 def accept_new_donor(email, password):
     nAccepted = 0
     url1 = "https://api.tidepool.org/auth/login"
@@ -75,6 +73,7 @@ def accept_new_donor(email, password):
         sys.exit("Error with " + email + ":" + str(myResponse.status_code))
 
     return nAccepted
+
 
 def get_donor_info(email, password, donorMetadataColumns):
     donorMetaData = pd.DataFrame(columns=donorMetadataColumns)
@@ -931,6 +930,7 @@ def applyLocalTimeEstimates(df, cDF):
 
     return df
 
+
 def getLTE(df):
     data = df.copy()
     # PREPROCESS DATA: FILTER, CLEAN, & CORRECT DATA
@@ -939,14 +939,13 @@ def getLTE(df):
     data = data[data.time.notnull()]
 
     # get rid of data that does not fall within a valid date range
-    #data = filterByDates(data, args.startDate, args.endDate)
+    # data = filterByDates(data, args.startDate, args.endDate)
 
     # convert deprecated timezones to their aliases
     data = convertDeprecatedTimezoneToAlias(data, timezoneAliases)
 
     # apply the large timezone offset correction (AKA Darin's fix)
     data = largeTimezoneOffsetCorrection(data)
-
 
     # PREPROCESS DATA: CREATE "DAY" SERIES (cDays)
     # create a continguous-day-series that spans the data date-range
@@ -976,7 +975,6 @@ def getLTE(df):
     # add a home timezone that also accounts for daylight savings time changes
     cDays = addHomeTimezone(data, cDays)
 
-
     # ESTIMATE TIMEZONE OFFSET & TIMEZONE (IF POSSIBLE)
     # There are 3 methods at work here:
     # 1. Use upload records to estimate the TZ and TZO
@@ -994,7 +992,6 @@ def getLTE(df):
     # 3. impute, infer, or interpolate gaps in the estimated tzo and tz
     cDays = imputeTzAndTzo(cDays)
 
-
     # APPLY LOCAL TIME ESTIMATES TO ALL DATA
     # postprocess TZ and TZO day estiamte data
     cDays["est.version"] = "0.0.3"
@@ -1005,6 +1002,7 @@ def getLTE(df):
 
     return data
 
+
 def filterByDates(df, startDate, endDate):
 
     # filter by qualified start & end date, and sort
@@ -1013,6 +1011,7 @@ def filterByDates(df, startDate, endDate):
            (df.time <= (endDate + "T23:59:59"))]
 
     return df
+
 
 def removeNegativeDurations(df):
     if "duration" in list(df):
@@ -1062,6 +1061,7 @@ def tslimCalibrationFix(df):
         nTandemAndPayloadCalReadings = 0
     return df, nTandemAndPayloadCalReadings
 
+
 def cleanData(df):
     data = df.copy()
 
@@ -1076,11 +1076,12 @@ def cleanData(df):
 
     return data
 
+
 def remove_duplicates(df, upload_data):
-    
+
     df = df.copy()
     upload_data = upload_data.copy()
-    
+
     # Sort uploads by oldest uploads first
     upload_data = upload_data.sort_values(ascending=True, by="est.localTime")
 
@@ -1092,7 +1093,7 @@ def remove_duplicates(df, upload_data):
                             )
 
     # Sort data by upload order from the ordered dictionary
-    #df["upload_order"] = df["uploadId"].copy()
+    # df["upload_order"] = df["uploadId"].copy()
     df["upload_order"] = df["uploadId"].map(upload_order_dict)
     df = df.sort_values(ascending=True, by="upload_order")
 
@@ -1161,45 +1162,75 @@ def fill_basal_gaps(df):
     print("done")
     return df
 
+
 # Rounds est.localTime data properly
-
-
 def round5Minutes(df):
 
-    # sort ascendingly by est.localTime
-    df.sort_values(by="est.localTime", ascending=True, inplace=True)
+    '''
+    A general purpose round time function that rounds the "time"
+    field to nearest <timeIntervalMinutes> minutes
+    INPUTS:
+        * a dataframe (df) that contains a time field that you want to round
+        * timeIntervalMinutes (defaults to 5 minutes given that most cgms output every 5 minutes)
+        * timeField to round (defaults to the UTC time "time" field)
+        * roundedTimeFieldName is a user specified column name (defaults to roundedTime)
+        * startWithFirstRecord starts the rounding with the first record if True, and the last record if False (defaults to True)
+        * verbose specifies whether the extra columns used to make calculations are returned
+    '''
+
+    timeIntervalMinutes=5
+    timeField="time"
+    roundedTimeFieldName="est.localTime_rounded"
+    startWithFirstRecord=True,
+    verbose=False
+
+    df.sort_values(by=timeField, ascending=startWithFirstRecord, inplace=True)
     df.reset_index(drop=True, inplace=True)
 
-    # calculate the time-in-between (TIB) consecutive records
-    t = pd.to_datetime(df["est.localTime"])
-    t_shift = pd.to_datetime(df["est.localTime"].shift(1))
-    df["TIB"] = round((t - t_shift).dt.days*(86400/300) +
-                      (t - t_shift).dt.seconds/300) * 5
+    # make sure the time field is in the right form
+    t = pd.to_datetime(df[timeField])
 
-    # separate the data into chunks if TIB is greater than 5 minutes
-    largeGaps = list(df.query("TIB > 5").index)
+    # calculate the time between consecutive records
+    t_shift = pd.to_datetime(df[timeField].shift(1))
+    df["timeBetweenRecords"] = \
+        round((t - t_shift).dt.days*(86400/(60 * timeIntervalMinutes)) +
+              (t - t_shift).dt.seconds/(60 * timeIntervalMinutes)) * timeIntervalMinutes
+
+    # separate the data into chunks if timeBetweenRecords is greater than
+    # 2 times the <timeIntervalMinutes> minutes so the rounding process starts over
+    largeGaps = list(df.query("abs(timeBetweenRecords) > " + str(timeIntervalMinutes * 2)).index)
     largeGaps.insert(0, 0)
     largeGaps.append(len(df))
 
-    # loop through each chunk to get the cumulative sum and the rounded time
     for gIndex in range(0, len(largeGaps) - 1):
+        chunk = t[largeGaps[gIndex]:largeGaps[gIndex+1]]
+        firstRecordChunk = t[largeGaps[gIndex]]
 
-        df.loc[largeGaps[gIndex], "TIB"] = 0
+        # calculate the time difference between each time record and the first record
+        df.loc[largeGaps[gIndex]:largeGaps[gIndex+1], "minutesFromFirstRecord"] = \
+            (chunk - firstRecordChunk).dt.days*(86400/(60)) + (chunk - firstRecordChunk).dt.seconds/(60)
 
-        df.loc[largeGaps[gIndex]:(largeGaps[gIndex + 1] - 1), "TIB_cumsum"] = \
-            df.loc[largeGaps[gIndex]:(largeGaps[gIndex + 1] - 1), "TIB"].cumsum()
+        # then round to the nearest X Minutes
+        # NOTE: the ".000001" ensures that mulitples of 2:30 always rounds up.
+        df.loc[largeGaps[gIndex]:largeGaps[gIndex+1], "roundedMinutesFromFirstRecord"] = \
+            round((df.loc[largeGaps[gIndex]:largeGaps[gIndex+1],
+                          "minutesFromFirstRecord"] / timeIntervalMinutes) + 0.000001) * (timeIntervalMinutes)
 
-        df.loc[largeGaps[gIndex]:(largeGaps[gIndex + 1] - 1), "est.localTime_rounded"] = \
-            pd.to_datetime(df.loc[largeGaps[gIndex], "est.localTime"]).round("5min") + \
-            pd.to_timedelta(df.loc[largeGaps[gIndex]:(largeGaps[gIndex + 1] - 1), "TIB_cumsum"], unit="m")
+        roundedFirstRecord = (firstRecordChunk + pd.Timedelta("1microseconds")).round(str(timeIntervalMinutes) + "min")
+        df.loc[largeGaps[gIndex]:largeGaps[gIndex+1], roundedTimeFieldName] = \
+            roundedFirstRecord + \
+            pd.to_timedelta(df.loc[largeGaps[gIndex]:largeGaps[gIndex+1],
+                                   "roundedMinutesFromFirstRecord"], unit="m")
 
-    # sort descendingly by time
-    df.sort_values(by="est.localTime_rounded", ascending=False, inplace=True)
+    # sort by time and drop fieldsfields
+    df.sort_values(by=timeField, ascending=startWithFirstRecord, inplace=True)
     df.reset_index(drop=True, inplace=True)
+    if verbose is False:
+        df.drop(columns=["timeBetweenRecords",
+                         "minutesFromFirstRecord",
+                         "roundedMinutesFromFirstRecord"], inplace=True)
 
     return df
-
-# Fits all data into 5-minute intervals
 
 
 def fill_time_gaps(df, first_date, last_date, data_type):
@@ -1214,14 +1245,14 @@ def fill_time_gaps(df, first_date, last_date, data_type):
     five_min_ts = pd.date_range(first_date, last_date, freq="5min")
     new_df = pd.DataFrame({"est.localTime_rounded": five_min_ts})
 
-    # round est.localTime to nearest 30 seconds, then 5 minutes
+    # round est.localTime to nearest 5 minutes
 
     # SLOW BUT MORE ACCURATE
-    # df = round5Minutes(df)
+    df = round5Minutes(df)
 
-    # FAST BUT LESS ACCURATE
-    df["est.localTime_rounded"] = pd.to_datetime(pd.to_datetime(df["est.localTime"]).astype(np.int64)+1000).dt.round("30S")
-    df["est.localTime_rounded"] = pd.to_datetime(pd.to_datetime(df["est.localTime_rounded"]).astype(np.int64)+1000).dt.round("5min")
+#    # FAST BUT LESS ACCURATE
+#    df["est.localTime_rounded"] = pd.to_datetime(pd.to_datetime(df["est.localTime"]).astype(np.int64)+1000).dt.round("30S")
+#    df["est.localTime_rounded"] = pd.to_datetime(pd.to_datetime(df["est.localTime_rounded"]).astype(np.int64)+1000).dt.round("5min")
 
     print("done")
 
@@ -1433,25 +1464,33 @@ dotenv_path = join(dirname(__file__), '.env')
 if isfile(dotenv_path):
     load_dotenv(dotenv_path)
 
+# TODO: instead of passing in these variables to each of the functions, just call this information
+# using os.environ[<name>] in the function. It is more secure.
 env_email = os.environ["EMAIL"]
 env_password = os.environ["PASS"]
 salt = os.environ["SALT"]
 
-survey_data = pd.read_excel("survey_results.xlsx")
+survey_data = pd.read_excel(os.path.join(".", "data", "survey_results.xlsx"))
 
 # Create an analyzed column to mark datasets already analyzed
 if("analyzed" not in list(survey_data)):
     survey_data["analyzed"] = False
 
-timezoneAliasesFilePathAndName = "wikipedia-timezone-aliases-2018-04-28.csv"
+# Create an analyzed column to mark datasets already analyzed
+currentDate = dt.datetime.now().strftime("%Y-%m-%d")
+if("Time Started" not in list(survey_data)):
+    survey_data["Time Started"] = currentDate
+
+timezoneAliasesFilePathAndName = os.path.join(".", "wikipedia-timezone-aliases-2018-04-28.csv")
 if os.path.isfile(timezoneAliasesFilePathAndName):
-    timezoneAliases = pd.read_csv(timezoneAliasesFilePathAndName,
-                                  low_memory=False)
+    timezoneAliases = pd.read_csv(timezoneAliasesFilePathAndName, low_memory=False)
 else:
-    sys.exit("{0} is not a valid file".format(
-            timezoneAliasesFilePathAndName))
-# %% Get New Donors
+    sys.exit("{0} is not a valid file".format(timezoneAliasesFilePathAndName))
+
+
+# %% Accept New Donors
 new_donors = accept_new_donor(env_email, env_password)
+
 
 # %% Get Account Donor List
 donorMetadataColumns = ["userID", "name", "email",
@@ -1477,8 +1516,8 @@ for donor_row in range(len(study_donor_list)):
         print(studyHashID + " START PROCESSING")
         # Get timestamps of when survey was taken
         # and up to one year prior
-        endDate = survey_data.loc[survey_data["Hashed ID"] == studyHashID, "Time Started"].values[0]
-        startDate = endDate - pd.Timedelta(days=365)
+        endDate = pd.to_datetime(survey_data.loc[survey_data["Hashed ID"] == studyHashID, "Time Started"].values[0])
+        startDate = pd.to_datetime(endDate) - pd.Timedelta(days=365)
         endDate = str(endDate)
         startDate = str(startDate)
 
@@ -1489,8 +1528,7 @@ for donor_row in range(len(study_donor_list)):
         data = getLTE(data)
 
         # Filter Data to before survey was taken
-        data = data[(data["est.localTime"] >= startDate) &
-                    (data["est.localTime"] <= (endDate))]
+        data = data[(data["est.localTime"] >= startDate) & (data["est.localTime"] <= (endDate))]
 
         # Clean Data
         data = cleanData(data)
@@ -1499,11 +1537,9 @@ for donor_row in range(len(study_donor_list)):
         cgm_df = data.loc[data.type == "cbg"]
         upload_df = data.loc[data.type == "upload"]
 
-        cgm_df, cgm_duplicate_count = \
-            remove_duplicates(cgm_df, upload_df)
+        cgm_df, cgm_duplicate_count = remove_duplicates(cgm_df, upload_df)
 
-        cgm_df, cgm_rounded_duplicate_count = \
-            fill_time_gaps(cgm_df, startDate, endDate, "cgm")
+        cgm_df, cgm_rounded_duplicate_count = fill_time_gaps(cgm_df, startDate, endDate, "cgm")
 
         final_df = cgm_df.copy()
 
@@ -1520,8 +1556,8 @@ for donor_row in range(len(study_donor_list)):
         summary_df["first_ts"] = startDate
         summary_df["last_ts"] = endDate
 
-        outputFileName = "Tidepool-T1DX-Analytics-Results.csv"
-        summary_path = os.path.join(outputFileName)
+        outputFileName = "Tidepool-T1DX-Analytics-Results-" + currentDate + ".csv"
+        summary_path = os.path.join(".", "data", outputFileName)
 
         if not os.path.exists(summary_path):
             summary_df.to_csv(summary_path, header=True)
@@ -1550,4 +1586,4 @@ missing_data_count = survey_count - analyzed_count
 print("Survey Participants: " + str(survey_count))
 print("Data Sets Analyzed:  " + str(analyzed_count))
 print("No Data in Tidepool: " + str(missing_data_count))
-survey_data.to_excel('survey_results.xlsx')
+survey_data.to_excel(".", "data", "survey_results" + currentDate + ".xlsx")
