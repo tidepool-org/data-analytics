@@ -27,11 +27,11 @@ public class rectangleMatrix50PercentAssumption extends SqaureGridUpdateRec
 		//{0,0,1,1,0};//
 
 
-		  // int[] ArrayY = new int[]{1,2,1,1,2,4,4,3}; 
-		  // int[] ArrayX = new int[]{1,1,1,2,4,4,3,2,3,2,1};
+		   int[] ArrayY = new int[]{1,2,1,1,2,4,4,3}; 
+		   int[] ArrayX = new int[]{1,1,1,2,4,4,3,2};
 
-		// int[] ArrayY = new int[]{2,2,3,3,2,2,2,2,2}; //set of values that should have different LongestZeroString and ZeroCounter
-		// int[] ArrayX = new int[]{2,2,2,3,2,2};
+		// int[] ArrayX = new int[]{2,2,3,3,2,2,2,2,2}; //set of values that should have different LongestZeroString and ZeroCounter
+	 // int[] ArrayY = new int[]{2,2,2,3,2,2};
 
 		 // int[] ArrayX = new int[]{3,2,3,1}; //GOOD example of finding starting coordinates of starting positions
 		 // int[] ArrayY = new int[]{2,3,1,3,1,3,4,1};
@@ -46,20 +46,20 @@ public class rectangleMatrix50PercentAssumption extends SqaureGridUpdateRec
 
         DataSetX = new int[11044];//I looked at the number of lines in the file
         DataSetY = new int[11044];
-        // DataSetX = ArrayX;
-        // DataSetY = ArrayY;
+         DataSetX = ArrayX;
+        DataSetY = ArrayY;
 
-        int i = 0;
-        while(scanner.hasNextLine())
-            {
+        // int i = 0;
+        // while(scanner.hasNextLine())
+        //     {
                       
-                DataSetX[i] = scanner.nextInt();
-                DataSetY[i] = scanner2.nextInt();
+        //         DataSetX[i] = scanner.nextInt();
+        //         DataSetY[i] = scanner2.nextInt();
                
-                i++;
-            } 
-        scanner.close();
-        scanner2.close();
+        //         i++;
+        //     } 
+        // scanner.close();
+        // scanner2.close();
 
 
 
@@ -71,10 +71,10 @@ public class rectangleMatrix50PercentAssumption extends SqaureGridUpdateRec
 
 		
 				DistanceMatrix = new int[DataSetY.length][DataSetX.length]; //row then columns (incrementing the X values chances the column)
-				//Columns of DisMatrixFillingHorizontally = DisMatrixCreater
+				//Columns of DisMatrixFillingDiagonally = DisMatrixCreater
 				//PrintMatrix(DistanceMatrix);
-				DisMatrixFillingHorizontally(DataSetY,DataSetX);
-				//DisMatrixFillingHorizontally(ArrayY,ArrayX);//horizontally filling the Matrix, while counting zeros per traversal
+				DisMatrixFillingDiagonally(DataSetY,DataSetX);
+				//DisMatrixFillingDiagonally(ArrayY,ArrayX);//horizontally filling the Matrix, while counting zeros per traversal
 			//	PrintMatrix(DistanceMatrix); //just a basic print function
 			//	PrintMatrix(LZScoordinates);
 				System.out.println("RESULT SECTION:");
@@ -82,8 +82,9 @@ public class rectangleMatrix50PercentAssumption extends SqaureGridUpdateRec
 				System.out.println("2. Array index of longest string of zeros: " + getIndexOfLargest(LongestZeroString));
 				System.out.println("3. Starting coordinates of the traversal(on the grid edge) with the longest continuous string of zeros: (x,y)_" + GridEdgeCoordinates(LongestZeroString, DistanceMatrix)); //index of most exact overlap(ala most matching values/zeros)
 				System.out.println("4. Starting coordinates of the traversal(on the grid edge) with the most total zeros: (x,y)_" + GridEdgeCoordinates(ZeroCounter, DistanceMatrix));//converts the index of greatest traversal to the starting index(on the edge of the grid) of said traversal
-				//DisMatrixCreater(ArrayY,ArrayX);//standard double for loop to create the proper distance matrix- to check agaisnt by horizontal creation
-				//PrintMatrix(DistanceMatrix);
+				DisMatrixCreater(ArrayY,ArrayX);//standard double for loop to create the proper distance matrix- to check agaisnt by horizontal creation
+				PrintMatrix(DistanceMatrix);
+				
 				System.out.println("5. Exact X & Y grid coordinates of longest String of Zeros (x,y)_"+ "(" + LZScoordinates[getIndexOfLargest(LongestZeroString)][0] + "," + LZScoordinates[getIndexOfLargest(LongestZeroString)][1] + ")");
 				System.out.println("6. Percentage Match relative to perfect match_(most total zeros)_" + PercentMatch(ZeroCounter,DistanceMatrix) + "%");
 				System.out.println("7. Percentage Match relative to perfect match_(longest continous string of zeros)_"  + PercentMatch(LongestZeroString,DistanceMatrix) + "%");
@@ -92,25 +93,25 @@ public class rectangleMatrix50PercentAssumption extends SqaureGridUpdateRec
 
 //public static void ReadGoogleSlides()
 
-	public static void DisMatrixFillingHorizontally(int[]DY, int[]DX)
+	public static void DisMatrixFillingDiagonally(int[]DY, int[]DX)
 	{//arguemnts are the arrays of data points
 		//Xpos = columns Ypos= rows
-		int TotalTraversals = DY.length+DX.length-1;  //# of horizontal iterations needed to go through every potential unit of the grid. Its the number of edge points we use
+		int TotalTraversals = DY.length+DX.length-1;  //# of diagonal iterations needed to go through every potential unit of the grid. Its the number of edge points we use
 										//13 is the answer for a 7 by 7 grid. 
 										//its equal to the number of edge values or length + width - 1	
 		int TraversalsStartingonYAxis = TotalTraversals-DX.length;
 		int TraversalsStartingonXAxis = TotalTraversals-DY.length;
 
-		int shortersidelength; //determining the longest possible diagonal in the given matrix
+		int shortersidelength; //determining the longest possible diagonal in the given matrix, ala the length of the shorter data set
 		boolean LongerSideY;
 		int difference;
 
-		if(TraversalsStartingonYAxis>TraversalsStartingonXAxis)
+		if(TraversalsStartingonYAxis>TraversalsStartingonXAxis) //the Y axis is bigger than the X axis
 			{	
 				shortersidelength = TraversalsStartingonXAxis+1;
 				LongerSideY = true;
 			}
-		else
+		else ////the X axis is bigger than the Y axis
 			{
 				shortersidelength = TraversalsStartingonYAxis+1;
 				LongerSideY = false;
@@ -221,7 +222,7 @@ public class rectangleMatrix50PercentAssumption extends SqaureGridUpdateRec
 		//It compares values from DY/DX arrays
 		//int XstartPos, int YstartPos are starting positions for the traversal
 		//traversals is a arguement that keeps the matrix aware of how far it is from the center diagonal
-		//ZeroxIndex is the index of the zero counter static array(for data collection) It matches the traversals counter until traversals is reset before the 2nd for loop in DisMatrixFillingHorizontally
+		//ZeroxIndex is the index of the zero counter static array(for data collection) It matches the traversals counter until traversals is reset before the 2nd for loop in DisMatrixFillingDiagonally
 
 		int SidelengthX = DX.length; //.length is the actually amount of positions allocated in memory so index 0-9 is length 10
 		int SidelengthY = DY.length;

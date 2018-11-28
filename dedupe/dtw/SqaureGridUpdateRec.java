@@ -69,7 +69,6 @@ public class SqaureGridUpdateRec
 	}
 
 
-
 	public static void PrintMatrix(int[][]Matrix) //prints the Distance Matrix given a Matrix
 	{//Print out the  matrix in nice
 		for (int i = 0; i < Matrix.length; i++)
@@ -80,6 +79,8 @@ public class SqaureGridUpdateRec
 			    	}
 		    	System.out.println();
 			}
+			System.out.print("_____________________________________");
+			System.out.println();
 	}
 
 
