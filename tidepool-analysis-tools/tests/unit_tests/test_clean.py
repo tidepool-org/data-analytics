@@ -14,8 +14,6 @@ def test_remove_duplicates(valid_df):
                   ["hhawe", "AB8769", "response1", "response2", "Sun Nov 19 23:20:01 2018", pd.to_datetime("2018-11-19 23:20:00")],
                   ["hhawe", "AB8769", "response1", "response2", "Sun Nov 19 23:20:01 2018", pd.to_datetime("2018-11-19 23:20:00")]]
 
-
-
     duplicated_df = pd.DataFrame(duplicated_data, columns=['userID', 'studyID',"getData.response1", "getData.response2", "time", "roundedTime"])
     pandas_drop_df = duplicated_df.drop_duplicates('time')
 
@@ -23,8 +21,7 @@ def test_remove_duplicates(valid_df):
 
     tm.assert_frame_equal(valid_df, clean_df)
     tm.assert_frame_equal(valid_df, pandas_drop_df)
-    #assert duplicate_count == 1
-
+    assert duplicate_count == 1
 
 
 def test_round_time(valid_df):
