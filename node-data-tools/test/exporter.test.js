@@ -34,7 +34,6 @@ const excludedFields = [
   'guid',
   'clockDriftOffset',
   'conversionOffset',
-  'timezoneOffset',
 ];
 
 const wb = new Excel.Workbook();
@@ -51,7 +50,6 @@ const wb = new Excel.Workbook();
           let cellValue = row.values[valueIdx];
           try {
             cellValue = JSON.parse(cellValue);
-            console.log(typeof cellValue);
             if (typeof cellValue !== 'object') {
               cellValue = row.values[valueIdx];
             }

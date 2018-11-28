@@ -55,7 +55,7 @@ export default class TidepoolDataTools {
   static tidepoolProcessor() {
     return es.mapSync((data) => {
       // Stringify objects configured with { "stringify": true }
-      this.stringifyFields(data, this.fieldsToStringify);
+      this.stringifyFields(data);
       // Return flattened layout mapped to all fields in the config
       return this.flatMap(data, this.allFields);
     });
@@ -99,9 +99,6 @@ export default class TidepoolDataTools {
 
 function convert(command) {
   if (!command.inputTidepoolData) command.help();
-  if (!command.outputFormat.length) {
-    command.outputFormat.push('all');
-  }
 
   const inFilename = path.basename(command.inputTidepoolData, '.json');
   const outFilename = path.join(command.outputDataPath,
@@ -209,13 +206,16 @@ if (require.main === module) {
     .option('--salt <salt>', 'salt used in the hashing algorithm', 'no salt specified')
     .option('-o, --output-data-path <path>', 'the path where the data is exported',
       path.join(__dirname, 'example-data', 'export'))
-    .option('-f, --output-format <format>', 'the path where the data is exported', (val, list) => {
+    .option('-f, --output-format <format>', 'the format of file to export to. Can be xlsx, csv, csvs or all. Can be specified multiple times', (val, list) => {
+      if (list[0] === 'all' && list.length === 1) {
+        list.splice(0);
+      }
       list.push(val);
       return list;
-    }, [])
+    }, ['all'])
     // TODO: Implement options below this TODO
-    .option('--start-date [date]', 'filter data by startDate and EndDate')
-    .option('--end-date [date]', 'filter data by startDate and EndDate')
+    .option('--start-date [date]', 'filter data by startDate')
+    .option('--end-date [date]', 'filter data by endDate')
     .option('--merge-wizard-data', 'option to merge wizard data with bolus data. Default is true')
     .option(
       '--filterByDatesExceptUploadsAndSettings',

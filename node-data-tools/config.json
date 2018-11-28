@@ -15,6 +15,7 @@
     "suppressed.rate": {},
     "payload": {"stringify": true},
     "annotations": {"stringify": true},
+    "timezoneOffset": {},
     "deviceId": {},
     "id": {},
     "uploadId": {}
@@ -27,6 +28,7 @@
     "units": {},
     "payload": {"stringify": true},
     "annotations": {"stringify": true},
+    "timezoneOffset": {},
     "deviceId": {},
     "id": {},
     "uploadId": {}
@@ -44,6 +46,7 @@
     "basalSchedules": {"stringify": true},
     "payload": {"stringify": true},
     "annotations": {"stringify": true},
+    "timezoneOffset": {},
     "deviceId": {},
     "id": {},
     "uploadId": {}
@@ -57,6 +60,7 @@
     "units": {},
     "payload": {"stringify": true},
     "annotations": {"stringify": true},
+    "timezoneOffset": {},
     "deviceId": {},
     "id": {},
     "uploadId": {}
@@ -78,6 +82,7 @@
     "recommended.net": {},
     "payload": {"stringify": true},
     "annotations": {"stringify": true},
+    "timezoneOffset": {},
     "deviceId": {},
     "id": {},
     "uploadId": {}
@@ -91,6 +96,7 @@
     "expectedNormal": {},
     "payload": {"stringify": true},
     "annotations": {"stringify": true},
+    "timezoneOffset": {},
     "deviceId": {},
     "id": {},
     "uploadId": {}
@@ -113,6 +119,7 @@
     "reason.resumed": {},
     "payload": {"stringify": true},
     "annotations": {"stringify": true},
+    "timezoneOffset": {},
     "deviceId": {},
     "id": {},
     "uploadId": {}
@@ -130,6 +137,7 @@
     "deviceTags": {"stringify": true},
     "payload": {"stringify": true},
     "annotations": {"stringify": true},
+    "timezoneOffset": {},
     "deviceId": {},
     "id": {},
     "byUser": {},

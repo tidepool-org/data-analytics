@@ -76,9 +76,9 @@ Options:
   -c, --config <file>                      a JSON file that contains the field export configuration
   --salt <salt>                            salt used in the hashing algorithm (default: "no salt specified")
   -o, --output-data-path <path>            the path where the data is exported (default: "./example-data/export")
-  -f, --output-format <format>             the path where the data is exported (default: [])
-  --start-date [date]                      filter data by startDate and EndDate
-  --end-date [date]                        filter data by startDate and EndDate
+  -f, --output-format <format>             the path where the data is exported (default: ["all"])
+  --start-date [date]                      filter data by startDate
+  --end-date [date]                        filter data by endDate
   --merge-wizard-data                      option to merge wizard data with bolus data. Default is true
   --filterByDatesExceptUploadsAndSettings  upload and settings data can occur before and after start and end dates, so include ALL upload and settings data in export
   -h, --help                               output usage information
