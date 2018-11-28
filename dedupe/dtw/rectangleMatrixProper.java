@@ -168,6 +168,7 @@ public class rectangleMatrixProper extends SqaureGridUpdateRec
 				       	ZeroCounter[ZerocIndex] = ZeroCounter[ZerocIndex]+1;//increment index of total zeros in diagonal traversal
 				 		ActiveZeroCounter = ActiveZeroCounter+1;
 					}
+					//
 				else //found non zero value
 					{
 						if(ActiveZeroCounter > LongestZeroString[ZerocIndex])//if the String of zeros currently found is greater than what we have previously found for this traversal
