@@ -1480,7 +1480,7 @@ def get_rolling_stats(df, rolling_prefixes):
         rolling_df[rolling_prefixes[prefix_loc]+"_sleep_avg-time-above180"] = np.nan
         rolling_df[rolling_prefixes[prefix_loc]+"_sleep_events-above250"] = np.nan
         rolling_df[rolling_prefixes[prefix_loc]+"_sleep_avg-time-above250"] = np.nan
-        
+
         rolling_df[rolling_prefixes[prefix_loc]+"_sleep_LBGI"] = np.nan
         rolling_df[rolling_prefixes[prefix_loc]+"_sleep_HBGI"] = np.nan
         # print(rolling_prefixes[prefix_loc], ' took {0} seconds.'.format(time.time() - start_time))
@@ -1573,6 +1573,12 @@ else:
     sys.exit("{0} is not a valid file".format(timezoneAliasesFilePathAndName))
 
 skip_analysis = False
+
+# Create cleaned data directory if it doesn't exist
+clean_data_path = os.path.join(".", "data", "cleaned-donor-data")
+if not os.path.exists(clean_data_path):
+    os.mkdir(clean_data_path)
+
 # %% Accept New Donors
 new_donors = accept_new_donor(os.environ["EMAIL"], os.environ["PASS"])
 
@@ -1617,10 +1623,11 @@ for donor_row in range(len(study_donor_list)):
         startDate = pd.to_datetime(endDate) - pd.Timedelta(days=365)
         endDate = str(endDate)
         startDate = str(startDate)
-        file_outpath = os.path.join(".", "data", "cleaned-data", "PHI-"+studyHashID+".xlsx")
+        file_outpath = os.path.join(clean_data_path, "PHI-"+studyHashID+".xlsx")
 
         if(os.path.isfile(file_outpath)):
             final_df = pd.read_excel(file_outpath)
+            survey_data.loc[survey_data["Hashed ID"] == studyHashID, "CGM Data"] = True
 
         else:
             # Get data
@@ -1739,4 +1746,4 @@ for survey_row in range(len(survey_data)):
         survey_data.loc[survey_row, "Contact?"] = "T1DX"
 
 survey_data.to_excel(os.path.join(".", "data", "survey_data_status_" + currentDate + ".xlsx"), index=False)
-phi_lookup_table.to_excel(os.path.join(".", "data", "PHI-T1DX_Tidepool_Pilot_Accounts" + currentDate + ".xlsx"), index=False)
+phi_lookup_table.to_excel(os.path.join(".", "data", "PHI-T1DX_Tidepool_Pilot_Accounts.xlsx"), index=False)
