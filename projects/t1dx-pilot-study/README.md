@@ -31,27 +31,27 @@ The following core metrics are calculated:
 
 * Percent time in ranges: 
 
-​	o   Level 2 hypoglycemia (< 54 mg/dL)
+    * Level 2 hypoglycemia (< 54 mg/dL)
 
-​	o   Level 1 hypoglycemia (< 70 mg/dL)
+    * Level 1 hypoglycemia (< 70 mg/dL)
 
-​	o   Target Range (70-140 mg/dL & 70-180 mg/dL)
+    * Target Range (70-140 mg/dL & 70-180 mg/dL)
 
-​	o   Level 1 hyperglycemia (> 180 mg/dL)
+    * Level 1 hyperglycemia (> 180 mg/dL)
 
-​	o   Level 2 hyperglycemia (> 250 mg/dL)
+    * Level 2 hyperglycemia (> 250 mg/dL)
 
 * Glycemic variability
 
-​	o   Coefficient of variation (CV)
+    * Coefficient of variation (CV)
 
-​	o   Standard deviation (SD)
+    * Standard deviation (SD)
 
-​	o   Percentiles: 10, 25, 50, 75, 90
+    *  Percentiles: 10, 25, 50, 75, 90
 
-​	o   Range
+    *  Range
 
-​	o   Absolute 
+    *  Absolute 
 
 * Glycemic Management Indicator (GMI), and formerly referred to as estimated A1C (eA1c)
 * Episodes of hypoglycemia and hyperglycemia defined by at least 15 minutes of contiguous readings below the Level 1 and Level 2 thresholds as noted above (i.e., < 54, < 70, > 180, > 250 mg/dL)
@@ -83,5 +83,4 @@ Additional Metrics that might be explored:
 
 ## TO DO: 
 
-- [ ] Verify CGM data meets study requirements
-- [ ] Add AUC and LBGI/HBGI metrics into rolling stats format
+- [ ] Calculate remaining rolling stats for sleep and LBGI/HBGI analysis
