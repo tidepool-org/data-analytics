@@ -124,8 +124,8 @@ def get_donor_info(email, password, donorMetadataColumns):
                 except Exception:
                     termsAccepted = np.nan
 
-                usr_string = userEmail + salt
-                #print(usr_string)
+                usr_string = userEmail.lower() + os.environ["SALT"]
+
                 hash_user = hashlib.sha256(usr_string.encode())
                 hashID = hash_user.hexdigest()
                 donorMetaData = donorMetaData.append(
@@ -143,10 +143,10 @@ def get_donor_info(email, password, donorMetadataColumns):
                                      ignore_index=True)
         else:
             print(donorGroup, "ERROR", myResponse2.status_code)
-            sys.exit("Error with" + donorGroup + ":" + str(myResponse2.status_code))
+            sys.exit("Error: " + str(myResponse2.status_code))
     else:
         print(donorGroup, "ERROR", myResponse.status_code)
-        sys.exit("Error with" + donorGroup + ":" + str(myResponse.status_code))
+        sys.exit("Error: " + str(myResponse.status_code))
 
     return donorMetaData
 
@@ -414,7 +414,8 @@ def estimateTzAndTzoWithDeviceRecords(cDF):
     # allow the estimates to be off by 60 minutes as there are a lot of cases
     # where the devices are off because the user changes the time for DST,
     # at different times
-    sIndices = cDF[((cDF["est.type"] == "DEVICE") &
+    # Apply a lambda comparison on columns that might be all null
+    sIndices = cDF[((cDF["est.type"].apply(lambda x: x == "DEVICE")) &
                     (cDF["pump.timezoneOffset"].notnull()) &
                     (cDF["cgm.timezoneOffset"].notnull()) &
                     (cDF["pump.timezoneOffset"] != cDF["cgm.timezoneOffset"])
@@ -996,7 +997,7 @@ def getLTE(df):
     # postprocess TZ and TZO day estiamte data
     cDays["est.version"] = "0.0.3"
     # reorder columns
-    cDays = reorderColumns(cDays)
+    # cDays = reorderColumns(cDays)
 
     data = applyLocalTimeEstimates(data, cDays)
 
@@ -1099,7 +1100,8 @@ def remove_duplicates(df, upload_data):
 
     # Replace any healthkit data deviceTimes (NaN) with a unique id
     # This prevents healthkit data with blank deviceTimes from being removed
-    df.deviceTime.fillna(df.id, inplace=True)
+    if("deviceTime" in list(df)):
+        df.deviceTime.fillna(df.id, inplace=True)
 
     # Drop duplicates using est.localTime+value, time(utc time)+value,
     # deviceTime+value, and est.localTime alone
@@ -1107,7 +1109,8 @@ def remove_duplicates(df, upload_data):
     values_before_removal = len(df.value)
     df = df.drop_duplicates(subset=["est.localTime", "value"], keep="last")
     df = df.drop_duplicates(subset=["time", "value"], keep="last")
-    df = df.drop_duplicates(subset=["deviceTime", "value"], keep="last")
+    if("deviceTime" in list(df)):
+        df = df.drop_duplicates(subset=["deviceTime", "value"], keep="last")
     df = df.drop_duplicates(subset=["est.localTime"], keep="last")
     values_after_removal = len(df.value)
     duplicates_removed = values_before_removal-values_after_removal
@@ -1178,11 +1181,11 @@ def round5Minutes(df):
         * verbose specifies whether the extra columns used to make calculations are returned
     '''
 
-    timeIntervalMinutes=5
-    timeField="time"
-    roundedTimeFieldName="est.localTime_rounded"
-    startWithFirstRecord=True,
-    verbose=False
+    timeIntervalMinutes = 5
+    timeField = "time"
+    roundedTimeFieldName = "est.localTime_rounded"
+    startWithFirstRecord = True,
+    verbose = False
 
     df.sort_values(by=timeField, ascending=startWithFirstRecord, inplace=True)
     df.reset_index(drop=True, inplace=True)
@@ -1233,9 +1236,9 @@ def round5Minutes(df):
     return df
 
 
-def fill_time_gaps(df, first_date, last_date, data_type):
+def create_rounded_time_range(df, first_date, last_date, data_type):
 
-    print("Filling in", data_type, "time gaps...", end=" ")
+    print("Creating rounded", data_type, "time ranges...", end=" ")
     first_date = pd.to_datetime(dt.datetime.fromtimestamp(pd.to_datetime(first_date).timestamp()+.000001)).round("30S")
     first_date = pd.to_datetime(dt.datetime.fromtimestamp(pd.to_datetime(first_date).timestamp()+.000001)).round("5min")
 
@@ -1352,18 +1355,36 @@ def get_rolling_stats(df, rolling_prefixes):
     df["bool_above180"] = df.mg_dL > 180
     df["bool_above250"] = df.mg_dL > 250
 
-    rolling_dictionary = dict(zip(
-            ["15min", "30min", "1hr", "2hr",
-             "3hr", "4hr", "5hr", "6hr",
-             "8hr", "12hr", "24hr", "3day",
-             "7day", "14day", "30day", "60day",
+    # Setup curves of value ranges to integrate over for AUC metrics
+    df["below54_vals"] = df.loc[df["bool_below54"], "mg_dL"]
+    df["below54_vals"].fillna(0, inplace=True)
+    df["54-70_vals"] = df.loc[df["bool_54-70"], "mg_dL"]
+    df["54-70_vals"].fillna(0, inplace=True)
+    df["below70_vals"] = df.loc[df["bool_below70"], "mg_dL"]
+    df["below70_vals"].fillna(0, inplace=True)
+    df["70-140_vals"] = df.loc[df["bool_70-140"], "mg_dL"]-70
+    df["70-140_vals"].fillna(0, inplace=True)
+    df["70-180_vals"] = df.loc[df["bool_70-180"], "mg_dL"]-70
+    df["70-180_vals"].fillna(0, inplace=True)
+    df["above180_vals"] = df.loc[df["bool_above180"], "mg_dL"]-180
+    df["above180_vals"].fillna(0, inplace=True)
+    df["above250_vals"] = df.loc[df["bool_above250"], "mg_dL"]-250
+    df["above250_vals"].fillna(0, inplace=True)
+
+    # Setup sleep data (12AM-6AM)
+    sleep_bool = (df["est.localTime"].dt.hour*60+df["est.localTime"].dt.minute) < 360
+    df["sleep_values"] = df.loc[sleep_bool, "mg_dL"]
+
+    # Map Dictionary of rolling window sizes
+    rolling_dictionary = \
+        dict(zip(
+            ["15min", "30min", "1hr", "2hr", "3hr", "4hr", "5hr", "6hr", "8hr",
+             "12hr", "24hr", "3day", "7day", "14day", "30day", "60day",
              "90day", "1year"], list(
-                                 [3, 6, 12, 24,
-                                  36, 48, 60, 72,
-                                  96, 144, 288, 864,
-                                  2016, 4032, 8640, 17280,
-                                  25920, 105120]
-                                            )))
+             [3, 6, 12, 24, 36, 48, 60, 72, 96,
+              144, 288, 864, 2016, 4032, 8640, 17280,
+              25920, 105120]
+                 )))
 
     # Set number of points per rolling window
     rolling_points = np.array(pd.Series(rolling_prefixes).map(rolling_dictionary))
@@ -1376,62 +1397,93 @@ def get_rolling_stats(df, rolling_prefixes):
     print("Starting Rolling Stats")
     rolling_df = pd.DataFrame(index=np.arange(len(df)))
     rolling_df["est.localTime_rounded"] = df["est.localTime_rounded"]
+
     # Loop through rolling stats for each time prefix
-    for i in range(0, len(rolling_prefixes)):
+    for prefix_loc in range(0, len(rolling_prefixes)):
 
         # start_time = time.time()
-        rolling_window = df.mg_dL.rolling(rolling_points[i], min_periods=rolling_min[i])
+        rolling_window = df.mg_dL.rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc])
 
-        rolling_df[rolling_prefixes[i]+"_cgm_points"] = rolling_window.count()
-        rolling_df[rolling_prefixes[i]+"_cgm_mean"] = rolling_window.mean()
+        rolling_df[rolling_prefixes[prefix_loc]+"_data-points"] = rolling_window.count()
+        rolling_df[rolling_prefixes[prefix_loc]+"_percent-data-available"] = rolling_df[rolling_prefixes[prefix_loc]+"_data-points"]/rolling_points[prefix_loc]
+        rolling_df[rolling_prefixes[prefix_loc]+"_mean"] = rolling_window.mean()
         # get estimated HbA1c or Glucose Management Index (GMI)
         # GMI(%) = 3.31 + 0.02392 x [mean glucose in mg/dL]
         # https://www.jaeb.org/gmi/
-        rolling_df[rolling_prefixes[i]+"_cgm_eA1c"] = 3.31 + (0.02392*rolling_df[rolling_prefixes[i]+"_cgm_mean"])
-        rolling_df[rolling_prefixes[i]+"_cgm_SD"] = rolling_window.std()
-        rolling_df[rolling_prefixes[i]+"_cgm_CV"] = rolling_df[rolling_prefixes[i]+"_cgm_SD"]/rolling_df[rolling_prefixes[i]+"_cgm_mean"]
-        rolling_df[rolling_prefixes[i]+"_cgm_percent-below54"] = df["bool_below54"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()/rolling_df[rolling_prefixes[i]+"_cgm_points"]
-        rolling_df[rolling_prefixes[i]+"_cgm_percent-54-70"] = df["bool_54-70"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()/rolling_df[rolling_prefixes[i]+"_cgm_points"]
-        rolling_df[rolling_prefixes[i]+"_cgm_percent-below70"] = df["bool_below70"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()/rolling_df[rolling_prefixes[i]+"_cgm_points"]
-        rolling_df[rolling_prefixes[i]+"_cgm_percent-70-140"] = df["bool_70-140"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()/rolling_df[rolling_prefixes[i]+"_cgm_points"]
-        rolling_df[rolling_prefixes[i]+"_cgm_percent-70-180"] = df["bool_70-180"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()/rolling_df[rolling_prefixes[i]+"_cgm_points"]
-        rolling_df[rolling_prefixes[i]+"_cgm_percent-above180"] = df["bool_above180"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()/rolling_df[rolling_prefixes[i]+"_cgm_points"]
-        rolling_df[rolling_prefixes[i]+"_cgm_percent-above250"] = df["bool_above250"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()/rolling_df[rolling_prefixes[i]+"_cgm_points"]
-        rolling_df[rolling_prefixes[i]+"_cgm_min"] = rolling_window.min()
+        rolling_df[rolling_prefixes[prefix_loc]+"_GMI"] = 3.31 + (0.02392*rolling_df[rolling_prefixes[prefix_loc]+"_mean"])
+        rolling_df[rolling_prefixes[prefix_loc]+"_SD"] = rolling_window.std()
+        rolling_df[rolling_prefixes[prefix_loc]+"_CV"] = rolling_df[rolling_prefixes[prefix_loc]+"_SD"]/rolling_df[rolling_prefixes[prefix_loc]+"_mean"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_percent-below54"] = df["bool_below54"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_data-points"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_percent-54-70"] = df["bool_54-70"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_data-points"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_percent-below70"] = df["bool_below70"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_data-points"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_percent-70-140"] = df["bool_70-140"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_data-points"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_percent-70-180"] = df["bool_70-180"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_data-points"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_percent-above180"] = df["bool_above180"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_data-points"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_percent-above250"] = df["bool_above250"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_data-points"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_min"] = rolling_window.min()
 
         # Quartiles take a long time to process.
         # Uncomment if needed
 
-        # rolling_df[rolling_prefixes[i]+"_cgm_10percentile"] = \
-        #   rolling_window.quantile(0.1)
-        #
-        # rolling_df[rolling_prefixes[i]+"_cgm_25percentile"] = \
-        #    rolling_window.quantile(0.25)
-        # rolling_df[rolling_prefixes[i]+"_cgm_50percentile"] = \
-        #    rolling_window.quantile(0.5)
-        # rolling_df[rolling_prefixes[i]+"_cgm_75percentile"] = \
-        #    rolling_window.quantile(0.75)
-        # rolling_df[rolling_prefixes[i]+"_cgm_90percentile"] = \
-        #    rolling_window.quantile(0.9)
-        # rolling_df[rolling_prefixes[i]+"_cgm_max"] = rolling_window.max()
-        # rolling_df[rolling_prefixes[i]+"_IQR"] = \
-        #    rolling_df[rolling_prefixes[i]+"_cgm_75percentile"]\
-        #    - rolling_df[rolling_prefixes[i]+"_cgm_25percentile"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_10percentile"] = rolling_window.quantile(0.1)
+        rolling_df[rolling_prefixes[prefix_loc]+"_25percentile"] = rolling_window.quantile(0.25)
+        rolling_df[rolling_prefixes[prefix_loc]+"_50percentile"] = rolling_window.quantile(0.5)
+        rolling_df[rolling_prefixes[prefix_loc]+"_75percentile"] = rolling_window.quantile(0.75)
+        rolling_df[rolling_prefixes[prefix_loc]+"_90percentile"] = rolling_window.quantile(0.9)
+        rolling_df[rolling_prefixes[prefix_loc]+"_max"] = rolling_window.max()
+        rolling_df[rolling_prefixes[prefix_loc]+"_IQR"] = rolling_df[rolling_prefixes[prefix_loc]+"_75percentile"] - rolling_df[rolling_prefixes[prefix_loc]+"_25percentile"]
 
-        rolling_df[rolling_prefixes[i]+"_events-below54"] = \
-            df["event-below54"].rolling(rolling_points[i],
-                                        min_periods=rolling_min[i]).sum()
-        rolling_df[rolling_prefixes[i]+"_avg-dur-below54"] = df["dur-below54"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()/rolling_df[rolling_prefixes[i]+"_events-below54"]
-        rolling_df[rolling_prefixes[i]+"_events-below70"] = df["event-below70"].rolling(rolling_points[i] ,min_periods=rolling_min[i]).sum()
-        rolling_df[rolling_prefixes[i]+"_avg-dur-below70"] = df["dur-below70"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()/rolling_df[rolling_prefixes[i]+"_events-below70"]
-        rolling_df[rolling_prefixes[i]+"_events-above140"] = df["event-above140"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()
-        rolling_df[rolling_prefixes[i]+"_avg-dur-above140"] = df["dur-above140"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()/rolling_df[rolling_prefixes[i]+"_events-above140"]
-        rolling_df[rolling_prefixes[i]+"_events-above180"] = df["event-above180"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()
-        rolling_df[rolling_prefixes[i]+"_avg-dur-above180"] = df["dur-above180"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()/rolling_df[rolling_prefixes[i]+"_events-above180"]
-        rolling_df[rolling_prefixes[i]+"_events-above250"] = df["event-above250"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()
-        rolling_df[rolling_prefixes[i]+"_avg-dur-above250"] = df["dur-above250"].rolling(rolling_points[i], min_periods=rolling_min[i]).sum()/rolling_df[rolling_prefixes[i]+"_events-above250"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_events-below54"] = df["event-below54"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()
+        rolling_df[rolling_prefixes[prefix_loc]+"_avg-time-below54"] = df["dur-below54"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_events-below54"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_events-below70"] = df["event-below70"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()
+        rolling_df[rolling_prefixes[prefix_loc]+"_avg-time-below70"] = df["dur-below70"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_events-below70"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_events-above140"] = df["event-above140"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()
+        rolling_df[rolling_prefixes[prefix_loc]+"_avg-time-above140"] = df["dur-above140"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_events-above140"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_events-above180"] = df["event-above180"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()
+        rolling_df[rolling_prefixes[prefix_loc]+"_avg-time-above180"] = df["dur-above180"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_events-above180"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_events-above250"] = df["event-above250"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()
+        rolling_df[rolling_prefixes[prefix_loc]+"_avg-time-above250"] = df["dur-above250"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_events-above250"]
+        
+        rolling_df[rolling_prefixes[prefix_loc]+"_AUC-avg_below54"] = df["below54_vals"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).apply(lambda x: np.trapz(x, dx=5), raw=True)/(rolling_points[prefix_loc]/288)
+        rolling_df[rolling_prefixes[prefix_loc]+"_AUC-avg_below70"] = df["below70_vals"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).apply(lambda x: np.trapz(x, dx=5), raw=True)/(rolling_points[prefix_loc]/288)
+        rolling_df[rolling_prefixes[prefix_loc]+"_AUC-avg_70-140"] = df["70-140_vals"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).apply(lambda x: np.trapz(x, dx=5), raw=True)/(rolling_points[prefix_loc]/288)
+        rolling_df[rolling_prefixes[prefix_loc]+"_AUC-avg_70-180"] = df["70-180_vals"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).apply(lambda x: np.trapz(x, dx=5), raw=True)/(rolling_points[prefix_loc]/288)
+        rolling_df[rolling_prefixes[prefix_loc]+"_AUC-avg_above180"] = df["above180_vals"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).apply(lambda x: np.trapz(x, dx=5), raw=True)/(rolling_points[prefix_loc]/288)
+        rolling_df[rolling_prefixes[prefix_loc]+"_AUC-avg_above250"] = df["above250_vals"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).apply(lambda x: np.trapz(x, dx=5), raw=True)/(rolling_points[prefix_loc]/288)
 
-        # print(rolling_prefixes[i], ' took {0} seconds.'.format(time.time() - start_time))
+        rolling_df[rolling_prefixes[prefix_loc]+"_LBGI"] = np.nan
+        rolling_df[rolling_prefixes[prefix_loc]+"_HBGI"] = np.nan
+
+        # Sleep specific rolling stats
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_data-points"] = df["sleep_values"].rolling(rolling_points[prefix_loc], min_periods=1).count()
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-data-available"] = rolling_df[rolling_prefixes[prefix_loc]+"_sleep_data-points"]/(72*rolling_points[prefix_loc]/288)
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_mean"] = df["sleep_values"].rolling(rolling_points[prefix_loc], min_periods=1).mean()
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_SD"] = df["sleep_values"].rolling(rolling_points[prefix_loc], min_periods=1).std()
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_CV"] = rolling_df[rolling_prefixes[prefix_loc]+"_sleep_SD"]/rolling_df[rolling_prefixes[prefix_loc]+"_sleep_mean"]
+
+        # TODO: Provide the proper calculations for metrics below
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-below54"] = np.nan
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-54-70"] = np.nan
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-below70"] = np.nan
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-70-140"] = np.nan
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-70-180"] = np.nan
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-above180"] = np.nan
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-above250"] = np.nan
+
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_events-below54"] = np.nan
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_avg-time-below54"] = np.nan
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_events-below70"] = np.nan
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_avg-time-below70"] = np.nan
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_events-above140"] = np.nan
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_avg-time-above140"] = np.nan
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_events-above180"] = np.nan
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_avg-time-above180"] = np.nan
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_events-above250"] = np.nan
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_avg-time-above250"] = np.nan
+        
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_LBGI"] = np.nan
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_HBGI"] = np.nan
+        # print(rolling_prefixes[prefix_loc], ' took {0} seconds.'.format(time.time() - start_time))
 
     return rolling_df
 
@@ -1455,8 +1507,34 @@ def get_summary_stats(hashID, df, day_df):
     summary_df.loc[0] = day_df.iloc[-1]
     summary_df["hashID"] = hashID
     summary_df.set_index("hashID", inplace=True)
+    first_ts = str(pd.to_datetime(final_df.loc[final_df.value.notnull(), "est.localTime"]).min())
+    last_ts = str(pd.to_datetime(final_df.loc[final_df.value.notnull(), "est.localTime"]).max())
+    summary_df.insert(0, "first_ts", first_ts)
+    summary_df.insert(1, "last_ts", last_ts)
 
     return summary_df
+
+
+def validate_study_criteria(df, endDate):
+    # Check if at least at least three months (28*3 days) of data >= 70% filled
+    three_month_min_points = int(84*288*0.7)
+    three_month_startDate = str(pd.to_datetime(endDate) - pd.Timedelta(days=84))
+
+    df = df[(df["est.localTime"] >= three_month_startDate) & (df["est.localTime"] <= (endDate))]
+
+    criteria_bool = df.value.count() >= three_month_min_points
+
+    # Check if at least 5 days of data per week >= 70% filled in the last month
+    weekly_min_points = int(7*288*0.7)
+    weekly_endDate = endDate
+
+    for week_num in range(4):
+        weekly_startDate = str(pd.to_datetime(weekly_endDate) - pd.Timedelta(days=7))
+        weekly_df = df[(df["est.localTime"] >= weekly_startDate) & (df["est.localTime"] <= (weekly_endDate))]
+        criteria_bool = criteria_bool * (weekly_df.value.count() >= weekly_min_points)
+        weekly_endDate = weekly_startDate
+
+    return criteria_bool
 
 
 # %% load environmental variables
@@ -1464,22 +1542,29 @@ dotenv_path = join(dirname(__file__), '.env')
 if isfile(dotenv_path):
     load_dotenv(dotenv_path)
 
-# TODO: instead of passing in these variables to each of the functions, just call this information
-# using os.environ[<name>] in the function. It is more secure.
-env_email = os.environ["EMAIL"]
-env_password = os.environ["PASS"]
-salt = os.environ["SALT"]
-
 survey_data = pd.read_excel(os.path.join(".", "data", "survey_results.xlsx"))
 
 # Create an analyzed column to mark datasets already analyzed
-if("analyzed" not in list(survey_data)):
-    survey_data["analyzed"] = False
-
-# Create an analyzed column to mark datasets already analyzed
 currentDate = dt.datetime.now().strftime("%Y-%m-%d")
+
 if("Time Started" not in list(survey_data)):
     survey_data["Time Started"] = currentDate
+
+survey_data = survey_data[["Hashed ID", "Time Started"]]
+# Create a column to mark user in Tidepool
+survey_data["Tidepool Account"] = False
+
+# Create a column to mark data sharing in Tidepool
+survey_data["Data Uploaded"] = False
+
+# Create a column to mark CGM data available in Tidepool
+survey_data["CGM Data"] = False
+
+# Create a column to mark CGM data available in Tidepool
+survey_data["Data Qualifies"] = False
+
+# Create an analyzed column to mark datasets already analyzed
+survey_data["analyzed"] = False
 
 timezoneAliasesFilePathAndName = os.path.join(".", "wikipedia-timezone-aliases-2018-04-28.csv")
 if os.path.isfile(timezoneAliasesFilePathAndName):
@@ -1487,9 +1572,9 @@ if os.path.isfile(timezoneAliasesFilePathAndName):
 else:
     sys.exit("{0} is not a valid file".format(timezoneAliasesFilePathAndName))
 
-
+skip_analysis = False
 # %% Accept New Donors
-new_donors = accept_new_donor(env_email, env_password)
+new_donors = accept_new_donor(os.environ["EMAIL"], os.environ["PASS"])
 
 
 # %% Get Account Donor List
@@ -1500,8 +1585,10 @@ donorMetadataColumns = ["userID", "name", "email",
 
 alldonorMetadataList = pd.DataFrame(columns=donorMetadataColumns)
 
-study_donor_list = get_donor_info(env_email, env_password, donorMetadataColumns)
+study_donor_list = get_donor_info(os.environ["EMAIL"], os.environ["PASS"], donorMetadataColumns)
 
+# Track Tidepool account survey taken status
+study_donor_list["survey_taken"] = False
 # %% Start Main Loop for donors
 
 for donor_row in range(len(study_donor_list)):
@@ -1509,10 +1596,20 @@ for donor_row in range(len(study_donor_list)):
     # Get study userID and hashID
     studyUserID = study_donor_list.loc[donor_row, "userID"]
     studyHashID = study_donor_list.loc[donor_row, "hashID"]
-    previously_analyzed = survey_data.loc[donor_row, "analyzed"]
 
     # Run pipeline if donor data is available and has not been analyzed
-    if (previously_analyzed == False) and (studyHashID in list(survey_data["Hashed ID"])):
+    if (studyHashID in list(survey_data["Hashed ID"])):
+        study_donor_list.loc[donor_row, "survey_taken"] = True
+        previously_analyzed = survey_data.loc[survey_data["Hashed ID"] == studyHashID, "analyzed"].values[0]
+
+        if(previously_analyzed):
+            print(studyHashID + " already analyzed.\n")
+            print("COMPLETED " + str(donor_row+1) +
+                  "/" + str(len(study_donor_list)) + "\n")
+            continue
+
+        survey_data.loc[survey_data["Hashed ID"] == studyHashID, "Tidepool Account"] = True
+
         print(studyHashID + " START PROCESSING")
         # Get timestamps of when survey was taken
         # and up to one year prior
@@ -1520,30 +1617,65 @@ for donor_row in range(len(study_donor_list)):
         startDate = pd.to_datetime(endDate) - pd.Timedelta(days=365)
         endDate = str(endDate)
         startDate = str(startDate)
+        file_outpath = os.path.join(".", "data", "cleaned-data", "PHI-"+studyHashID+".xlsx")
 
-        # Get data
-        data = get_user_data(env_email, env_password, studyUserID)
+        if(os.path.isfile(file_outpath)):
+            final_df = pd.read_excel(file_outpath)
 
-        # Estimate Local Time
-        data = getLTE(data)
+        else:
+            # Get data
+            data = get_user_data(os.environ["EMAIL"], os.environ["PASS"], studyUserID)
 
-        # Filter Data to before survey was taken
-        data = data[(data["est.localTime"] >= startDate) & (data["est.localTime"] <= (endDate))]
+            if("time" not in list(data)):
+                print(studyHashID + " NO DATA IN ACCOUNT.\n")
+                print("COMPLETED " + str(donor_row+1) +
+                      "/" + str(len(study_donor_list)) + "\n")
+                continue
 
-        # Clean Data
-        data = cleanData(data)
+            if(skip_analysis):
+                survey_data.loc[survey_data["Hashed ID"] == studyHashID, "Data Uploaded"] = True
+                survey_data.loc[survey_data["Hashed ID"] == studyHashID, "analyzed"] = True
+                print("COMPLETED " + str(donor_row+1) +
+                      "/" + str(len(study_donor_list)) + "\n")
+                continue
 
-        # Extract cgm and upload data
-        cgm_df = data.loc[data.type == "cbg"]
-        upload_df = data.loc[data.type == "upload"]
+            # Estimate Local Time
+            data = getLTE(data)
 
-        cgm_df, cgm_duplicate_count = remove_duplicates(cgm_df, upload_df)
+            if("deviceTime" in list(data)):
+                # Fill localTime with deviceTime if getLTE cannot impute (NaT)
+                # and deviceTime comes from Dexcom API
+                data["est.localTime"].fillna(pd.to_datetime(data.loc[data["isDexcomAPI"], "deviceTime"]), inplace=True)
 
-        cgm_df, cgm_rounded_duplicate_count = fill_time_gaps(cgm_df, startDate, endDate, "cgm")
+            # Clean Data
+            data = cleanData(data)
 
-        final_df = cgm_df.copy()
+            # Filter Data to before survey was taken
+            data = data[(data["est.localTime"] >= startDate) & (data["est.localTime"] <= (endDate))]
 
-        # TODO: Verify cgm data is valid for study
+            # Extract cgm and upload data
+            cgm_df = data.loc[data.type == "cbg"]
+            upload_df = data.loc[data.type == "upload"]
+
+            if(len(cgm_df) == 0):
+
+                print(studyHashID + " NO CGM data available.\n")
+                continue
+
+            survey_data.loc[survey_data["Hashed ID"] == studyHashID, "CGM Data"] = True
+
+            cgm_df, cgm_duplicate_count = remove_duplicates(cgm_df, upload_df)
+
+            cgm_df, cgm_rounded_duplicate_count = create_rounded_time_range(cgm_df, startDate, endDate, "cgm")
+
+            final_df = cgm_df.copy()
+
+            # Export data frame to user file
+            final_df.to_excel(file_outpath, index=False)
+
+        # Verify cgm data is valid for study
+        cgm_data_validated_bool = validate_study_criteria(final_df, endDate)
+        survey_data.loc[survey_data["Hashed ID"] == studyHashID, "Data Qualifies"] = cgm_data_validated_bool
 
         rolling_window = ["7day", "14day", "30day", "90day", "1year"]
         day_start = "5:55"
@@ -1551,10 +1683,6 @@ for donor_row in range(len(study_donor_list)):
         rolling_df = get_rolling_stats(final_df, rolling_window)
         daily_df = get_daily_stats(rolling_df, day_start)
         summary_df = get_summary_stats(studyHashID, final_df, daily_df)
-
-        # Add additional metrics to summary
-        summary_df["first_ts"] = startDate
-        summary_df["last_ts"] = endDate
 
         outputFileName = "Tidepool-T1DX-Analytics-Results-" + currentDate + ".csv"
         summary_path = os.path.join(".", "data", outputFileName)
@@ -1564,16 +1692,11 @@ for donor_row in range(len(study_donor_list)):
         else:
             summary_df.to_csv(summary_path, mode='a', header=False)
 
-        survey_data.loc[donor_row, "analyzed"] = True
+        survey_data.loc[survey_data["Hashed ID"] == studyHashID, "Data Uploaded"] = True
+        survey_data.loc[survey_data["Hashed ID"] == studyHashID, "analyzed"] = True
 
         print("COMPLETED " + str(donor_row+1) +
               "/" + str(len(study_donor_list)) + "\n")
-
-    elif (previously_analyzed):
-        print(studyHashID + " already analyzed.\n")
-        print("COMPLETED " + str(donor_row+1) +
-              "/" + str(len(study_donor_list)) + "\n")
-
     else:
         print(studyHashID + " survey data not available.\n")
         print("COMPLETED " + str(donor_row+1) +
@@ -1581,9 +1704,39 @@ for donor_row in range(len(study_donor_list)):
 
 # Analysis Run Summary
 survey_count = len(survey_data)
+account_and_survey = study_donor_list["survey_taken"].sum()
+account_no_survey = len(study_donor_list) - account_and_survey
 analyzed_count = survey_data.analyzed.sum()
 missing_data_count = survey_count - analyzed_count
+accounts_qualified = survey_data["Data Qualifies"].sum()
 print("Survey Participants: " + str(survey_count))
-print("Data Sets Analyzed:  " + str(analyzed_count))
+print("Data Sets analyzed:  " + str(analyzed_count))
 print("No Data in Tidepool: " + str(missing_data_count))
-survey_data.to_excel(".", "data", "survey_results" + currentDate + ".xlsx")
+print("Survey & in Tidepool: " + str(account_and_survey))
+print("In Tidepool & No Survey: " + str(account_no_survey))
+print("Accounts Qualified:" + str(accounts_qualified))
+
+survey_data["Contact?"] = np.nan
+
+# Filter survey output
+survey_data = survey_data[["Hashed ID",
+                           "Time Started",
+                           "Tidepool Account",
+                           "Data Uploaded",
+                           "CGM Data",
+                           "Data Qualifies",
+                           "Contact?"]]
+
+phi_lookup_table = study_donor_list[["hashID", "name", "email"]]
+
+for survey_row in range(len(survey_data)):
+    if(survey_data.loc[survey_row, "Tidepool Account"]):
+        if(survey_data.loc[survey_row, "Data Uploaded"] and survey_data.loc[survey_row, "CGM Data"]):
+                continue
+        else:
+            survey_data.loc[survey_row, "Contact?"] = "Tidepool"
+    else:
+        survey_data.loc[survey_row, "Contact?"] = "T1DX"
+
+survey_data.to_excel(os.path.join(".", "data", "survey_data_status_" + currentDate + ".xlsx"), index=False)
+phi_lookup_table.to_excel(os.path.join(".", "data", "PHI-T1DX_Tidepool_Pilot_Accounts" + currentDate + ".xlsx"), index=False)
