@@ -1505,14 +1505,13 @@ def get_daily_stats(df, daytime_start):
 def get_summary_stats(hashID, df, rolling_df, endDate):
     summary_df = pd.DataFrame(columns=rolling_df.columns.tolist())
     summary_df.loc[0] = rolling_df.iloc[-1]
-    summary_df["hashID"] = hashID
-    summary_df.set_index("hashID", inplace=True)
     first_ts = str(pd.to_datetime(final_df.loc[final_df.value.notnull(), "est.localTime"]).min())
     last_ts = str(pd.to_datetime(final_df.loc[final_df.value.notnull(), "est.localTime"]).max())
     summary_df.drop("est.localTime_rounded", axis=1, inplace=True)
-    summary_df.insert(0, "survey_taken", endDate)
-    summary_df.insert(1, "first_ts", first_ts)
-    summary_df.insert(2, "last_ts", last_ts)
+    summary_df.insert(0, "hashID", hashID)
+    summary_df.insert(1, "survey_taken", endDate)
+    summary_df.insert(2, "first_ts", first_ts)
+    summary_df.insert(3, "last_ts", last_ts)
 
     return summary_df
 
@@ -1693,13 +1692,12 @@ for donor_row in range(len(study_donor_list)):
         daily_df = get_daily_stats(rolling_df, day_start)
         summary_df = get_summary_stats(studyHashID, final_df, rolling_df, endDate)
 
-        outputFileName = "Tidepool-T1DX-Analytics-Results-" + currentDate + ".csv"
-        summary_path = os.path.join(".", "data", outputFileName)
-
-        if not os.path.exists(summary_path):
-            summary_df.to_csv(summary_path, header=True)
+        try:
+            summary_output
+        except NameError:
+            summary_output = summary_df
         else:
-            summary_df.to_csv(summary_path, mode='a', header=False)
+            summary_output = summary_output.append(summary_df)
 
         survey_data.loc[survey_data["Hashed ID"] == studyHashID, "Data Uploaded"] = True
         survey_data.loc[survey_data["Hashed ID"] == studyHashID, "analyzed"] = True
@@ -1747,5 +1745,6 @@ for survey_row in range(len(survey_data)):
     else:
         survey_data.loc[survey_row, "Contact?"] = "T1DX"
 
+summary_output.to_excel(os.path.join(".", "data", "Tidepool-T1DX-Analytics-Results-" + currentDate + ".xlsx"), index=False)
 survey_data.to_excel(os.path.join(".", "data", "survey_data_status_" + currentDate + ".xlsx"), index=False)
 phi_lookup_table.to_excel(os.path.join(".", "data", "PHI-T1DX_Tidepool_Pilot_Accounts.xlsx"), index=False)
