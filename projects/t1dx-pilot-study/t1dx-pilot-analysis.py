@@ -1182,7 +1182,7 @@ def round5Minutes(df):
     '''
 
     timeIntervalMinutes = 5
-    timeField = "time"
+    timeField = "est.localTime"
     roundedTimeFieldName = "est.localTime_rounded"
     startWithFirstRecord = True,
     verbose = False
@@ -1239,11 +1239,11 @@ def round5Minutes(df):
 def create_rounded_time_range(df, first_date, last_date, data_type):
 
     print("Creating rounded", data_type, "time ranges...", end=" ")
-    first_date = pd.to_datetime(dt.datetime.fromtimestamp(pd.to_datetime(first_date).timestamp()+.000001)).round("30S")
-    first_date = pd.to_datetime(dt.datetime.fromtimestamp(pd.to_datetime(first_date).timestamp()+.000001)).round("5min")
+    first_date = pd.to_datetime(dt.datetime.utcfromtimestamp(pd.to_datetime(first_date).timestamp()+.000001)).round("30S")
+    first_date = pd.to_datetime(dt.datetime.utcfromtimestamp(pd.to_datetime(first_date).timestamp()+.000001)).round("5min")
 
-    last_date = pd.to_datetime(dt.datetime.fromtimestamp(pd.to_datetime(last_date).timestamp()+.000001)).round("30S")
-    last_date = pd.to_datetime(dt.datetime.fromtimestamp(pd.to_datetime(last_date).timestamp()+.000001)).round("5min")
+    last_date = pd.to_datetime(dt.datetime.utcfromtimestamp(pd.to_datetime(last_date).timestamp()+.000001)).round("30S")
+    last_date = pd.to_datetime(dt.datetime.utcfromtimestamp(pd.to_datetime(last_date).timestamp()+.000001)).round("5min")
     # Create 5-min continuous time series in a new dataframe
     five_min_ts = pd.date_range(first_date, last_date, freq="5min")
     new_df = pd.DataFrame({"est.localTime_rounded": five_min_ts})
@@ -1404,8 +1404,8 @@ def get_rolling_stats(df, rolling_prefixes):
         # start_time = time.time()
         rolling_window = df.mg_dL.rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc])
 
-        rolling_df[rolling_prefixes[prefix_loc]+"_data-points"] = rolling_window.count()
-        rolling_df[rolling_prefixes[prefix_loc]+"_percent-data-available"] = rolling_df[rolling_prefixes[prefix_loc]+"_data-points"]/rolling_points[prefix_loc]
+        rolling_df[rolling_prefixes[prefix_loc]+"_n-data-points"] = rolling_window.count()
+        rolling_df[rolling_prefixes[prefix_loc]+"_percent-data-available"] = rolling_df[rolling_prefixes[prefix_loc]+"_n-data-points"]/rolling_points[prefix_loc]
         rolling_df[rolling_prefixes[prefix_loc]+"_mean"] = rolling_window.mean()
         # get estimated HbA1c or Glucose Management Index (GMI)
         # GMI(%) = 3.31 + 0.02392 x [mean glucose in mg/dL]
@@ -1413,13 +1413,13 @@ def get_rolling_stats(df, rolling_prefixes):
         rolling_df[rolling_prefixes[prefix_loc]+"_GMI"] = 3.31 + (0.02392*rolling_df[rolling_prefixes[prefix_loc]+"_mean"])
         rolling_df[rolling_prefixes[prefix_loc]+"_SD"] = rolling_window.std()
         rolling_df[rolling_prefixes[prefix_loc]+"_CV"] = rolling_df[rolling_prefixes[prefix_loc]+"_SD"]/rolling_df[rolling_prefixes[prefix_loc]+"_mean"]
-        rolling_df[rolling_prefixes[prefix_loc]+"_percent-below54"] = df["bool_below54"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_data-points"]
-        rolling_df[rolling_prefixes[prefix_loc]+"_percent-54-70"] = df["bool_54-70"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_data-points"]
-        rolling_df[rolling_prefixes[prefix_loc]+"_percent-below70"] = df["bool_below70"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_data-points"]
-        rolling_df[rolling_prefixes[prefix_loc]+"_percent-70-140"] = df["bool_70-140"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_data-points"]
-        rolling_df[rolling_prefixes[prefix_loc]+"_percent-70-180"] = df["bool_70-180"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_data-points"]
-        rolling_df[rolling_prefixes[prefix_loc]+"_percent-above180"] = df["bool_above180"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_data-points"]
-        rolling_df[rolling_prefixes[prefix_loc]+"_percent-above250"] = df["bool_above250"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_data-points"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_percent-below54"] = df["bool_below54"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_n-data-points"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_percent-54-70"] = df["bool_54-70"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_n-data-points"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_percent-below70"] = df["bool_below70"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_n-data-points"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_percent-70-140"] = df["bool_70-140"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_n-data-points"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_percent-70-180"] = df["bool_70-180"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_n-data-points"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_percent-above180"] = df["bool_above180"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_n-data-points"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_percent-above250"] = df["bool_above250"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_n-data-points"]
         rolling_df[rolling_prefixes[prefix_loc]+"_min"] = rolling_window.min()
 
         # Quartiles take a long time to process.
@@ -1455,8 +1455,8 @@ def get_rolling_stats(df, rolling_prefixes):
         rolling_df[rolling_prefixes[prefix_loc]+"_HBGI"] = np.nan
 
         # Sleep specific rolling stats
-        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_data-points"] = df["sleep_values"].rolling(rolling_points[prefix_loc], min_periods=1).count()
-        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-data-available"] = rolling_df[rolling_prefixes[prefix_loc]+"_sleep_data-points"]/(72*rolling_points[prefix_loc]/288)
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_n-data-points"] = df["sleep_values"].rolling(rolling_points[prefix_loc], min_periods=1).count()
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-data-available"] = rolling_df[rolling_prefixes[prefix_loc]+"_sleep_n-data-points"]/(72*rolling_points[prefix_loc]/288)
         rolling_df[rolling_prefixes[prefix_loc]+"_sleep_mean"] = df["sleep_values"].rolling(rolling_points[prefix_loc], min_periods=1).mean()
         rolling_df[rolling_prefixes[prefix_loc]+"_sleep_SD"] = df["sleep_values"].rolling(rolling_points[prefix_loc], min_periods=1).std()
         rolling_df[rolling_prefixes[prefix_loc]+"_sleep_CV"] = rolling_df[rolling_prefixes[prefix_loc]+"_sleep_SD"]/rolling_df[rolling_prefixes[prefix_loc]+"_sleep_mean"]
@@ -1502,15 +1502,17 @@ def get_daily_stats(df, daytime_start):
     return daily_df
 
 
-def get_summary_stats(hashID, df, day_df):
-    summary_df = pd.DataFrame(columns=day_df.columns.tolist())
-    summary_df.loc[0] = day_df.iloc[-1]
+def get_summary_stats(hashID, df, rolling_df, endDate):
+    summary_df = pd.DataFrame(columns=rolling_df.columns.tolist())
+    summary_df.loc[0] = rolling_df.iloc[-1]
     summary_df["hashID"] = hashID
     summary_df.set_index("hashID", inplace=True)
     first_ts = str(pd.to_datetime(final_df.loc[final_df.value.notnull(), "est.localTime"]).min())
     last_ts = str(pd.to_datetime(final_df.loc[final_df.value.notnull(), "est.localTime"]).max())
-    summary_df.insert(0, "first_ts", first_ts)
-    summary_df.insert(1, "last_ts", last_ts)
+    summary_df.drop("est.localTime_rounded", axis=1, inplace=True)
+    summary_df.insert(0, "survey_taken", endDate)
+    summary_df.insert(1, "first_ts", first_ts)
+    summary_df.insert(2, "last_ts", last_ts)
 
     return summary_df
 
@@ -1525,7 +1527,7 @@ def validate_study_criteria(df, endDate):
     criteria_bool = df.value.count() >= three_month_min_points
 
     # Check if at least 5 days of data per week >= 70% filled in the last month
-    weekly_min_points = int(7*288*0.7)
+    weekly_min_points = int(5*288*0.7)
     weekly_endDate = endDate
 
     for week_num in range(4):
@@ -1657,9 +1659,6 @@ for donor_row in range(len(study_donor_list)):
             # Clean Data
             data = cleanData(data)
 
-            # Filter Data to before survey was taken
-            data = data[(data["est.localTime"] >= startDate) & (data["est.localTime"] <= (endDate))]
-
             # Extract cgm and upload data
             cgm_df = data.loc[data.type == "cbg"]
             upload_df = data.loc[data.type == "upload"]
@@ -1673,6 +1672,9 @@ for donor_row in range(len(study_donor_list)):
 
             cgm_df, cgm_duplicate_count = remove_duplicates(cgm_df, upload_df)
 
+            # Filter Data to before survey was taken
+            cgm_df = cgm_df[(cgm_df["est.localTime"] >= startDate) & (cgm_df["est.localTime"] <= (endDate))]
+        
             cgm_df, cgm_rounded_duplicate_count = create_rounded_time_range(cgm_df, startDate, endDate, "cgm")
 
             final_df = cgm_df.copy()
@@ -1689,7 +1691,7 @@ for donor_row in range(len(study_donor_list)):
 
         rolling_df = get_rolling_stats(final_df, rolling_window)
         daily_df = get_daily_stats(rolling_df, day_start)
-        summary_df = get_summary_stats(studyHashID, final_df, daily_df)
+        summary_df = get_summary_stats(studyHashID, final_df, rolling_df, endDate)
 
         outputFileName = "Tidepool-T1DX-Analytics-Results-" + currentDate + ".csv"
         summary_path = os.path.join(".", "data", outputFileName)
