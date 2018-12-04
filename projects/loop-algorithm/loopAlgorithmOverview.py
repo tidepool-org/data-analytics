@@ -158,7 +158,7 @@ ax.plot(predictedTime, predictedCgm, linestyle="--", color="#31B0FF", lw=1, labe
 
 # plot the current time
 ax.plot(simulatedTime[-1], simulatedCgm[-1],
-        marker='*', markersize=16, color="white", alpha=0.5,
+        marker='*', markersize=16, color=coord_color, markeredgecolor = "black", alpha=0.5,
         ls="None", label="Current Time")
 
 # plot eventual bg
@@ -170,7 +170,7 @@ ax.plot(predictedTime[-1], predictedCgm[-1],
 min_idx = np.argmin(predictedCgm)
 ax.plot(predictedTime[min_idx], predictedCgm[min_idx],
         marker='*', markersize=16, color="red", alpha=0.25,
-        ls="None", label="Minimum BG = %d" % predictedCgm[min_idx])
+        ls="None", label="Minimum Predicted BG = %d" % predictedCgm[min_idx])
 
 # plot suspend threshold line
 ax.hlines(suspendThreshold, ax.get_xlim()[0], ax.get_xlim()[1],
@@ -180,7 +180,7 @@ ax.hlines(suspendThreshold, ax.get_xlim()[0], ax.get_xlim()[1],
 ax.scatter(simulatedTime, simulatedCgm, s=10, color="#31B0FF", label="CGM Data")
 
 # place holder for the delta vertical line in the legend
-ax.plot(-10, 10, ls="None", marker="|", markersize=16, markeredgewidth=6,
+ax.plot(-10, 10, ls="None", marker="|", markersize=16, markeredgewidth=6, alpha=0.5,
         color="purple", label="Delta between Correction Mean & Predicted Eventual")
 
 # run the common figure elements here
@@ -194,7 +194,7 @@ for text in leg.get_texts():
 
 # plot the delta
 ax.vlines(predictedTime[-1] + 10, min([correction_mean, predictedCgm[-1]]),
-          max([correction_mean, predictedCgm[-1]]), linewidth=6,
+          max([correction_mean, predictedCgm[-1]]), linewidth=6, alpha=0.5,
           colors="purple", label="Delta between Correction Mean & Predicted Eventual")
 
 # set tick marks
