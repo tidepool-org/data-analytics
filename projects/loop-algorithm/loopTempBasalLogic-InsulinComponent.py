@@ -418,7 +418,7 @@ plt.show()
 plt.close('all')
 
 
-# %% insulin activity curve
+# %% insulin activity curves
 peakActivityTime = 60
 activeDuration = 6
 deliveryTime = dt.datetime.now()
@@ -448,27 +448,27 @@ fiasp = get_insulin_effect(model="fiasp",
                            insulinAmount=insulinAmount,
                            isf=isf)
 
+walsh = get_insulin_effect(model="walsh",
+                           peakActivityTime=peakActivityTime,
+                           activeDuration=activeDuration,
+                           deliveryTime=deliveryTime,
+                           insulinAmount=insulinAmount,
+                           isf=isf)
 
-figureName = "insulin-activity-curves"
+
+
+# %% first make a plot of just one curve for illustrative purposes
+figureName = "insulin-activity-curve"
 yLabel = "Insulin Effect Relative to Time of Delivery"
 fig, ax = plt.subplots(figsize=figureSizeInches)
 
 # plot the activty curve by normalizing the delta BG effect
-ax.plot(xData, abs(humNovAdult["deltaGlucoseEffect"]) / max(abs(humNovAdult["deltaGlucoseEffect"])), color="#f09a37", lw=4, ls="-")
-ax.plot(xData, abs(humNovChild["deltaGlucoseEffect"]) / max(abs(humNovChild["deltaGlucoseEffect"])), color="#f09a37", lw=4, ls=":")
-ax.plot(xData, abs(fiasp["deltaGlucoseEffect"]) / max(abs(fiasp["deltaGlucoseEffect"])), color="#f09a37", lw=4, ls="--")
+ax.plot(xData, abs(humNovChild["deltaGlucoseEffect"]) / max(abs(humNovChild["deltaGlucoseEffect"])),
+        color="#f09a37", lw=4, ls="-")
+
 
 # run the common figure elements here
 ax = common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLabelFontSize, coord_color)
-
-# define the legend
-leg = plt.legend(["Humalog-Novolog-Adult (peak 75 min)",
-            "Humalog-Novolog-Child (peak 65 min)",
-            "Fiasp (peak 55 min)"], edgecolor="black")
-
-for text in leg.get_texts():
-    text.set_color('#606060')
-    text.set_weight('normal')
 
 # extras for this plot
 ax.set_xlim(-0.025, 6)
@@ -478,4 +478,36 @@ plt.savefig(os.path.join(outputPath, figureClass + figureName + ".png"))
 plt.show()
 plt.close('all')
 
+
+# %% show all of the insulin activity curves on one figure
+figureName = "insulin-activity-curves"
+yLabel = "Modeled Insulin Effect Relative to Time of Delivery"
+fig, ax = plt.subplots(figsize=figureSizeInches)
+
+# plot the activty curve by normalizing the delta BG effect
+ax.plot(xData, abs(humNovChild["deltaGlucoseEffect"]) / max(abs(humNovChild["deltaGlucoseEffect"])), color="#f09a37", lw=3, ls="-")
+ax.plot(xData, abs(humNovAdult["deltaGlucoseEffect"]) / max(abs(humNovAdult["deltaGlucoseEffect"])), color="#f09a37", lw=3, ls=":")
+ax.plot(xData, abs(fiasp["deltaGlucoseEffect"]) / max(abs(fiasp["deltaGlucoseEffect"])), color="#f09a37", lw=3, ls="--")
+ax.plot(xData, abs(walsh["deltaGlucoseEffect"]) / max(abs(walsh["deltaGlucoseEffect"])), color="#f09a37", lw=3, ls="-.")
+
+# run the common figure elements here
+ax = common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLabelFontSize, coord_color)
+
+# define the legend
+leg = plt.legend(["Humalog-Novolog-Child (peak 65 min)",
+                  "Humalog-Novolog-Adult (peak 75 min)",
+                  "Fiasp (peak 55 min)",
+                  "Walsh Model (peak 140 min)"], edgecolor="black")
+
+for text in leg.get_texts():
+    text.set_color('#606060')
+    text.set_weight('normal')
+
+# extras for this plot
+ax.set_xlim(-0.025, 6.1)
+
+# save the figure
+plt.savefig(os.path.join(outputPath, figureClass + figureName + ".png"))
+plt.show()
+plt.close('all')
 

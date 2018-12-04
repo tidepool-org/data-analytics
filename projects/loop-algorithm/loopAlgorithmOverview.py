@@ -156,6 +156,11 @@ ax.plot([], [], color='#B5E7FF', linewidth=10,
 # plot predicted cgm
 ax.plot(predictedTime, predictedCgm, linestyle="--", color="#31B0FF", lw=1, label="Predicted Glucose")
 
+# plot the current time
+ax.plot(simulatedTime[-1], simulatedCgm[-1],
+        marker='*', markersize=16, color="white", alpha=0.5,
+        ls="None", label="Current Time")
+
 # plot eventual bg
 ax.plot(predictedTime[-1], predictedCgm[-1],
         marker='*', markersize=16, color="#31B0FF", alpha=0.5,
@@ -175,7 +180,7 @@ ax.hlines(suspendThreshold, ax.get_xlim()[0], ax.get_xlim()[1],
 ax.scatter(simulatedTime, simulatedCgm, s=10, color="#31B0FF", label="CGM Data")
 
 # place holder for the delta vertical line in the legend
-ax.plot(-10, 10, ls="None", marker="|", markersize=16, markeredgewidth=2,
+ax.plot(-10, 10, ls="None", marker="|", markersize=16, markeredgewidth=6,
         color="purple", label="Delta between Correction Mean & Predicted Eventual")
 
 # run the common figure elements here
@@ -188,8 +193,8 @@ for text in leg.get_texts():
     text.set_weight('normal')
 
 # plot the delta
-ax.vlines(predictedTime[-1], min([correction_mean, predictedCgm[-1]]),
-          max([correction_mean, predictedCgm[-1]]), linewidth=2,
+ax.vlines(predictedTime[-1] + 10, min([correction_mean, predictedCgm[-1]]),
+          max([correction_mean, predictedCgm[-1]]), linewidth=6,
           colors="purple", label="Delta between Correction Mean & Predicted Eventual")
 
 # set tick marks
