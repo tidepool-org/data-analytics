@@ -67,7 +67,7 @@ def make_hour_labels(startTimeHour, startTimeAMPM, hourTicks):
 
 # %% specify the CGM Data (in minutes and mg/dL)
 cgmTimes = [5, 120, 240, 360]
-cgmValues = [100, 95, 110, 105]
+cgmValues = np.array([100, 95, 115, 110]) - 20
 simulatedTime, simulatedCgm = simulate_cgm_data(cgmTimes, cgmValues, amountOfWiggle=3)
 
 # specify the time you want the simulation to start
@@ -75,9 +75,9 @@ startTimeHour = 6
 startTimeAMPM = "AM"
 
 
-# %% specify the Predicted CGM Values
+# %% specify the Predicted BG Values
 cgmTimes = [365, 465, 565, 665, 720]
-cgmValues = [105, 90, 78, 90, 100]
+cgmValues = np.array([110, 90, 78, 82, 85]) - 20
 predictedTime, predictedCgm = simulate_cgm_data(cgmTimes, cgmValues, amountOfWiggle=2)
 
 
@@ -88,9 +88,10 @@ suspendThreshold = 60
 correction_mean = np.mean([correction_min, correction_max])
 bgRange = [50, 180]
 
+
 # %% set figure properties
 versionNumber = 2
-figureName = "LoopOverviewV" + str(versionNumber)
+figureName = "LoopOverview-SuspendV" + str(versionNumber)
 outputPath = os.path.join(".", "figures")
 
 # create output folder if it doesn't exist
@@ -142,7 +143,7 @@ def common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLa
 # %% make the figure
 fig, ax = plt.subplots(figsize=figureSizeInches)
 plt.ylim(bgRange)
-ax.set_xlim([min(simulatedTime) - 15, max(predictedTime) + 15])
+ax.set_xlim([min(simulatedTime) - 5, max(predictedTime) + 15])
 
 # plot correction range
 ax.fill_between([ax.get_xlim()[0], ax.get_xlim()[1]],
@@ -151,15 +152,23 @@ ax.fill_between([ax.get_xlim()[0], ax.get_xlim()[1]],
                 facecolor='#B5E7FF', lw=0)
 
 ax.plot([], [], color='#B5E7FF', linewidth=10,
-        label="Correction Range: %d-%d" % (correction_min, correction_max))
+        label="Correction Range = %d - %d" % (correction_min, correction_max))
 
 # plot predicted cgm
 ax.plot(predictedTime, predictedCgm, linestyle="--", color="#31B0FF", lw=1, label="Predicted Glucose")
 
+# plot simulated cgm
+ax.scatter(simulatedTime, simulatedCgm, s=10, color="#31B0FF", label="CGM Data")
+
+# plot the Correction Mean
+ax.plot(predictedTime[-1], correction_mean,
+        marker='*', markersize=16, color="purple", alpha=0.5,
+        ls="None", label="Correction Mean = %d" % correction_mean)
+
 # plot the current time
 ax.plot(simulatedTime[-1], simulatedCgm[-1],
         marker='*', markersize=16, color=coord_color, markeredgecolor = "black", alpha=0.5,
-        ls="None", label="Current Time")
+        ls="None", label="Current Time BG =  %d" % simulatedCgm[-1])
 
 # plot eventual bg
 ax.plot(predictedTime[-1], predictedCgm[-1],
@@ -176,26 +185,30 @@ ax.plot(predictedTime[min_idx], predictedCgm[min_idx],
 ax.hlines(suspendThreshold, ax.get_xlim()[0], ax.get_xlim()[1],
           colors="red", label="Suspend Threshold = %d" % suspendThreshold)
 
-# plot simulated cgm
-ax.scatter(simulatedTime, simulatedCgm, s=10, color="#31B0FF", label="CGM Data")
-
 # place holder for the delta vertical line in the legend
+delta = int(predictedCgm[-1] - correction_mean)
 ax.plot(-10, 10, ls="None", marker="|", markersize=16, markeredgewidth=6, alpha=0.5,
-        color="purple", label="Delta between Correction Mean & Predicted Eventual")
+        color="purple", label="Delta = %d" % delta)
 
 # run the common figure elements here
 ax = common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLabelFontSize, coord_color, yLabel_xOffset=32)
 
-# define the legend
-leg = plt.legend(scatterpoints=3, edgecolor="black")
+# change the order of the legend items
+handles, labels = ax.get_legend_handles_labels()
+handles = [handles[7], handles[3], handles[1], handles[4],
+           handles[0], handles[2], handles[6], handles[8], handles[5]]
+labels = [labels[7], labels[3], labels[1], labels[4],
+          labels[0], labels[2], labels[6], labels[8], labels[5]]
+
+# format the legend
+leg = ax.legend(handles, labels, scatterpoints=3, edgecolor="black")
 for text in leg.get_texts():
     text.set_color('#606060')
     text.set_weight('normal')
 
 # plot the delta
 ax.vlines(predictedTime[-1] + 10, min([correction_mean, predictedCgm[-1]]),
-          max([correction_mean, predictedCgm[-1]]), linewidth=6, alpha=0.5,
-          colors="purple", label="Delta between Correction Mean & Predicted Eventual")
+          max([correction_mean, predictedCgm[-1]]), linewidth=6, alpha=0.5, colors="purple")
 
 # set tick marks
 minuteTicks = np.arange(0, (len(simulatedTime) + len(predictedTime)) * 5 + 1, 60)
