@@ -463,7 +463,7 @@ yLabel = "Insulin Effect Relative to Time of Delivery"
 fig, ax = plt.subplots(figsize=figureSizeInches)
 
 # plot the activty curve by normalizing the delta BG effect
-ax.plot(xData, abs(humNovChild["deltaGlucoseEffect"]) / max(abs(humNovChild["deltaGlucoseEffect"])),
+ax.plot(xData, abs(humNovChild["deltaGlucoseEffect"]) / isf,
         color="#f09a37", lw=4, ls="-")
 
 
@@ -485,10 +485,10 @@ yLabel = "Modeled Insulin Effect Relative to Time of Delivery"
 fig, ax = plt.subplots(figsize=figureSizeInches)
 
 # plot the activty curve by normalizing the delta BG effect
-ax.plot(xData, abs(humNovChild["deltaGlucoseEffect"]) / max(abs(humNovChild["deltaGlucoseEffect"])), color="#f09a37", lw=3, ls="-")
-ax.plot(xData, abs(humNovAdult["deltaGlucoseEffect"]) / max(abs(humNovAdult["deltaGlucoseEffect"])), color="#f09a37", lw=3, ls=":")
-ax.plot(xData, abs(fiasp["deltaGlucoseEffect"]) / max(abs(fiasp["deltaGlucoseEffect"])), color="#f09a37", lw=3, ls="--")
-ax.plot(xData, abs(walsh["deltaGlucoseEffect"]) / max(abs(walsh["deltaGlucoseEffect"])), color="#f09a37", lw=3, ls="-.")
+ax.plot(xData, abs(humNovChild["deltaGlucoseEffect"]) / isf, color="#f09a37", lw=3, ls="-")
+ax.plot(xData, abs(humNovAdult["deltaGlucoseEffect"]) / isf, color="#f09a37", lw=3, ls=":")
+ax.plot(xData, abs(fiasp["deltaGlucoseEffect"]) / isf, color="#f09a37", lw=3, ls="--")
+ax.plot(xData, abs(walsh["deltaGlucoseEffect"]) / isf, color="#f09a37", lw=3, ls="-.")
 
 # run the common figure elements here
 ax = common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLabelFontSize, coord_color)
