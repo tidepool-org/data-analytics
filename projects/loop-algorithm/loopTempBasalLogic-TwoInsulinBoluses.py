@@ -393,19 +393,22 @@ plt.close('all')
 
 
 # %% now show example with the previous plot
-
-# specify the CGM Data (in minutes and mg/dL)
-cgmTimes =  [5,    30, 60, 75, 100, 120, 150, 180]
-cgmValues = [250, 290, 330, 350, 360, 345, 355, 355]
-simulatedTime, simulatedCgm = simulate_cgm_data(cgmTimes, cgmValues, amountOfWiggle=2)
-
 # specify the time you want the simulation to start
 startTimeHour = 6
 startTimeAMPM = "AM"
 
 ## %% apply the insulin effect
-predictedTime = np.arange(185, 185 + len(cumulativeInsulinEffect) * 5, 5)
+predictedTime = np.arange(0, len(cumulativeInsulinEffect) * 5, 5)
 predictedCgm = 355 + np.round(cumulativeInsulinEffect["cumulativeGlucoseEffect"].values)
+
+# specify the CGM Data (in minutes and mg/dL)
+cgmTimes =  predictedTime[range(0, 45, 9)]
+cgmValues = predictedCgm[range(0, 45, 9)]
+simulatedTime, simulatedCgm = simulate_cgm_data(cgmTimes, cgmValues, amountOfWiggle=3)
+
+## %% filter the predicted time to NOT overlap with the cgm data
+predictedTime = predictedTime[37:110]
+predictedCgm = predictedCgm[37:110]
 
 # make the figure
 figureName = "insulin-effect-example"
@@ -426,25 +429,21 @@ ax.fill_between(np.arange(0, (len(simulatedCgm) + len(predictedCgm)) * 5, 5),
 ax.plot([], [], color='#bde5fc', linewidth=10,
         label="Correction Range: %d-%d" % (correction_min, correction_max))
 
-## show the insulin delivered
-#ax.plot(predictedTime[0] - 5, predictedCgm[0] + 5,
-#        marker='v', markersize=16, color="#f09a37",
-#        ls="None", label="%d Units of Insulin Delivered" % insulinAmount)
 
-# show the insulin delivered
-for bolusNumber in range(len(insulinAmount)):
-    ax.plot(180 + deliveryTimeHoursRelativeToFirstDelivery[bolusNumber] * 60,
-            cumulativeInsulinEffect.loc[int(deliveryTimeHoursRelativeToFirstDelivery[bolusNumber] * 60 / 5), "cumulativeGlucoseEffect"] + 365,
-            marker='v', markersize=16, color="#f09a37",
-            ls="None", label="%d Units of Insulin Delivered" % insulinAmount[bolusNumber])
+
 
 # plot predicted cgm
 ax.plot(predictedTime, predictedCgm, linestyle="--", color="#4faef8", lw=4, label="Prediction (Insulin Effect Only)")
 
-# plot eventual bg
-ax.plot(predictedTime[-1], predictedCgm[-1],
-        marker='*', markersize=16, color="#4faef8",
-        ls="None", label="Eventual BG = %d" % predictedCgm[-1])
+# plot the current time
+ax.plot(simulatedTime[-1], simulatedCgm[-1],
+        marker='*', markersize=16, color=coord_color, markeredgecolor = "black", alpha=0.5,
+        ls="None", label="Current Time")
+
+## plot eventual bg
+#ax.plot(predictedTime[-1], predictedCgm[-1],
+#        marker='*', markersize=16, color="#4faef8",
+#        ls="None", label="Eventual BG = %d" % predictedCgm[-1])
 
 # plot simulated cgm
 ax.scatter(simulatedTime, simulatedCgm, s=18, color="#4faef8", label="CGM Data")
@@ -454,6 +453,19 @@ leg = plt.legend(scatterpoints=3, edgecolor="black")
 for text in leg.get_texts():
     text.set_color('#606060')
     text.set_weight('normal')
+
+# show the insulin delivered
+for bolusNumber in range(len(insulinAmount)):
+    ax.plot(deliveryTimeHoursRelativeToFirstDelivery[bolusNumber] * 60,
+            cumulativeInsulinEffect.loc[int(deliveryTimeHoursRelativeToFirstDelivery[bolusNumber] * 60 / 5), "cumulativeGlucoseEffect"] + 370,
+            marker='v', markersize=16, color="#f09a37",
+            ls="None", label="%d Units of Insulin Delivered" % insulinAmount[bolusNumber])
+
+    ax.text(deliveryTimeHoursRelativeToFirstDelivery[bolusNumber] * 60 + 10,
+            cumulativeInsulinEffect.loc[int(deliveryTimeHoursRelativeToFirstDelivery[bolusNumber] * 60 / 5), "cumulativeGlucoseEffect"] + 365,
+            "%d Units Delivered" % insulinAmount[bolusNumber],
+            horizontalalignment="left", fontproperties=figureFont, size=labelFontSize, color=coord_color)
+
 
 # run the common figure elements here
 ax = common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLabelFontSize, coord_color, yLabel_xOffset=50)
