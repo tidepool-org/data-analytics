@@ -336,22 +336,66 @@ plt.show()
 plt.close('all')
 
 
-# %% delta BG
+# %% delta BG every 5 minutes
+cumInsulinEffect1Second = pd.Series(data=cumulativeInsulinEffect.deltaGlucoseEffect.values,
+                                    index=cumulativeInsulinEffect.dateTime, name="deltaGlucoseEffect")
+cumInsulinEffect5Minute = cumInsulinEffect1Second.resample('5T', label="right").sum().reset_index()
+cumInsulinEffect5Minute["deltaGlucoseEffect"] = cumInsulinEffect5Minute.deltaGlucoseEffect.shift(1).fillna(0)
 figureName = "delta-bg"
-yLabel = "Change in BG (mg/dL) every second"
+yLabel = "Expected Change in BG (mg/dL) every 5 minutes"
 fig, ax = plt.subplots(figsize=figureSizeInches)
 
 # plot the curve
-ax.scatter(xDataInHours, cumulativeInsulinEffect["deltaGlucoseEffect"], color="#f09a37")
+xDataIn5Minutes = np.arange(0, 16, 5/60)
+ax.scatter(xDataIn5Minutes, cumInsulinEffect5Minute["deltaGlucoseEffect"], color="#f09a37")
 
 # run the common figure elements here
 ax = common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLabelFontSize, coord_color)
 
 # extras for this plot
-ax.set_xlim(-0.1, 10)
+ax.set_xlim(-0.1, 8)
 
 # save the figure
 plt.savefig(os.path.join(outputPath, figureClass + figureName + ".png"))
 plt.show()
 plt.close('all')
 
+
+# %% cumulative glucose effect
+figureName = "cumulative-insulin-effect"
+yLabel = "Cumulative Insulin Effect on BG (mg/dL)"
+fig, ax = plt.subplots(figsize=figureSizeInches)
+
+# plot the curve
+ax.plot(xDataInHours, cumulativeInsulinEffect["cumulativeGlucoseEffect"], lw=4, color="#f09a37")
+
+# run the common figure elements here
+ax = common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLabelFontSize, coord_color)
+
+# extras for this plot
+ax.set_xlim(-0.1, 14)
+
+# save the figure
+plt.savefig(os.path.join(outputPath, figureClass + figureName + ".png"))
+plt.show()
+plt.close('all')
+
+
+# %% counter basal effect
+figureName = "counter-basal-insulin-effect"
+yLabel = "Counter Basal Insulin Effect on BG (mg/dL)"
+fig, ax = plt.subplots(figsize=figureSizeInches)
+
+# plot the curve
+ax.plot(xDataInHours, -cumulativeInsulinEffect["cumulativeGlucoseEffect"], lw=4, color="#f09a37")
+
+# run the common figure elements here
+ax = common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLabelFontSize, coord_color)
+
+# extras for this plot
+ax.set_xlim(-0.1, 14)
+
+# save the figure
+plt.savefig(os.path.join(outputPath, figureClass + figureName + ".png"))
+plt.show()
+plt.close('all')
