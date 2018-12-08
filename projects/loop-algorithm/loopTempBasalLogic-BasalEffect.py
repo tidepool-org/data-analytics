@@ -213,6 +213,13 @@ def get_basal_insulin_effect(basalStartTime, basalRate, durationMilliSeconds, pu
     else:  #  includes MM 515, 715, 522, 722
         minIncrement = 0.05
 
+    # handle the negative basal rate case
+    if basalRate < 0:
+        basalRate = abs(basalRate)
+        isNegativeBasalRate = "True"
+    else:
+        isNegativeBasalRate = "False"
+
     if basalRate < 1:
         deliveryIncrement = minIncrement
     elif basalRate < 10:
@@ -256,9 +263,14 @@ def get_basal_insulin_effect(basalStartTime, basalRate, durationMilliSeconds, pu
             basalInsulinEffectSeconds["normalizedDeltaGlucoseEffect"].resample("5min", closed="right", label="right").sum().reset_index()
         basalIob = \
             basalInsulinEffectSeconds["iob"].resample("5min", closed="right", label="right").max().reset_index()
-        basalInsulinEffect["iob"] = basalIob["iob"].copy()
 
-    else:
+        if isNegativeBasalRate == "True":
+            basalInsulinEffect["normalizedDeltaGlucoseEffect"] = basalInsulinEffect["normalizedDeltaGlucoseEffect"] * -1
+            basalInsulinEffect["iob"] = 0
+        else:
+            basalInsulinEffect["iob"] = basalIob["iob"].copy()
+
+    else:  # basalRate is 0
         deliveryTimes = pd.date_range(basalStartTime, periods=6*20, freq="5min")
         basalInsulinEffect = pd.DataFrame(deliveryTimes, columns=["deliveryTime"])
         basalInsulinEffect["normalizedDeltaGlucoseEffect"] = 0
@@ -332,16 +344,19 @@ def common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLa
 # TODO: allow the effect to be relative to the scheduled basal rate
 
 basalStartTime = pd.to_datetime(dt.datetime.now()).round("5min")
-basalRate = 1  # U/hr
+tempBasal = 2
+currentBasalRate = 1
 durationMilliSeconds = 1 * 60 * 60 * 1000  # milliseconds (only because that is Tidepool default format)
 pumpModel = "723"
 insulinModel = "humalogNovologAdult"
 
+basalRate = tempBasal - currentBasalRate
 indBasalEffect = get_basal_insulin_effect(basalStartTime=basalStartTime,
                                           basalRate=basalRate,
                                           durationMilliSeconds=durationMilliSeconds,
                                           pumpModel=pumpModel,
                                           insulinModel=insulinModel)
+
 
 # %% combine multiple basal rates over time
 
