@@ -1521,21 +1521,24 @@ def validate_study_criteria(df, endDate):
     three_month_min_points = int(84*288*0.7)
     three_month_startDate = str(pd.to_datetime(endDate) - pd.Timedelta(days=84))
 
-    df = df[(df["est.localTime"] >= three_month_startDate) & (df["est.localTime"] <= (endDate))]
+    df = df[(df["est.localTime_rounded"] >= three_month_startDate) & (df["est.localTime_rounded"] <= (endDate))]
 
     criteria_bool = df.value.count() >= three_month_min_points
+    three_month_percentage = df.value.count()/(84*288)
 
     # Check if at least 5 days of data per week >= 70% filled in the last month
     weekly_min_points = int(5*288*0.7)
     weekly_endDate = endDate
+    weekly_percentages = []
 
     for week_num in range(4):
         weekly_startDate = str(pd.to_datetime(weekly_endDate) - pd.Timedelta(days=7))
         weekly_df = df[(df["est.localTime"] >= weekly_startDate) & (df["est.localTime"] <= (weekly_endDate))]
         criteria_bool = criteria_bool * (weekly_df.value.count() >= weekly_min_points)
+        weekly_percentages.append(weekly_df.value.count()/(7*288))
         weekly_endDate = weekly_startDate
 
-    return criteria_bool
+    return criteria_bool, three_month_percentage, weekly_percentages
 
 
 # %% load environmental variables
@@ -1561,7 +1564,13 @@ survey_data["Data Uploaded"] = False
 # Create a column to mark CGM data available in Tidepool
 survey_data["CGM Data"] = False
 
-# Create a column to mark CGM data available in Tidepool
+# Create a column to mark the percentage of data available in the last three months
+survey_data["3 Month Data %"] = np.nan
+
+# Create a column to mark the percentage of data available in the last 4 weeks
+survey_data["Weekly Data %"] = np.nan
+
+# Create a column to mark CGM data qualifies in Tidepool
 survey_data["Data Qualifies"] = False
 
 # Create an analyzed column to mark datasets already analyzed
@@ -1647,6 +1656,8 @@ for donor_row in range(len(study_donor_list)):
                       "/" + str(len(study_donor_list)) + "\n")
                 continue
 
+            survey_data.loc[survey_data["Hashed ID"] == studyHashID, "Data Uploaded"] = True
+            
             # Estimate Local Time
             data = getLTE(data)
 
@@ -1670,11 +1681,14 @@ for donor_row in range(len(study_donor_list)):
             survey_data.loc[survey_data["Hashed ID"] == studyHashID, "CGM Data"] = True
 
             cgm_df, cgm_duplicate_count = remove_duplicates(cgm_df, upload_df)
-
-            # Filter Data to before survey was taken
-            cgm_df = cgm_df[(cgm_df["est.localTime"] >= startDate) & (cgm_df["est.localTime"] <= (endDate))]
-        
+            
+            # Rounds data into a 5-minute dataframe
             cgm_df, cgm_rounded_duplicate_count = create_rounded_time_range(cgm_df, startDate, endDate, "cgm")
+            
+            # Filter Data to before survey was taken
+            # Note: Use rounded time to preserve NaN rows
+            cgm_df = cgm_df[(cgm_df["est.localTime_rounded"] >= startDate) & (cgm_df["est.localTime_rounded"] <= (endDate))]
+            cgm_df.reset_index(inplace=True)
 
             final_df = cgm_df.copy()
 
@@ -1682,9 +1696,11 @@ for donor_row in range(len(study_donor_list)):
             final_df.to_excel(file_outpath, index=False)
 
         # Verify cgm data is valid for study
-        cgm_data_validated_bool = validate_study_criteria(final_df, endDate)
+        cgm_data_validated_bool, three_month_percentage, weekly_percentages = validate_study_criteria(final_df, endDate)
+        survey_data.loc[survey_data["Hashed ID"] == studyHashID, "3 Month Data %"] = three_month_percentage
+        survey_data.loc[survey_data["Hashed ID"] == studyHashID, "Weekly Data %"] = str(weekly_percentages)
         survey_data.loc[survey_data["Hashed ID"] == studyHashID, "Data Qualifies"] = cgm_data_validated_bool
-
+        
         rolling_window = ["7day", "14day", "30day", "90day", "1year"]
         day_start = "5:55"
 
@@ -1699,7 +1715,6 @@ for donor_row in range(len(study_donor_list)):
         else:
             summary_output = summary_output.append(summary_df)
 
-        survey_data.loc[survey_data["Hashed ID"] == studyHashID, "Data Uploaded"] = True
         survey_data.loc[survey_data["Hashed ID"] == studyHashID, "analyzed"] = True
 
         print("COMPLETED " + str(donor_row+1) +
@@ -1731,10 +1746,13 @@ survey_data = survey_data[["Hashed ID",
                            "Tidepool Account",
                            "Data Uploaded",
                            "CGM Data",
+                           "3 Month Data %",
+                           "Weekly Data %",
                            "Data Qualifies",
                            "Contact?"]]
 
 phi_lookup_table = study_donor_list[["hashID", "name", "email"]]
+phi_unmatched_table = study_donor_list[~study_donor_list["hashID"].isin(list(survey_data["Hashed ID"]))]
 
 for survey_row in range(len(survey_data)):
     if(survey_data.loc[survey_row, "Tidepool Account"]):
@@ -1748,3 +1766,4 @@ for survey_row in range(len(survey_data)):
 summary_output.to_excel(os.path.join(".", "data", "Tidepool-T1DX-Analytics-Results-" + currentDate + ".xlsx"), index=False)
 survey_data.to_excel(os.path.join(".", "data", "survey_data_status_" + currentDate + ".xlsx"), index=False)
 phi_lookup_table.to_excel(os.path.join(".", "data", "PHI-T1DX_Tidepool_Pilot_Accounts.xlsx"), index=False)
+phi_unmatched_table.to_excel(os.path.join(".", "data", "PHI-UNMATCHED_T1DX_Tidepool_Pilot_Accounts.xlsx"), index=False)
