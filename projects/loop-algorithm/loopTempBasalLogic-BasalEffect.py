@@ -22,6 +22,8 @@ import datetime as dt
 from scipy.interpolate import BSpline, make_interp_spline
 from matplotlib import pyplot as plt
 from matplotlib.legend_handler import HandlerLine2D
+import matplotlib.patches as mpatches
+from matplotlib.collections import PatchCollection
 import matplotlib.font_manager as fm
 import matplotlib.style as ms
 ms.use("default")
@@ -237,7 +239,7 @@ def get_basal_insulin_effect(basalStartTime, basalRate, durationMilliSeconds, pu
         durationSeconds = round(durationMilliSeconds / 1000)
         deliveryFreq = int(durationSeconds / nDeliveries)
         deliveryTimes = pd.date_range(basalStartTime, periods=nDeliveries, freq=str(deliveryFreq) + "s")
-        basalInsulin = pd.DataFrame(deliveryTimes, columns=["deliveryTime"])
+        basalInsulin = pd.DataFrame(deliveryTimes, columns=["dateTime"])
         basalInsulin["deliveryAmount"] = deliveryIncrement
 
         # first delivery
@@ -257,7 +259,6 @@ def get_basal_insulin_effect(basalStartTime, basalRate, durationMilliSeconds, pu
         dateTimeGroups = combinedInsulinEffect.groupby("dateTime")
         basalInsulinEffectSeconds = dateTimeGroups.sum()
 
-
         # resample the results to give the expected drop every 5 minutes
         basalInsulinEffect = \
             basalInsulinEffectSeconds["normalizedDeltaGlucoseEffect"].resample("5min", closed="right", label="right").sum().reset_index()
@@ -272,7 +273,7 @@ def get_basal_insulin_effect(basalStartTime, basalRate, durationMilliSeconds, pu
 
     else:  # basalRate is 0
         deliveryTimes = pd.date_range(basalStartTime, periods=6*20, freq="5min")
-        basalInsulinEffect = pd.DataFrame(deliveryTimes, columns=["deliveryTime"])
+        basalInsulinEffect = pd.DataFrame(deliveryTimes, columns=["dateTime"])
         basalInsulinEffect["normalizedDeltaGlucoseEffect"] = 0
         basalInsulinEffect["iob"] = 0
 
@@ -283,6 +284,7 @@ def get_basal_insulin_effect(basalStartTime, basalRate, durationMilliSeconds, pu
     basalInsulinEffect["hoursSinceBasalDelivery"] = basalInsulinEffect["minutesSinceBasalStart"] / 60
 
     return basalInsulinEffect
+
 
 # %% set figure properties
 versionNumber = 1
@@ -335,28 +337,78 @@ def common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLa
     return ax
 
 
-# %% basal effect
-# TODO: properly round to the nearest 5 minutes. The right way to do this is to process the basals
-# as is, adn then to nudge them all by the same amount so that the first one occurs at the
-# nearest 5 minute interval
+# %% combine multiple basal rates and boluses over time
+figureName = "basal-insulin-effect"
+yLabel = "Basal Rates & IOB"
+fig, ax = plt.subplots(figsize=figureSizeInches)
 
-# TODO: allow ISF to be a function of time
-# TODO: allow the effect to be relative to the scheduled basal rate
-
-basalStartTime = pd.to_datetime(dt.datetime.now()).round("5min")
-tempBasal = 2
-currentBasalRate = 1
-durationMilliSeconds = 1 * 60 * 60 * 1000  # milliseconds (only because that is Tidepool default format)
 pumpModel = "723"
 insulinModel = "humalogNovologAdult"
 
-basalRate = tempBasal - currentBasalRate
-indBasalEffect = get_basal_insulin_effect(basalStartTime=basalStartTime,
-                                          basalRate=basalRate,
-                                          durationMilliSeconds=durationMilliSeconds,
-                                          pumpModel=pumpModel,
-                                          insulinModel=insulinModel)
+basalData = pd.read_csv("exampleTidepoolBasalData.csv", low_memory=False)
 
+# NOTE: this example assumes that suspends have a rate of 0.
+# Tidepool data will mark the rate as nan; use the commented code to replace nan with 0
+## fill NaNs with 0, as it indicates a temp basal of 0
+#basalData.rate.fillna(0, inplace=True)
 
-# %% combine multiple basal rates over time
+basalData["deliveryTimeHoursRelativeToFirstDelivery"] = \
+    (pd.to_datetime(basalData["deviceTime"]) - \
+     pd.to_datetime(basalData.loc[0, "deviceTime"])).dt.total_seconds() / (3600)
 
+combinedInsulinEffect = pd.DataFrame(columns=["dateTime", "iob", "normalizedDeltaGlucoseEffect"])
+for bIndex in range(len(basalData)):
+
+    basalStartTime = pd.to_datetime(basalData["deviceTime"][bIndex]).round("5min")
+    basalRate = basalData["rate"][bIndex]
+    durationMilliSeconds = basalData["duration"][bIndex]
+
+    if durationMilliSeconds > 0:
+
+        indBasalEffect = get_basal_insulin_effect(basalStartTime=basalStartTime,
+                                                  basalRate=basalRate,
+                                                  durationMilliSeconds=durationMilliSeconds,
+                                                  pumpModel=pumpModel,
+                                                  insulinModel=insulinModel)
+
+        combinedInsulinEffect = pd.concat([combinedInsulinEffect, indBasalEffect[["dateTime", "iob", "normalizedDeltaGlucoseEffect"]]])
+
+        # show the basal rectangle
+        if bIndex < (len(basalData) - 1):
+            rect = mpatches.Rectangle((basalData.deliveryTimeHoursRelativeToFirstDelivery[bIndex], 0),
+                     (basalData.duration[bIndex] / (1000 * 3600)),
+                     basalData.rate[bIndex], linewidth=1, edgecolor="#f09a37", facecolor="#f6cc89")
+
+            ax.add_patch(rect)
+
+# combine the effects
+dateTimeGroups = combinedInsulinEffect.groupby("dateTime")
+basalInsulinEffect = dateTimeGroups.sum()
+
+basalInsulinEffect["normalizedCumulativeGlucoseEffect"] = \
+    basalInsulinEffect["normalizedDeltaGlucoseEffect"].cumsum()
+
+basalInsulinEffect["minutesSinceBasalStart"] = np.arange(0, len(basalInsulinEffect) * 5, 5)
+basalInsulinEffect["hoursSinceBasalDelivery"] = basalInsulinEffect["minutesSinceBasalStart"] / 60
+
+# plot the curve
+ax.plot(basalInsulinEffect.hoursSinceBasalDelivery,
+        basalInsulinEffect.iob, lw=4, color="#f09a37")
+
+# run the common figure elements here
+ax = common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLabelFontSize, coord_color)
+
+# extras for this plot
+ax.set_xlim(-0.1, np.ceil(basalData.deliveryTimeHoursRelativeToFirstDelivery.max()))
+
+# %% make plot of delta BG
+figureName = "basal-insulin-effect-delta-BG"
+yLabel = "Expected Change (5 minute intervals)"
+fig, ax = plt.subplots(figsize=figureSizeInches)
+ax.plot(basalInsulinEffect.hoursSinceBasalDelivery,
+        basalInsulinEffect.normalizedDeltaGlucoseEffect, lw=4, color="#f09a37")
+
+ax = common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLabelFontSize, coord_color)
+
+# extras for this plot
+ax.set_xlim(-0.1, np.ceil(basalData.deliveryTimeHoursRelativeToFirstDelivery.max()))
