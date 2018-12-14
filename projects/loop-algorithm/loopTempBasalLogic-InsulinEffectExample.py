@@ -345,7 +345,7 @@ fig, ax = plt.subplots(figsize=figureSizeInches)
 pumpModel = "723"
 insulinModel = "humalogNovologAdult"
 
-basalData = pd.read_csv("exampleTidepoolBasalData.csv", low_memory=False)
+basalData = pd.read_csv("basalExample.csv", low_memory=False)
 
 # NOTE: this example assumes that suspends have a rate of 0.
 # Tidepool data will mark the rate as nan; use the commented code to replace nan with 0
@@ -353,13 +353,14 @@ basalData = pd.read_csv("exampleTidepoolBasalData.csv", low_memory=False)
 #basalData.rate.fillna(0, inplace=True)
 
 basalData["deliveryTimeHoursRelativeToFirstDelivery"] = \
-    (pd.to_datetime(basalData["deviceTime"]) - \
-     pd.to_datetime(basalData.loc[0, "deviceTime"])).dt.total_seconds() / (3600)
+    (pd.to_datetime(basalData["est.localTime"]) - \
+     pd.to_datetime(basalData.loc[0, "est.localTime"])).dt.total_seconds() / (3600)
 
 combinedInsulinEffect = pd.DataFrame(columns=["dateTime", "iob", "normalizedDeltaGlucoseEffect"])
 for bIndex in range(len(basalData)):
+    print(bIndex)
 
-    basalStartTime = pd.to_datetime(basalData["deviceTime"][bIndex]).round("5min")
+    basalStartTime = pd.to_datetime(basalData["est.localTime"][bIndex]).round("5min")
     basalRate = basalData["rate"][bIndex]
     durationMilliSeconds = basalData["duration"][bIndex]
 
@@ -401,10 +402,6 @@ ax = common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickL
 # extras for this plot
 ax.set_xlim(-0.1, np.ceil(basalData.deliveryTimeHoursRelativeToFirstDelivery.max()))
 
-plt.savefig(os.path.join(outputPath, figureName + ".png"))
-plt.show()
-plt.close('all')
-
 # %% make plot of delta BG
 figureName = "basal-insulin-effect-delta-BG"
 yLabel = "Expected Change (5 minute intervals)"
@@ -416,7 +413,3 @@ ax = common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickL
 
 # extras for this plot
 ax.set_xlim(-0.1, np.ceil(basalData.deliveryTimeHoursRelativeToFirstDelivery.max()))
-
-plt.savefig(os.path.join(outputPath, figureName + ".png"))
-plt.show()
-plt.close('all')
