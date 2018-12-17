@@ -1386,6 +1386,29 @@ def get_rolling_stats(df, rolling_prefixes):
     sleep_bool = (df["est.localTime"].dt.hour*60+df["est.localTime"].dt.minute) < 360
     df["sleep_values"] = df.loc[sleep_bool, "mg_dL"]
 
+        
+    df["sleep_below54"] = df.loc[sleep_bool, "bool_below54"]
+    df["sleep_54-70"] = df.loc[sleep_bool, "bool_54-70"]
+    df["sleep_below70"] = df.loc[sleep_bool, "bool_below70"]
+    df["sleep_70-140"] = df.loc[sleep_bool, "bool_70-140"]
+    df["sleep_70-180"] = df.loc[sleep_bool, "bool_70-180"]
+    df["sleep_above180"] = df.loc[sleep_bool, "bool_above180"]
+    df["sleep_above250"] = df.loc[sleep_bool, "bool_above250"]
+
+    df["sleep_event-below54"] = df.loc[sleep_bool, "event-below54"]
+    df["sleep_dur-below54"] = df.loc[sleep_bool, "dur-below54"]
+    df["sleep_event-below70"] = df.loc[sleep_bool, "event-below70"]
+    df["sleep_dur-below70"] = df.loc[sleep_bool, "dur-below70"]
+    df["sleep_event-above140"] = df.loc[sleep_bool, "event-above140"]
+    df["sleep_dur-above140"] = df.loc[sleep_bool, "dur-above140"]
+    df["sleep_event-above180"] = df.loc[sleep_bool, "event-above180"]
+    df["sleep_dur-above180"] = df.loc[sleep_bool, "dur-above180"]
+    df["sleep_event-above250"] = df.loc[sleep_bool, "event-above250"]
+    df["sleep_dur-above250"] = df.loc[sleep_bool, "dur-above250"]
+
+    df["sleep_low_risk_power"] = df.loc[sleep_bool, "low_risk_power"]
+    df["sleep_high_risk_power"] = df.loc[sleep_bool, "high_risk_power"]
+
     # Map Dictionary of rolling window sizes
     rolling_dictionary = \
         dict(zip(
@@ -1473,27 +1496,27 @@ def get_rolling_stats(df, rolling_prefixes):
         rolling_df[rolling_prefixes[prefix_loc]+"_sleep_CV"] = rolling_df[rolling_prefixes[prefix_loc]+"_sleep_SD"]/rolling_df[rolling_prefixes[prefix_loc]+"_sleep_mean"]
 
         # TODO: Provide the proper calculations for metrics below
-        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-below54"] = np.nan
-        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-54-70"] = np.nan
-        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-below70"] = np.nan
-        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-70-140"] = np.nan
-        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-70-180"] = np.nan
-        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-above180"] = np.nan
-        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-above250"] = np.nan
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-below54"] = df["sleep_below54"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_sleep_n-data-points"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-54-70"] = df["sleep_54-70"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_sleep_n-data-points"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-below70"] = df["sleep_below70"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_sleep_n-data-points"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-70-140"] = df["sleep_70-140"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_sleep_n-data-points"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-70-180"] = df["sleep_70-180"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_sleep_n-data-points"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-above180"] = df["sleep_above180"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_sleep_n-data-points"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-above250"] = df["sleep_above250"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_sleep_n-data-points"]
 
-        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_events-below54"] = np.nan
-        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_avg-time-below54"] = np.nan
-        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_events-below70"] = np.nan
-        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_avg-time-below70"] = np.nan
-        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_events-above140"] = np.nan
-        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_avg-time-above140"] = np.nan
-        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_events-above180"] = np.nan
-        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_avg-time-above180"] = np.nan
-        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_events-above250"] = np.nan
-        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_avg-time-above250"] = np.nan
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_events-below54"] = df["sleep_event-below54"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_avg-time-below54"] = df["sleep_dur-below54"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_sleep_events-below54"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_events-below70"] = df["sleep_event-below70"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_avg-time-below70"] = df["sleep_dur-below70"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_sleep_events-below70"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_events-above140"] = df["sleep_event-above140"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_avg-time-above140"] = df["sleep_dur-above140"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_sleep_events-above140"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_events-above180"] = df["sleep_event-above180"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_avg-time-above180"] = df["sleep_dur-above180"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_sleep_events-above180"]
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_events-above250"] = df["sleep_event-above250"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_avg-time-above250"] = df["sleep_dur-above250"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_sleep_events-above250"]
 
-        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_LBGI"] = np.nan
-        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_HBGI"] = np.nan
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_LBGI"] = df["sleep_low_risk_power"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).mean()
+        rolling_df[rolling_prefixes[prefix_loc]+"_sleep_HBGI"] = df["sleep_high_risk_power"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).mean()
         # print(rolling_prefixes[prefix_loc], ' took {0} seconds.'.format(time.time() - start_time))
 
     return rolling_df
