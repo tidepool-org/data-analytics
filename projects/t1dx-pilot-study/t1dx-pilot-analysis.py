@@ -1373,20 +1373,18 @@ def get_rolling_stats(df, rolling_prefixes):
 
     # Calculate LBGI and HBGI using equation from
     # Clarke, W., & Kovatchev, B. (2009)
-    
+
     transformed_bg = 1.509*((np.log(df["mg_dL"])**1.084)-5.381)
     risk_power = 10*(transformed_bg)**2
     low_risk_bool = transformed_bg < 0
     high_risk_bool = transformed_bg > 0
     df["low_risk_power"] = risk_power * low_risk_bool
     df["high_risk_power"] = risk_power * high_risk_bool
-    
-    
+
     # Setup sleep data (12AM-6AM)
     sleep_bool = (df["est.localTime"].dt.hour*60+df["est.localTime"].dt.minute) < 360
     df["sleep_values"] = df.loc[sleep_bool, "mg_dL"]
 
-        
     df["sleep_below54"] = df.loc[sleep_bool, "bool_below54"]
     df["sleep_54-70"] = df.loc[sleep_bool, "bool_54-70"]
     df["sleep_below70"] = df.loc[sleep_bool, "bool_below70"]
@@ -1495,7 +1493,6 @@ def get_rolling_stats(df, rolling_prefixes):
         rolling_df[rolling_prefixes[prefix_loc]+"_sleep_SD"] = df["sleep_values"].rolling(rolling_points[prefix_loc], min_periods=1).std()
         rolling_df[rolling_prefixes[prefix_loc]+"_sleep_CV"] = rolling_df[rolling_prefixes[prefix_loc]+"_sleep_SD"]/rolling_df[rolling_prefixes[prefix_loc]+"_sleep_mean"]
 
-        # TODO: Provide the proper calculations for metrics below
         rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-below54"] = df["sleep_below54"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_sleep_n-data-points"]
         rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-54-70"] = df["sleep_54-70"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_sleep_n-data-points"]
         rolling_df[rolling_prefixes[prefix_loc]+"_sleep_percent-below70"] = df["sleep_below70"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).sum()/rolling_df[rolling_prefixes[prefix_loc]+"_sleep_n-data-points"]
@@ -1557,7 +1554,9 @@ def validate_study_criteria(df, endDate):
 
     df = df[(df["est.localTime_rounded"] >= three_month_startDate) & (df["est.localTime_rounded"] <= (endDate))]
 
-    criteria_bool = df.value.count() >= three_month_min_points
+    # Disqualify using 3 months of data
+    # criteria_bool = df.value.count() >= three_month_min_points
+    criteria_bool = True
     three_month_percentage = df.value.count()/(84*288)
 
     # Check if at least 5 days of data per week >= 70% filled in the last month
