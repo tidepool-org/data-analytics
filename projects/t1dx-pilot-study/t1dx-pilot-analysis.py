@@ -1371,6 +1371,17 @@ def get_rolling_stats(df, rolling_prefixes):
     df["above250_vals"] = df.loc[df["bool_above250"], "mg_dL"]-250
     df["above250_vals"].fillna(0, inplace=True)
 
+    # Calculate LBGI and HBGI using equation from
+    # Clarke, W., & Kovatchev, B. (2009)
+    
+    transformed_bg = 1.509*((np.log(df["mg_dL"])**1.084)-5.381)
+    risk_power = 10*(transformed_bg)**2
+    low_risk_bool = transformed_bg < 0
+    high_risk_bool = transformed_bg > 0
+    df["low_risk_power"] = risk_power * low_risk_bool
+    df["high_risk_power"] = risk_power * high_risk_bool
+    
+    
     # Setup sleep data (12AM-6AM)
     sleep_bool = (df["est.localTime"].dt.hour*60+df["est.localTime"].dt.minute) < 360
     df["sleep_values"] = df.loc[sleep_bool, "mg_dL"]
@@ -1451,8 +1462,8 @@ def get_rolling_stats(df, rolling_prefixes):
         rolling_df[rolling_prefixes[prefix_loc]+"_AUC-avg_above180"] = df["above180_vals"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).apply(lambda x: np.trapz(x, dx=5), raw=True)/(rolling_points[prefix_loc]/288)
         rolling_df[rolling_prefixes[prefix_loc]+"_AUC-avg_above250"] = df["above250_vals"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).apply(lambda x: np.trapz(x, dx=5), raw=True)/(rolling_points[prefix_loc]/288)
 
-        rolling_df[rolling_prefixes[prefix_loc]+"_LBGI"] = np.nan
-        rolling_df[rolling_prefixes[prefix_loc]+"_HBGI"] = np.nan
+        rolling_df[rolling_prefixes[prefix_loc]+"_LBGI"] = df["low_risk_power"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).mean()
+        rolling_df[rolling_prefixes[prefix_loc]+"_HBGI"] = df["high_risk_power"].rolling(rolling_points[prefix_loc], min_periods=rolling_min[prefix_loc]).mean()
 
         # Sleep specific rolling stats
         rolling_df[rolling_prefixes[prefix_loc]+"_sleep_n-data-points"] = df["sleep_values"].rolling(rolling_points[prefix_loc], min_periods=1).count()
