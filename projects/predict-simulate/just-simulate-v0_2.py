@@ -353,9 +353,9 @@ for bolusIndex in boluses.index:
 
 # plot the active insulin
 ax.plot(df["minutesRelativeToNow"],
-        df["aiv"]*50+10, linestyle="-", color="#f09a37", lw=3, alpha=0.25, label="Active Insulin")
+        df["aiv"]*100+10, linestyle="-", color="#f09a37", lw=3, alpha=0.25, label="Active Insulin")
 
-ax.fill_between(df["minutesRelativeToNow"], df["aiv"]*50+10, 10, color="#f6cc89", alpha=0.25)
+ax.fill_between(df["minutesRelativeToNow"], df["aiv"]*100+10, 10, color="#f6cc89", alpha=0.25)
 
 # plot the active carbs
 ax.plot(df["minutesRelativeToNow"],
