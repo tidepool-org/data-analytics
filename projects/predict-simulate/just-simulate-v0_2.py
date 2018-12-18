@@ -15,24 +15,53 @@ license: BSD-2-Clause
 # %% required libraries
 import pdb
 import os
-import sys
 import pandas as pd
 import numpy as np
 import datetime as dt
-from scipy.optimize import curve_fit
 from matplotlib import pyplot as plt
-from matplotlib.legend_handler import HandlerLine2D
-from matplotlib import lines
 import matplotlib.font_manager as fm
 import matplotlib.style as ms
 ms.use("default")
 
 
-# %% user inputs
+# %% USER INPUTS
+# currentTime (can take string or date time format)
+currentTime = "12:00 PM"  # dt.datetime.now()
+
+# starting BG Level
+startingBGLevel = 360
+
+# Insulin Model (4 options)
+insulinModel = "adult"  # "adult", "child", "fiasp", or "walsh"
+
+# Insulin Sensitivity Factors (time, isf)
+isfInputArray = np.array([["12:00 AM", 40],
+                          ["12:00 PM", 50],
+                          ["6:00 PM", 40]])
+
+# Carb-to-Insulin Ratios (time, cir)
+cirInputArray = np.array([["12:00 AM", 10],
+                          ["6:00 AM", 12],
+                          ["10:00 AM", 10]])
+
+# Scheduled Basal Rates (time, basalRate)
+sbrInputArray = np.array([["12:00 AM", 0.875],
+                          ["6:00 AM", 1],
+                          ["10:00 AM", 1]])
+
+# Temp Basals & Suspends (time, basalRate, duration)
+# NOTE: basalRate = 0 is a suspend
+abrInputArray = np.array([["4:00 AM", 3, 120],
+                          ["8:00 AM", 0, 15],
+                          ["12:00 PM", 1.25, 60],
+                          ["3:00 PM", 0, 30]])
+
+# Boluses (time, unitsInsulin, carbs, carbModel)
+bolusInputArray = np.array([["8:00 AM", 2, 20, "lowGI"],
+                           ["11:00 AM", 4, 40, "medGI"]])
 
 
-
-# %% just simulate based upon inputs
+# %% FUNCTIONS
 def create_deltaBG_functions(deltaBgEquation):
 
     def get_deltaBG_function(ISF=0, BR=0, TB=0,
@@ -47,7 +76,7 @@ def create_deltaBG_functions(deltaBgEquation):
 def expand_settings(userInputArray, settingName, timeStepSize=5):
     # this will be user input (a simple table of the ISF schedule)
     userInputDf = pd.DataFrame(userInputArray,
-                             columns=[settingName + ".time", settingName])
+                               columns=[settingName + ".time", settingName])
 
     # make sure the values are floats and not integers
     userInputDf[settingName] = userInputDf[settingName].astype("float")
@@ -73,182 +102,9 @@ def merge_and_fill_data(settingDf, df):
     return df
 
 
-# %% define the model
-deltaBgEquation = "ISF * ((ACV/CIR) - AIV)"
-deltaBG = create_deltaBG_functions(deltaBgEquation)
-
-
-# %% load in activity curve data
-insulinActivityCurves = pd.read_csv("all-iac-models.csv", low_memory=False)
-carbActivityCurves = pd.read_csv("all-cac-models.csv", low_memory=False)
-
-# choose the insulin model that you want to use
-insulinModel = insulinActivityCurves["adult"].values
-
-# %% create a more realistic example with variable, boluses and basals
-# first create a continuguous time series
-currentTime=dt.datetime.now()
-timeStepSize=5  # minutes
-effectLength=8  # hours
-roundedCurrentTime = pd.to_datetime(currentTime).round(str(timeStepSize) + "min")
-startTime = roundedCurrentTime + pd.Timedelta(-24, unit="h")
-endTime = roundedCurrentTime + pd.Timedelta(24, unit="h")
-rng = pd.date_range(startTime, endTime, freq=(str(timeStepSize) + "min"))
-data = pd.DataFrame(rng, columns=["dateTime"])
-data["minutesRelativeToNow"] = np.arange(-24*60, 24*60 + 5,5)
-
-# % ISF
-userInputArray = np.array([["12:00 AM", 40],
-                           ["12:00 PM", 50],
-                           ["6:00 PM", 40]])
-
-isf = expand_settings(userInputArray, "isf")
-data = merge_and_fill_data(isf, data)
-
-# % CIR
-userInputArray = np.array([["12:00 AM", 10],
-                           ["6:00 AM", 12],
-                           ["10:00 AM", 10]])
-
-cir = expand_settings(userInputArray, "cir")
-data = merge_and_fill_data(cir, data)
-
-
-# % SCHEDULED BASAL RATES (SBR)
-userInputArray = np.array([["12:00 AM", 0.875],
-                           ["6:00 AM", 1],
-                           ["10:00 AM", 1]])
-
-sbr = expand_settings(userInputArray, "sbr")
-data = merge_and_fill_data(sbr, data)
-
-
-# % ACTUAL BASALS INCLUDING TEMP BASALS AND SUSPENDS
-userInputArray = np.array([["12:00 PM", 1.25, 360],
-                           ["10:00 PM", 0, 30]])
-
-# this will be user input (a simple table of the schedule)
-userInputDf = pd.DataFrame(userInputArray,
-                           columns=["abr.time",
-                                    "abr",
-                                    "duration"])
-
-# make sure the values are floats and not integers
-userInputDf["abr"] = userInputDf["abr"].astype("float")
-
-# round to the nearest 5 minutes
-userInputDf["dateTime"] = pd.to_datetime(userInputDf["abr.time"]).dt.round(str(timeStepSize) + "min")
-
-abr = pd.DataFrame()
-for b in range(len(userInputDf)):
-    startTime = userInputDf.loc[b, "dateTime"]
-    endTime = startTime + pd.Timedelta(np.int(userInputDf.loc[b, "duration"]), unit="m")
-    rng = pd.date_range(startTime, endTime, freq=(str(timeStepSize) + "min"))
-    tempDf = pd.DataFrame(rng[:-1], columns=["dateTime"])
-    tempDf["abr"] = userInputDf.loc[b, "abr"]
-    abr = pd.concat([abr, tempDf], ignore_index=True)
-
-# merge data with data df
-data = pd.merge(data, abr, how="left", on="dateTime")
-
-# define the effective basal rate (U/hr)
-data["ebr"] = (data.abr - data.sbr)
-data["ebr"].fillna(0, inplace=True)
-# define the effective basal rate (U/5min)
-data["ebi"] = data["ebr"] / 12
-
-
-# % BOLUSES
-userInputArray = np.array([["8:00 AM", 2, 20, "lowGI"],
-                           ["12:00 PM", 4, 40, "medGI"],
-                           ["6:00 PM", 5, 50, "highGI"],
-                           ["8:00 PM", 10, 100, "highGI"]])
-
-# this will be user input (a simple table of the schedule)
-boi = pd.DataFrame(userInputArray,
-                           columns=["boi.time",
-                                    "boi",
-                                    "carbInput",
-                                    "carbModel"])
-
-# make sure the values are floats and not integers
-boi["boi"] = boi["boi"].astype("float")
-boi["carbInput"] = boi["carbInput"].astype("float")
-
-# round to the nearest 5 minutes
-boi["dateTime"] = pd.to_datetime(boi["boi.time"]).dt.round(str(timeStepSize) + "min")
-
-# merge data with data df
-data = pd.merge(data, boi, how="left", on="dateTime")
-data["boi"].fillna(0, inplace=True)
-
-
-# % merge basal and bolus insulin amounts together
-data["tia"] = data["ebi"] + data["boi"]
-
-# % calculate the insulin activity
-data["aiv"] = 0
-tempDf = data.loc[data["tia"] != 0, ["tia", "dateTime"]]
-for amount, ind in zip(tempDf.tia, tempDf.index):
-    aiv = pd.DataFrame(np.array([amount * insulinModel]).reshape(-1,1),
-                       index=np.arange(ind,(ind + len(insulinModel))), columns=["aiv"])
-    data.loc[ind:(ind + len(insulinModel)), ["aiv"]] = data["aiv"].add(aiv["aiv"], fill_value=0)
-
-# % calculate the carb activity
-data["acv"] = 0
-tempDf = data.loc[data["carbInput"] > 0, ["carbInput", "carbModel", "dateTime"]]
-for amount, model, ind in zip(tempDf["carbInput"], tempDf["carbModel"], tempDf.index):
-    acv = pd.DataFrame(np.array([amount * carbActivityCurves[model]]).reshape(-1,1),
-                       index=np.arange(ind,(ind + len(insulinModel))), columns=["acv"])
-    data.loc[ind:(ind + len(insulinModel)), ["acv"]] = data["acv"].add(acv["acv"], fill_value=0)
-
-# % at the end, need to window the contiguous data to the effect length
-startTime = roundedCurrentTime + pd.Timedelta(-effectLength, unit="h")
-endTime = roundedCurrentTime + pd.Timedelta(effectLength, unit="h")
-rng = pd.date_range(startTime, endTime, freq=(str(timeStepSize) + "min"))
-df = pd.DataFrame(rng, columns=["dateTime"])
-df = pd.merge(df, data, how="left", on="dateTime")
-
-# % make the prediction with the new data
-df["bg"] = 180
-
-df["dBG"] = deltaBG(ISF=df.isf.values,
-                    CIR=df.cir.values,
-                    ACV=df.acv.values,
-                    AIV=df.aiv.values)
-
-df["simulatedBG"] = df["bg"] + df["dBG"].cumsum()
-df.loc[df["simulatedBG"] <= 40, "simulatedBG"] = 40
-df.loc[df["simulatedBG"] >= 400, "simulatedBG"] = 400
-
-
-# %% figure stuff
-bgRange = [-40, 400]
-
-versionNumber = 0.2
-figureName = "Simulate-V" + str(versionNumber)
-outputPath = os.path.join(".", "figures")
-
-# create output folder if it doesn't exist
-if not os.path.isdir(outputPath):
-    os.makedirs(outputPath)
-
-figureSizeInches = (15, 7)
-figureFont = fm.FontProperties(fname=os.path.join(".", "fonts",
-                                                  "SF Compact", "SFCompactText-Bold.otf"))
-font = {'weight': 'bold',
-        'size': 15}
-
-plt.rc('font', **font)
-coord_color = "#c0c0c0"
-
-xLabel = "Time Relative to Now (Minutes)"
-yLabel = "Glucose (mg/dL)"
-labelFontSize = 18
-tickLabelFontSize = 15
-
-
-def common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLabelFontSize, coord_color, yLabel_xOffset=0.4):
+def common_figure_elements(ax, xLabel, yLabel, figureFont,
+                           labelFontSize, tickLabelFontSize,
+                           coord_color, yLabel_xOffset=0.4):
     # x-axis items
     ax.set_xlabel(xLabel, fontsize=labelFontSize, color=coord_color)
 
@@ -274,10 +130,168 @@ def common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLa
     return ax
 
 
-# %% make the figure
+# %% define the model
+deltaBgEquation = "ISF * ((ACV/CIR) - AIV)"
+deltaBG = create_deltaBG_functions(deltaBgEquation)
+
+
+# %% load in activity curve data
+insulinActivityCurves = pd.read_csv("all-iac-models.csv", low_memory=False)
+carbActivityCurves = pd.read_csv("all-cac-models.csv", low_memory=False)
+insulinActivityCurve = insulinActivityCurves[insulinModel].values
+
+
+# %% first create a continuguous time series
+currentTime = pd.to_datetime(currentTime)
+timeStepSize = 5  # minutes
+effectLength = 8  # hours, the display with be +/- this length
+timeSeriesLength = effectLength * 3  # hours
+roundedCurrentTime = pd.to_datetime(currentTime).round(str(timeStepSize) + "min")
+startTime = roundedCurrentTime + pd.Timedelta(-timeSeriesLength, unit="h")
+endTime = roundedCurrentTime + pd.Timedelta(timeSeriesLength, unit="h")
+rng = pd.date_range(startTime, endTime, freq=(str(timeStepSize) + "min"))
+data = pd.DataFrame(rng, columns=["dateTime"])
+# create an initial time series that is 3 times the length of simulation plot
+data["minutesRelativeToNow"] = np.arange(-timeSeriesLength*60,
+                                         timeSeriesLength*60 + timeStepSize,
+                                         timeStepSize)
+
+# % ISF
+isf = expand_settings(isfInputArray, "isf")
+data = merge_and_fill_data(isf, data)
+
+# % CIR
+cir = expand_settings(cirInputArray, "cir")
+data = merge_and_fill_data(cir, data)
+
+# % SCHEDULED BASAL RATES (SBR)
+sbr = expand_settings(sbrInputArray, "sbr")
+data = merge_and_fill_data(sbr, data)
+
+# % TEMP BASALS AND SUSPENDS
+abrInputDf = pd.DataFrame(abrInputArray, columns=["abr.time", "abr", "duration"])
+
+# make sure the values are floats and not integers
+abrInputDf["abr"] = abrInputDf["abr"].astype("float")
+
+# round to the nearest 5 minutes
+abrInputDf["dateTime"] = pd.to_datetime(abrInputDf["abr.time"]).dt.round(str(timeStepSize) + "min")
+
+abr = pd.DataFrame()
+for b in range(len(abrInputDf)):
+    startTime = abrInputDf.loc[b, "dateTime"]
+    endTime = startTime + pd.Timedelta(np.int(abrInputDf.loc[b, "duration"]), unit="m")
+    rng = pd.date_range(startTime, endTime, freq=(str(timeStepSize) + "min"))
+    tempDf = pd.DataFrame(rng[:-1], columns=["dateTime"])
+    tempDf["abr"] = abrInputDf.loc[b, "abr"]
+    abr = pd.concat([abr, tempDf], ignore_index=True)
+
+# merge data with data df
+data = pd.merge(data, abr, how="left", on="dateTime")
+
+# define the effective basal rate (U/hr)
+data["ebr"] = (data.abr - data.sbr)
+# assume that any basal that is NOT the scheduled basal or suspend is the scheduled basal rate
+data["ebr"].fillna(0, inplace=True)
+# define the effective basal rate (U/5min)
+data["ebi"] = data["ebr"] / 12
+
+# % BOLUSES
+boi = pd.DataFrame(bolusInputArray, columns=["boi.time", "boi", "carbInput", "carbModel"])
+
+# make sure the values are floats and not integers
+boi["boi"] = boi["boi"].astype("float")
+boi["carbInput"] = boi["carbInput"].astype("float")
+
+# round to the nearest 5 minutes
+boi["dateTime"] = pd.to_datetime(boi["boi.time"]).dt.round(str(timeStepSize) + "min")
+
+# merge data with data df
+data = pd.merge(data, boi, how="left", on="dateTime")
+data["boi"].fillna(0, inplace=True)
+
+# % merge basal and bolus insulin amounts together
+data["tia"] = data["ebi"] + data["boi"]
+
+# % calculate the insulin activity
+data["aiv"] = 0
+tempDf = data.loc[data["tia"] != 0, ["tia", "dateTime"]]
+for amount, ind in zip(tempDf.tia, tempDf.index):
+    aiv = pd.DataFrame(np.array([amount * insulinActivityCurve]).reshape(-1, 1),
+                       index=np.arange(ind, (ind + len(insulinActivityCurve))), columns=["aiv"])
+    data.loc[ind:(ind + len(insulinActivityCurve)), ["aiv"]] = data["aiv"].add(aiv["aiv"], fill_value=0)
+
+# % calculate the carb activity
+data["acv"] = 0
+tempDf = data.loc[data["carbInput"] > 0, ["carbInput", "carbModel", "dateTime"]]
+for amount, model, ind in zip(tempDf["carbInput"], tempDf["carbModel"], tempDf.index):
+    acv = pd.DataFrame(np.array([amount * carbActivityCurves[model]]).reshape(-1, 1),
+                       index=np.arange(ind, (ind + len(insulinActivityCurve))), columns=["acv"])
+    data.loc[ind:(ind + len(insulinActivityCurve)), ["acv"]] = data["acv"].add(acv["acv"], fill_value=0)
+
+# % window the contiguous data to the effect length
+startTime = roundedCurrentTime + pd.Timedelta(-effectLength, unit="h")
+endTime = roundedCurrentTime + pd.Timedelta(effectLength, unit="h")
+rng = pd.date_range(startTime, endTime, freq=(str(timeStepSize) + "min"))
+df = pd.DataFrame(rng, columns=["dateTime"])
+df = pd.merge(df, data, how="left", on="dateTime")
+
+# % make the prediction with the new data
+df["bg"] = startingBGLevel
+df["dBG"] = deltaBG(ISF=df.isf.values,
+                    CIR=df.cir.values,
+                    ACV=df.acv.values,
+                    AIV=df.aiv.values)
+
+df["simulatedBG"] = df["bg"] + df["dBG"].cumsum()
+df.loc[df["simulatedBG"] <= 40, "simulatedBG"] = 40
+df.loc[df["simulatedBG"] >= 400, "simulatedBG"] = 400
+
+
+# %% figure stuff
+bgRange = [-40, 400]
+
+versionNumber = 0
+subversion = 2
+figureName = currentTime.strftime("%Y-%m-%d-%H-%M") + " Simulate-V" + str(versionNumber) + "-" + str(subversion)
+outputPath = os.path.join(".", "figures")
+
+# create output folder if it doesn't exist
+if not os.path.isdir(outputPath):
+    os.makedirs(outputPath)
+
+figureSizeInches = (15, 7)
+figureFont = fm.FontProperties(fname=os.path.join(".", "fonts",
+                                                  "SF Compact", "SFCompactText-Bold.otf"))
+font = {'weight': 'bold',
+        'size': 15}
+
+plt.rc('font', **font)
+coord_color = "#c0c0c0"
+
+xLabel = "Time Relative to Now (Minutes)"
+yLabel = "Glucose (mg/dL)"
+labelFontSize = 18
+tickLabelFontSize = 15
+
+# % make the figure
 fig, ax = plt.subplots(figsize=figureSizeInches)
 plt.ylim(bgRange)
-ax.set_xlim([min(df["minutesRelativeToNow"]), max(df["minutesRelativeToNow"])])
+ax.set_xlim([min(df["minutesRelativeToNow"]) - 10, max(df["minutesRelativeToNow"])])
+
+# plot simulated cgm
+ax.scatter(df["minutesRelativeToNow"], df["simulatedBG"], s=10, color="#31B0FF", label="Predicted BG Level")
+
+# plot the starting bg time
+ax.plot(df.minutesRelativeToNow[0], startingBGLevel,
+        marker='*', markersize=20, color="#31B0FF", markeredgecolor="black", alpha=0.5,
+        ls="None", label="Starting BG =  %d" % (round(startingBGLevel)))
+
+# plot the current time
+valueCurrentTime = df.loc[df["minutesRelativeToNow"] == 0, "simulatedBG"].values[0]
+ax.plot(0, valueCurrentTime,
+        marker='*', markersize=20, color=coord_color, markeredgecolor="black", alpha=0.5,
+        ls="None", label="Current Time BG =  %d" % (round(valueCurrentTime)))
 
 # plot the scheduled basal rates
 ax.plot(df["minutesRelativeToNow"],
@@ -287,7 +301,7 @@ ax.plot(df["minutesRelativeToNow"],
 ax.fill_between(df["minutesRelativeToNow"], df["ebr"]*20, color="#f6cc89")
 
 # plot the boluses
-boluses = df.loc[pd.notna(df["boi.time"]),["minutesRelativeToNow", "boi"]]
+boluses = df.loc[pd.notna(df["boi.time"]), ["minutesRelativeToNow", "boi"]]
 for bolusIndex in boluses.index:
     ax.plot(df.loc[bolusIndex, "minutesRelativeToNow"],
             df.loc[bolusIndex, "simulatedBG"] + 15,
@@ -312,17 +326,10 @@ ax.plot(df["minutesRelativeToNow"],
 
 ax.fill_between(df["minutesRelativeToNow"], df["acv"]*10+30, 30, color="#bdeaa3", alpha=0.25)
 
-# plot simulated cgm
-ax.scatter(df["minutesRelativeToNow"], df["simulatedBG"], s=10, color="#31B0FF", label="Predicted BG Level")
-
-# plot the current time
-valueCurrentTime = df.loc[df["minutesRelativeToNow"] == 0, "simulatedBG"].values[0]
-ax.plot(0, valueCurrentTime,
-        marker='*', markersize=20, color=coord_color, markeredgecolor = "black", alpha=0.5,
-        ls="None", label="Current Time BG =  %d" % (round(valueCurrentTime)))
-
 # run the common figure elements here
-ax = common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLabelFontSize, coord_color, yLabel_xOffset=32)
+ax = common_figure_elements(ax, xLabel, yLabel, figureFont,
+                            labelFontSize, tickLabelFontSize,
+                            coord_color, yLabel_xOffset=32)
 
 # format the legend
 leg = ax.legend(scatterpoints=3, edgecolor="black", loc="upper right")
@@ -333,5 +340,3 @@ for text in leg.get_texts():
 plt.savefig(os.path.join(outputPath, figureName + ".png"))
 plt.show()
 plt.close('all')
-
-
