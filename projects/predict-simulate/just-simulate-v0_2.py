@@ -1,14 +1,37 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-description: predict and simulate
+description: simulate bgs given common user input
 version: 0.0.2
 created: 2018-12-15
 author: Ed Nykaza
 dependencies:
-    * requires tidepool-analytics conda environment (see readme for instructions)
+    * rrequires tidepool-analytics conda environment (see data analytics repository readme for instructions)
     * requires San Francisco Fonts in a ./fonts folder
 license: BSD-2-Clause
+
+## General form of simulation equation
+Delta BG is the change in BG Levels or the BG Velocity with the units: $\frac{(mg/dL)}{5min}$
+
+$\Delta BG[t] = endogenousGlucoseProduction[t]+carbEffect[t]-insulinEffect$
+
+The EGP can be thought of as a surrogate for the basal rate as the purpose of the basal rate is to counter the EGP. Also, given basal rates are givin U/hr, we must divide by 12 to get basalRate in proper units.
+
+$\Delta BG[t] = ISF \bigg(\frac{BR[t]}{12} + \frac{ACV[t]}{CIR[t]} - AIV[t] \bigg)$
+
+where:
+
+> $ACV[t] = \sum CA[t]*CAC[t]$ <br />
+> $AIV[t] = \sum IA[t]*IAC[t]$ <br />
+> $ISF$ is the insulin sensitivity factor (mg/dL) / U <br />
+> $BR$ is the basal rate U / hr <br />
+> $CIR$ is the carb-to-insulin ratio g / U <br />
+> $ACV$ is the active carb velocity g / 5min <br />
+> $CA$ is each carb amount g  <br />
+> $CAC$ is each carb activity curve  1 / 5min  <br />
+> $AIV$ is the active insulin velocity U / 5 min <br />
+> $IA$ is each insulin amount g  <br />
+> $IAC$ is each insulin activity curve  1 / 5min  <br />
 """
 
 
