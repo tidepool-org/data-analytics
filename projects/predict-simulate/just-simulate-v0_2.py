@@ -35,7 +35,7 @@ where:
 """
 
 
-# %% required libraries
+# %% REQUIRED LIBRARIES
 import pdb
 import os
 import pandas as pd
@@ -83,6 +83,20 @@ abrInputArray = np.array([["4:00 AM", 3, 120],
 bolusInputArray = np.array([["8:00 AM", 2, 20, "lowGI"],
                            ["11:00 AM", 4, 40, "medGI"]])
 
+# %% create a data table of all inputs
+isfDF = pd.DataFrame(isfInputArray, columns=["time", "ISF"])
+cirDF = pd.DataFrame(cirInputArray, columns=["time", "CIR"])
+allSettings = pd.merge(isfDF, cirDF, how="outer", on="time")
+sbrDF = pd.DataFrame(sbrInputArray, columns=["time", "BR"])
+abrDF = pd.DataFrame(abrInputArray, columns=["time", "TB", "duration"])
+bolDF = pd.DataFrame(bolusInputArray, columns=["time", "IA", "CA", "carbModel"])
+allSettings = pd.merge(allSettings, sbrDF, how="outer", on="time")
+allSettings = pd.merge(allSettings, abrDF, how="outer", on="time")
+allSettings = pd.merge(allSettings, bolDF, how="outer", on="time")
+allSettings["dt"] = pd.to_datetime(allSettings["time"])
+allSettings.sort_values("dt", inplace=True)
+allSettings.drop(columns="dt", inplace=True)
+allSettings["insulinModel"]= insulinModel
 
 # %% FUNCTIONS
 def create_deltaBG_functions(deltaBgEquation):
@@ -352,7 +366,7 @@ ax.fill_between(df["minutesRelativeToNow"], df["acv"]*10+30, 30, color="#bdeaa3"
 # run the common figure elements here
 ax = common_figure_elements(ax, xLabel, yLabel, figureFont,
                             labelFontSize, tickLabelFontSize,
-                            coord_color, yLabel_xOffset=32)
+                            coord_color, yLabel_xOffset=60)
 
 # format the legend
 leg = ax.legend(scatterpoints=3, edgecolor="black", loc="upper right")
