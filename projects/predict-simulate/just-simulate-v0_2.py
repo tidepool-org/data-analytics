@@ -6,8 +6,7 @@ version: 0.0.2
 created: 2018-12-15
 author: Ed Nykaza
 dependencies:
-    * rrequires tidepool-analytics conda environment (see data analytics repository readme for instructions)
-    * requires San Francisco Fonts in a ./fonts folder
+    * optional San Francisco Fonts in a ./fonts folder
 license: BSD-2-Clause
 
 ## General form of simulation equation
@@ -298,8 +297,14 @@ if not os.path.isdir(outputPath):
     os.makedirs(outputPath)
 
 figureSizeInches = (15, 7)
-figureFont = fm.FontProperties(fname=os.path.join(".", "fonts",
-                                                  "SF Compact", "SFCompactText-Bold.otf"))
+figureFontNamePath = os.path.join(".", "fonts", "SF Compact", "SFCompactText-Bold.otf")
+
+# if the San Francisco font exists in specified folder, else use the system default font
+if os.path.exists(figureFontNamePath):
+    figureFont = fm.FontProperties(fname=figureFontNamePath)
+else:
+    figureFont = fm.FontProperties()
+
 font = {'weight': 'bold',
         'size': 15}
 
