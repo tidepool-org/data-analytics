@@ -1,9 +1,10 @@
 
-from tidals.clean.clean import remove_duplicates, round_time
+from tidals.clean.clean import remove_duplicates, round_time, flatten_json
+from tidals.load.load import load_csv
 import pandas as pd
 from pandas.util import testing as tm
 import pytest
-from tests.fixtures.clean_setup import valid_df
+
 
 
 def test_remove_duplicates(valid_df):
@@ -33,5 +34,61 @@ def test_round_time(valid_df):
 
     raw_df = pd.DataFrame(raw_data, columns=['userID', 'studyID', "getData.response1", "getData.response2", "time"])
     rounded_df = round_time(raw_df)
+    print("first", rounded_df)
     tm.assert_frame_equal(valid_df, rounded_df)
+
+
+def test_round_time_across_month(valid_df):
+    raw_data = [["hhawe", "AB8769", "newyear", "response2", "2018-11-30 23:59:10"]]
+    raw_df = pd.DataFrame(raw_data, columns=['userID', 'studyID', "getData.response1", "getData.response2", "time"])
+    rounded_df = round_time(raw_df)
+    expected_time = pd.Timestamp('2018-12-01')
+
+    rounded_new_year = rounded_df.iloc[0]['roundedTime']
+    assert( pd.Timestamp(rounded_new_year) == expected_time)
+
+
+def test_round_time_across_year():
+    raw_data = [["hhawe", "AB8769", "newyear", "response2", "2018-12-31 23:59:10"]]
+    raw_df = pd.DataFrame(raw_data, columns=['userID', 'studyID', "getData.response1", "getData.response2", "time"])
+    rounded_df = round_time(raw_df)
+    expected_time = pd.Timestamp('2019-01-01')
+
+    rounded_new_year = rounded_df.iloc[0]['roundedTime']
+    assert( pd.Timestamp(rounded_new_year) == expected_time)
+
+
+def test_round_time_early_hour():
+    raw_data = [["hhawe", "AB8769", "newyear", "response2", "2018-11-29 00:01:10"]]
+    raw_df = pd.DataFrame(raw_data, columns=['userID', 'studyID', "getData.response1", "getData.response2", "time"])
+    rounded_df = round_time(raw_df)
+    expected_time = pd.Timestamp('2018-11-29')
+
+    rounded_new_year = rounded_df.iloc[0]['roundedTime']
+    assert( pd.Timestamp(rounded_new_year) == expected_time)
+
+
+def test_round_invalid_date():
+    raw_data = [["hhawe", "AB8769", "newyear", "response2", "2018-11-31 00:01:10"]]
+    raw_df = pd.DataFrame(raw_data, columns=['userID', 'studyID', "getData.response1", "getData.response2", "time"])
+    with pytest.raises(ValueError) as excinfo:
+        round_time(raw_df)
+
+    assert("day is out of range for month" == excinfo.value.args[0])
+
+def test_round_invalid_time():
+    raw_data = [["hhawe", "AB8769", "newyear", "response2", "2018-11-31 25:01:10"]]
+    raw_df = pd.DataFrame(raw_data, columns=['userID', 'studyID', "getData.response1", "getData.response2", "time"])
+    with pytest.raises(ValueError) as excinfo:
+        round_time(raw_df)
+
+    assert("day is out of range for month" == excinfo.value.args[0])
+
+
+
+
+
+
+
+
 

@@ -12,5 +12,3 @@ def valid_df():
     valid_df = pd.DataFrame(check_data, columns=['userID', 'studyID', "getData.response1", "getData.response2", "time", "roundedTime"])
 
     return valid_df
-
-
