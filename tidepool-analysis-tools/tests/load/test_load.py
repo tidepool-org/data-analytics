@@ -9,7 +9,6 @@ def test_load_data_csv(current_path_load):
                    ["three", "11/19/18 23:30", 946412],
                    ["four", "11/19/18 23:20", 536377]]
     check_dataframe = pd.DataFrame(check_data, columns=['string', 'datetime', "number"])
-    print("whatis", current_path_load)
     output_dataframe, file_name = load_data(current_path_load + "/raw_data.csv")
 
     column_count = 3
