@@ -3,7 +3,6 @@ from tidals.clean.clean import remove_duplicates, round_time, flatten_json
 import pandas as pd
 from pandas.util import testing as tm
 import pytest
-import os
 
 
 def test_remove_duplicates(valid_df):
@@ -28,6 +27,7 @@ def test_remove_duplicates(valid_df):
     tm.assert_frame_equal(valid_df, clean_df)
     tm.assert_frame_equal(valid_df, pandas_drop_df)
     assert duplicate_count == 1
+
 
 def test_round_time(valid_df):
     raw_data = [["hhawe", "AB8769", "response1", "response2", "Sun Nov 19 23:20:01 2018"],
