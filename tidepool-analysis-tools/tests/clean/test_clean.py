@@ -1,9 +1,9 @@
 
 from tidals.clean.clean import remove_duplicates, round_time, flatten_json
-from tidals.load.load import load_csv
 import pandas as pd
 from pandas.util import testing as tm
 import pytest
+import os
 
 
 
@@ -34,7 +34,6 @@ def test_round_time(valid_df):
 
     raw_df = pd.DataFrame(raw_data, columns=['userID', 'studyID', "getData.response1", "getData.response2", "time"])
     rounded_df = round_time(raw_df)
-    print("first", rounded_df)
     tm.assert_frame_equal(valid_df, rounded_df)
 
 
@@ -82,9 +81,13 @@ def test_round_invalid_time():
     with pytest.raises(ValueError) as excinfo:
         round_time(raw_df)
 
+    print("path11", os.getcwd())
     assert("day is out of range for month" == excinfo.value.args[0])
 
-
+@pytest.mark.skip(reason='need a valid dataframe example')
+def test_flatten_json():
+    df = pd.read_csv('')
+    flattened_df = flatten_json(df)
 
 
 
