@@ -35,7 +35,7 @@ def simulate_cgm_data(cgmTimesMinutes=[5, 120, 240, 360],
                                           inputCgm["values"].values,
                                           k=amountOfWiggle)
     splineFit = BSpline(splineProperties.t, splineProperties.c, splineProperties.k)
-    simulatedCgm = np.round(splineFit(simulatedTime))
+    simulatedCgm = splineFit(simulatedTime)
     simulatedCgm[simulatedCgm <= 40] = 40
     simulatedCgm[simulatedCgm >= 400] = 400
 
@@ -76,7 +76,7 @@ startTimeAMPM = "AM"
 
 
 # %% specify the Predicted BG Values
-cgmTimes = [365, 465, 565, 665, 720]
+cgmTimes = [360, 465, 565, 665, 720]
 cgmValues = np.array([110, 90, 78, 82, 85]) - 20
 predictedTime, predictedCgm = simulate_cgm_data(cgmTimes, cgmValues, amountOfWiggle=2)
 
@@ -85,14 +85,17 @@ predictedTime, predictedCgm = simulate_cgm_data(cgmTimes, cgmValues, amountOfWig
 correction_min = 90
 correction_max = 120
 suspendThreshold = 60
-correction_mean = np.mean([correction_min, correction_max])
+correction_target = np.mean([correction_min, correction_max])
 bgRange = [50, 180]
 
 
 # %% set figure properties
-versionNumber = 2
-figureName = "LoopOverview-SuspendV" + str(versionNumber)
+versionNumber = 0
+subversionNumber = 3
+figureName = "LoopOverview-Suspend" + "-" + \
+    "V" + str(versionNumber) + "-" +str(subversionNumber)
 outputPath = os.path.join(".", "figures")
+
 
 # create output folder if it doesn't exist
 if not os.path.isdir(outputPath):
@@ -160,10 +163,10 @@ ax.plot(predictedTime, predictedCgm, linestyle="--", color="#31B0FF", lw=1, labe
 # plot simulated cgm
 ax.scatter(simulatedTime, simulatedCgm, s=10, color="#31B0FF", label="CGM Data")
 
-# plot the Correction Mean
-ax.plot(predictedTime[-1], correction_mean,
+# plot the Correction Target
+ax.plot(predictedTime[-1], correction_target,
         marker='*', markersize=16, color="purple", alpha=0.5,
-        ls="None", label="Correction Mean = %d" % correction_mean)
+        ls="None", label="Correction Target = %d" % correction_target)
 
 # plot the current time
 ax.plot(simulatedTime[-1], simulatedCgm[-1],
@@ -173,7 +176,7 @@ ax.plot(simulatedTime[-1], simulatedCgm[-1],
 # plot eventual bg
 ax.plot(predictedTime[-1], predictedCgm[-1],
         marker='*', markersize=16, color="#31B0FF", alpha=0.5,
-        ls="None", label="Predicted Eventual BG = %d" % predictedCgm[-1])
+        ls="None", label="Eventual BG = %d" % predictedCgm[-1])
 
 # find and plot minimum BG
 min_idx = np.argmin(predictedCgm)
@@ -186,7 +189,7 @@ ax.hlines(suspendThreshold, ax.get_xlim()[0], ax.get_xlim()[1],
           colors="red", label="Suspend Threshold = %d" % suspendThreshold)
 
 # place holder for the delta vertical line in the legend
-delta = int(predictedCgm[-1] - correction_mean)
+delta = int(predictedCgm[-1] - correction_target)
 ax.plot(-10, 10, ls="None", marker="|", markersize=16, markeredgewidth=6, alpha=0.5,
         color="purple", label="Delta = %d" % delta)
 
@@ -207,8 +210,8 @@ for text in leg.get_texts():
     text.set_weight('normal')
 
 # plot the delta
-ax.vlines(predictedTime[-1] + 10, min([correction_mean, predictedCgm[-1]]),
-          max([correction_mean, predictedCgm[-1]]), linewidth=6, alpha=0.5, colors="purple")
+ax.vlines(predictedTime[-1] + 10, min([correction_target, predictedCgm[-1]]),
+          max([correction_target, predictedCgm[-1]]), linewidth=6, alpha=0.5, colors="purple")
 
 # set tick marks
 minuteTicks = np.arange(0, (len(simulatedTime) + len(predictedTime)) * 5 + 1, 60)

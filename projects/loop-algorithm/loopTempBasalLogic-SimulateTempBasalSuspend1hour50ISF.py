@@ -250,10 +250,10 @@ def common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLa
 
 # basal example
 figureClass = "LoopOverview-SimulateTempBasalV" + str(versionNumber) + "-"
-nHoursOfTempBasal = 8
+nHoursOfTempBasal = 1
 insulinModel = "humalogNovologAdult"
-peakActivityTime = 60
-activeDuration = 6
+#peakActivityTime = 60
+#activeDuration = 6
 isf = 50
 timeStepSize = 1  # in seconds
 
@@ -267,8 +267,8 @@ insulinAmount = np.ones((20*nHoursOfTempBasal, 1)) * 0.05
 deliveryTime = list(map(lambda i: currentTime + pd.Timedelta(i, unit="h"), deliveryTimeHoursRelativeToFirstDelivery))
 for bolusNumber in range(len(insulinAmount)):
     insulinEffect = get_insulin_effect(model=insulinModel,
-                                       peakActivityTime=peakActivityTime,
-                                       activeDuration=activeDuration,
+#                                       peakActivityTime=peakActivityTime,
+#                                       activeDuration=activeDuration,
                                        deliveryTime=deliveryTime[bolusNumber],
                                        insulinAmount=insulinAmount[bolusNumber],
                                        isf=isf,
@@ -299,91 +299,91 @@ cumulativeInsulinEffect["cumulativeGlucoseEffect"] = \
 xDataInHours = cumulativeInsulinEffect["minutesSinceFirstDelivery"]/60
 
 
-# %% iob
-figureName = "iob-amount"
-yLabel = "Insulin-On-Board (U)"
-fig, ax = plt.subplots(figsize=figureSizeInches)
-
-# define the legend
-ax.plot(-10,1, marker='v', markersize=16, color="#f09a37",
-            ls="None", label="0.05 Units Delivered Every 3 Minutes")
-leg = plt.legend(edgecolor="black")
-for text in leg.get_texts():
-    text.set_color('#606060')
-    text.set_weight('normal')
-
-
-# fill the area under the curve with light orange
-ax.fill_between(xDataInHours, 0, cumulativeInsulinEffect["iob"], color="#f6cc89")
-
-# plot the curve
-ax.plot(xDataInHours, cumulativeInsulinEffect["iob"], lw=1, color="#f09a37")
-
-# run the common figure elements here
-ax = common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLabelFontSize, coord_color)
-
-# show the insulin delivered
-for bolusNumber in range(len(insulinAmount)):
-    ax.plot(deliveryTimeHoursRelativeToFirstDelivery[bolusNumber],
-            cumulativeInsulinEffect[cumulativeInsulinEffect.hoursSinceFirstDelivery == deliveryTimeHoursRelativeToFirstDelivery[bolusNumber]].iob + .15 ,
-            marker='v', markersize=3, color="#f09a37", ls="None")
-
-ax.set_xticks(np.arange(0, round(max(xDataInHours)), 1))
-plt.xlim([min(xDataInHours) - 0.1, max(xDataInHours)])
-
-# save the figure
-plt.savefig(os.path.join(outputPath, figureClass + figureName + ".png"))
-plt.show()
-plt.close('all')
-
-
-# %% delta BG every 5 minutes
-cumInsulinEffect1Second = pd.Series(data=cumulativeInsulinEffect.deltaGlucoseEffect.values,
-                                    index=cumulativeInsulinEffect.dateTime, name="deltaGlucoseEffect")
-cumInsulinEffect5Minute = cumInsulinEffect1Second.resample('5T', label="right").sum().reset_index()
-cumInsulinEffect5Minute["deltaGlucoseEffect"] = cumInsulinEffect5Minute.deltaGlucoseEffect.shift(1).fillna(0)
-figureName = "delta-bg"
-yLabel = "Expected Change in BG (mg/dL) every 5 minutes"
-fig, ax = plt.subplots(figsize=figureSizeInches)
-
-# plot the curve
-xDataIn5Minutes = np.arange(0, 16, 5/60)
-ax.scatter(xDataIn5Minutes, cumInsulinEffect5Minute["deltaGlucoseEffect"], color="#f09a37")
-
-# run the common figure elements here
-ax = common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLabelFontSize, coord_color)
-
-# extras for this plot
-ax.set_xlim(-0.1, 8)
-
-# save the figure
-plt.savefig(os.path.join(outputPath, figureClass + figureName + ".png"))
-plt.show()
-plt.close('all')
-
-
-# %% cumulative glucose effect
-figureName = "cumulative-insulin-effect"
-yLabel = "Cumulative Insulin Effect on BG (mg/dL)"
-fig, ax = plt.subplots(figsize=figureSizeInches)
-
-# plot the curve
-ax.plot(xDataInHours, cumulativeInsulinEffect["cumulativeGlucoseEffect"], lw=4, color="#f09a37")
-
-# run the common figure elements here
-ax = common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLabelFontSize, coord_color)
-
-# extras for this plot
-ax.set_xlim(-0.1, 14)
-
-# save the figure
-plt.savefig(os.path.join(outputPath, figureClass + figureName + ".png"))
-plt.show()
-plt.close('all')
+## %% iob
+#figureName = "iob-amount"
+#yLabel = "Insulin-On-Board (U)"
+#fig, ax = plt.subplots(figsize=figureSizeInches)
+#
+## define the legend
+#ax.plot(-10,1, marker='v', markersize=16, color="#f09a37",
+#            ls="None", label="0.05 Units Delivered Every 3 Minutes")
+#leg = plt.legend(edgecolor="black")
+#for text in leg.get_texts():
+#    text.set_color('#606060')
+#    text.set_weight('normal')
+#
+#
+## fill the area under the curve with light orange
+#ax.fill_between(xDataInHours, 0, cumulativeInsulinEffect["iob"], color="#f6cc89")
+#
+## plot the curve
+#ax.plot(xDataInHours, cumulativeInsulinEffect["iob"], lw=1, color="#f09a37")
+#
+## run the common figure elements here
+#ax = common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLabelFontSize, coord_color)
+#
+## show the insulin delivered
+#for bolusNumber in range(len(insulinAmount)):
+#    ax.plot(deliveryTimeHoursRelativeToFirstDelivery[bolusNumber],
+#            cumulativeInsulinEffect[cumulativeInsulinEffect.hoursSinceFirstDelivery == deliveryTimeHoursRelativeToFirstDelivery[bolusNumber]].iob + .15 ,
+#            marker='v', markersize=3, color="#f09a37", ls="None")
+#
+#ax.set_xticks(np.arange(0, round(max(xDataInHours)), 1))
+#plt.xlim([min(xDataInHours) - 0.1, max(xDataInHours)])
+#
+## save the figure
+#plt.savefig(os.path.join(outputPath, figureClass + figureName + ".png"))
+#plt.show()
+#plt.close('all')
+#
+#
+## %% delta BG every 5 minutes
+#cumInsulinEffect1Second = pd.Series(data=cumulativeInsulinEffect.deltaGlucoseEffect.values,
+#                                    index=cumulativeInsulinEffect.dateTime, name="deltaGlucoseEffect")
+#cumInsulinEffect5Minute = cumInsulinEffect1Second.resample('5T', label="right").sum().reset_index()
+#cumInsulinEffect5Minute["deltaGlucoseEffect"] = cumInsulinEffect5Minute.deltaGlucoseEffect.shift(1).fillna(0)
+#figureName = "delta-bg"
+#yLabel = "Expected Change in BG (mg/dL) every 5 minutes"
+#fig, ax = plt.subplots(figsize=figureSizeInches)
+#
+## plot the curve
+#xDataIn5Minutes = np.arange(0, 16, 5/60)
+#ax.scatter(xDataIn5Minutes, cumInsulinEffect5Minute["deltaGlucoseEffect"], color="#f09a37")
+#
+## run the common figure elements here
+#ax = common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLabelFontSize, coord_color)
+#
+## extras for this plot
+#ax.set_xlim(-0.1, 8)
+#
+## save the figure
+#plt.savefig(os.path.join(outputPath, figureClass + figureName + ".png"))
+#plt.show()
+#plt.close('all')
+#
+#
+## %% cumulative glucose effect
+#figureName = "cumulative-insulin-effect"
+#yLabel = "Cumulative Insulin Effect on BG (mg/dL)"
+#fig, ax = plt.subplots(figsize=figureSizeInches)
+#
+## plot the curve
+#ax.plot(xDataInHours, cumulativeInsulinEffect["cumulativeGlucoseEffect"], lw=4, color="#f09a37")
+#
+## run the common figure elements here
+#ax = common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLabelFontSize, coord_color)
+#
+## extras for this plot
+#ax.set_xlim(-0.1, 14)
+#
+## save the figure
+#plt.savefig(os.path.join(outputPath, figureClass + figureName + ".png"))
+#plt.show()
+#plt.close('all')
 
 
 # %% counter basal effect
-figureName = "counter-basal-insulin-effect" + "-" + \
+figureName = "effect-suspend-1-hour" + "-" + \
     "V" + str(versionNumber) + "-" +str(subversionNumber)
 yLabel = "Glucose (mg/dL)"
 fig, ax = plt.subplots(figsize=figureSizeInches)

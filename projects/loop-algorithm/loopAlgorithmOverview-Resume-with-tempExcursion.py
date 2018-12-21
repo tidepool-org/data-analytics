@@ -67,7 +67,7 @@ def make_hour_labels(startTimeHour, startTimeAMPM, hourTicks):
 
 # %% specify the CGM Data (in minutes and mg/dL)
 cgmTimes = [5, 120, 240, 360]
-cgmValues = np.array([100, 95, 115, 110]) * 2
+cgmValues = np.array([110, 105, 125, 120])
 simulatedTime, simulatedCgm = simulate_cgm_data(cgmTimes, cgmValues, amountOfWiggle=3)
 
 # specify the time you want the simulation to start
@@ -77,7 +77,7 @@ startTimeAMPM = "AM"
 
 # %% specify the Predicted BG Values
 cgmTimes = [360, 465, 565, 665, 720]
-cgmValues = np.array([110, 90, 78, 82, 85]) * 2
+cgmValues = np.array([120, 80, 95, 115, 130])
 predictedTime, predictedCgm = simulate_cgm_data(cgmTimes, cgmValues, amountOfWiggle=2)
 
 
@@ -86,13 +86,13 @@ correction_min = 90
 correction_max = 120
 suspendThreshold = 60
 correction_target = np.mean([correction_min, correction_max])
-bgRange = [59, int(max(max(predictedCgm), max(simulatedCgm))) + 10]
+bgRange = [50, 180]
 
 
 # %% set figure properties
 versionNumber = 0
 subversionNumber = 3
-figureName = "LoopOverview-IncreaseTempBasal" + "-" + \
+figureName = "LoopOverview-Resume-with-TempExcursion" + "-" + \
     "V" + str(versionNumber) + "-" +str(subversionNumber)
 outputPath = os.path.join(".", "figures")
 
@@ -163,7 +163,7 @@ ax.plot(predictedTime, predictedCgm, linestyle="--", color="#31B0FF", lw=1, labe
 # plot simulated cgm
 ax.scatter(simulatedTime, simulatedCgm, s=10, color="#31B0FF", label="CGM Data")
 
-# plot the Correction Mean
+# plot the Correction Target
 ax.plot(predictedTime[-1], correction_target,
         marker='*', markersize=16, color="purple", alpha=0.5,
         ls="None", label="Correction Target = %d" % correction_target)
