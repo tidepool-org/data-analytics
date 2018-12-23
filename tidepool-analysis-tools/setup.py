@@ -21,14 +21,14 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="tidals",
+    name="tidalsex",
     version="0.0.1",
-    author="Ed Nykaza",
-    author_email="ed@tidepool.org",
+    author="Russ Wilson",
+    author_email="rpwils98@gmail.com",
     description="Tidepool Data Analysis Tools",
-    long_description=long_description,
+    long_description="Tidepool Data Analysis Tools",
     long_description_content_type="text/markdown",
-    url="https://github.com/tidepool-org/data-analytics/tree/master/tidepool-analysis-tools",
+    url="https://github.com/rpwils/data-analytics/blob/master/tidepool-analysis-tools",
     packages=setuptools.find_packages(),
     classifiers=[
         "Development Status :: 3 - Alpha"
