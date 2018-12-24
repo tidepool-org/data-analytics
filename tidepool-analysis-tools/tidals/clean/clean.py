@@ -9,9 +9,9 @@ license: BSD-2-Clause
 
 import pandas as pd
 import numpy as np
-import pandas_flavor as pf
 
-@pf.register_dataframe_method
+
+
 def remove_duplicates(df, criteriaDF):
     nBefore = len(df)
     df = df.loc[~(criteriaDF.duplicated())]
@@ -20,7 +20,7 @@ def remove_duplicates(df, criteriaDF):
 
     return df, nDuplicatesRemoved
 
-@pf.register_dataframe_method
+
 def round_time(df, timeIntervalMinutes=5, timeField="time",
                roundedTimeFieldName="roundedTime", verbose=False):
 
