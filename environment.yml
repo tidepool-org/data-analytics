@@ -16,6 +16,7 @@ dependencies:
 - r-essentials
 - pytest
 - pytest-cov
+- twine
 
 - pip:
   - python-dotenv
