@@ -17,3 +17,7 @@ def valid_df():
 @pytest.fixture()
 def current_path_load():
     return os.path.dirname(os.path.realpath(__file__)) + "/load"
+
+@pytest.fixture()
+def current_path_clean():
+    return os.path.dirname(os.path.realpath(__file__)) + "/clean"
