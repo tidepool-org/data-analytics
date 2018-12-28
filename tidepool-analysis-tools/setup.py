@@ -21,21 +21,20 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="tidalsexample",
+    name="tidals",
     version="0.0.1",
-    author="",
-    author_email="",
+    author="Ed Nykaza",
+    author_email="ed@tidepool.org",
     description="Tidepool Data Analysis Tools",
-    long_description="Tidepool Data Analysis Tools long description",
+    long_description="Tidepool Data Analysis Data Pipeline functions used to load and clean data ",
     long_description_content_type="text/markdown",
     url="https://github.com/rpwils/data-analytics/blob/master/tidepool-analysis-tools",
     packages=setuptools.find_packages(),
-    download_url="https://github.com/rpwils/data-analytics/archive/v0.0.2.tar.gz",
+    download_url="https://github.com/rpwils/data-analytics/archive/v0.0.1.tar.gz",
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
-        'Topic :: Software Development :: Build Tools',
-        'License :: OSI Approved :: MIT License',
+        'License :: OSI Approved :: BSD-2-Clause',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
