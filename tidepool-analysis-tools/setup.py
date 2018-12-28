@@ -20,17 +20,21 @@ import shutil
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+version_string = "v0.0.1"
+
 setuptools.setup(
     name="tidals",
-    version="0.0.1",
+    version=version_string,
     author="Ed Nykaza",
     author_email="ed@tidepool.org",
     description="Tidepool Data Analysis Tools",
-    long_description="Tidepool Data Analysis Data Pipeline functions used to load and clean data ",
+    long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/rpwils/data-analytics/blob/master/tidepool-analysis-tools",
+    url="https://github.com/tidepool-org/data-analytics/tree/master/tidepool-analysis-tools",
     packages=setuptools.find_packages(),
-    download_url="https://github.com/rpwils/data-analytics/archive/v0.0.1.tar.gz",
+    download_url=(
+        'https://github.com/tidepool-org/data-analytics/tarball/' + version_string
+    ),
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
