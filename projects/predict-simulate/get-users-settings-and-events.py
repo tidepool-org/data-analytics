@@ -13,17 +13,9 @@ license: BSD-2-Clause
 
 # %% REQUIRED LIBRARIES
 import pandas as pd
-import datetime as dt
 import numpy as np
 import tidals as td
 import os
-import sys
-import shutil
-import glob
-import argparse
-import hashlib
-import ast
-import time
 import pdb
 
 
@@ -33,28 +25,6 @@ import pdb
 
 
 # %% FUNCTIONS
-
-dataFieldExportList = [
-        'activeSchedule', 'alarmType', 'annotations.code', 'annotations.threshold',
-        'annotations.value', 'basalSchedules', 'bgInput', 'bgTarget', 'bgTarget.high', 'bgTarget.low',
-        'bgTarget.range', 'bgTarget.start', 'bgTarget.target', 'bgTargets', 'bolus', 'carbInput',
-        'carbRatio', 'carbRatios', 'carbRatio.amount', 'carbRatio.start', 'change.agent',
-        'change.from', 'change.to', 'clockDriftOffset', 'computerTime', 'conversionOffset',
-        'deliveryType', 'deviceId', 'deviceManufacturers', 'deviceModel', 'deviceSerialNumber',
-        'deviceTags', 'deviceTime', 'duration', 'expectedDuration', 'expectedExtended',
-        'expectedNormal', 'extended', 'highAlerts.enabled', 'highAlerts.level',
-        'highAlerts.snooze', 'id', 'insulinCarbRatio', 'insulinOnBoard', 'insulinSensitivity',
-        'insulinSensitivity.amount', 'insulinSensitivity.start', 'insulinSensitivities',
-        'lowAlerts.enabled', 'lowAlerts.level', 'lowAlerts.snooze', 'normal',
-        'outOfRangeAlerts.enabled', 'outOfRangeAlerts.snooze',
-        'payload.calibration_reading', 'payload.Status', 'payload.Trend Arrow',
-        'payload.Trend Rate', 'percent', 'primeTarget', 'rate', 'rateOfChangeAlerts.fallRate.enabled',
-        'rateOfChangeAlerts.fallRate.rate', 'rateOfChangeAlerts.riseRate.enabled',
-        'rateOfChangeAlerts.riseRate.rate', 'reason.resumed', 'reason.suspended', 'recommended.carb',
-        'recommended.correction', 'recommended.net', 'scheduleName', 'status', 'subType',
-        'time', 'timeProcessing', 'timezone', 'timezoneOffset', 'transmitterId', 'type', 'units',
-        'units.bg', 'units.carb', 'uploadId', 'value', 'version'
-]
 
 # CLEAN DATA FUNCTIONS
 def removeNegativeDurations(df):
@@ -107,22 +77,6 @@ def tslimCalibrationFix(df):
 
 # OTHER
 def tempRemoveFields(df):
-    removeFields = ["basalSchedules",
-                    "bgTarget",
-                    "bgTargets",
-                    "carbRatio",
-                    "carbRatios",
-                    "insulinSensitivity",
-                    "insulinSensitivities"]
-
-    tempRemoveFields = list(set(df) & set(removeFields))
-    tempDf = df[tempRemoveFields]
-    df = df.drop(columns=tempRemoveFields)
-
-    return df, tempDf
-
-
-def tempRemoveFieldsV2(df):
     removeFields = ["suppressed",
                     "recommended",
                     "payload"]
@@ -134,59 +88,11 @@ def tempRemoveFieldsV2(df):
     return df, tempDf
 
 
-def removeBrackets(df, fieldName):
-    if fieldName in list(df):
-        df.loc[df[fieldName].notnull(), fieldName] = \
-            df.loc[df[fieldName].notnull(), fieldName].str[0]
-
-    return df
-
-
-def flattenJson(df, dataFieldsForExport):
-
-    # remove fields that we don't want to flatten
-    #df, holdData = tempRemoveFields(df)
-
-    # remove [] from annotations field
-    df = removeBrackets(df, "annotations")
-
-    # get a list of data types of column headings
-    columnHeadings = list(df)  # ["payload", "suppressed"]
-
-    # loop through each columnHeading
-    newDataFrame = pd.DataFrame()
-
-    for colHead in columnHeadings:
-        # if the df field has embedded json
-        if any(isinstance(item, dict) for item in df[colHead]):
-            # grab the data that is in brackets
-            jsonBlob = df[colHead][df[colHead].astype(str).str[0] == "{"]
-
-            # replace those values with nan
-            df.loc[jsonBlob.index, colHead] = np.nan
-
-            # turn jsonBlob to dataframe
-            newDataFrame = pd.concat([newDataFrame, pd.DataFrame(jsonBlob.tolist(),
-                                        index=jsonBlob.index).add_prefix(colHead + '.')], axis=1)
-
-    newColHeadings = list(newDataFrame)
-
-    # put df back into the main dataframe
-    # and add the fields that were removed back in
-    pdb.set_trace
-    columnFilter = list(set(newColHeadings) & set(dataFieldsForExport))
-    tempDataFrame = newDataFrame.filter(items=columnFilter)
-    df = pd.concat([df, tempDataFrame], axis=1)
-    #df = pd.concat([df, tempDataFrame, holdData], axis=1)
-
-    return df
-
-
-def flattenJsonV2(df, nEmbeddings):
+def flattenJson(df, nEmbeddings):
     # repeat this N times
     for nEmbed in range(0, nEmbeddings):
         # remove fields that we don't want to flatten
-        df, holdData = tempRemoveFieldsV2(df)
+        df, holdData = tempRemoveFields(df)
 
         # get a list of data types of column headings
         columnHeadings = list(df)  # ["payload", "suppressed"]
@@ -216,7 +122,6 @@ def flattenJsonV2(df, nEmbeddings):
     df.sort_index(axis=1, inplace=True)
 
     return df
-
 
 
 def mergeWizardWithBolus(df):
@@ -422,9 +327,7 @@ if os.path.exists(jsonFileName):
         data.sort_values("time", inplace=True)
 
         # flatten the embedded json
-        #data = flattenJson(data, dataFieldExportList)
-        data = flattenJsonV2(data, 2)
-
+        data = flattenJson(data, 2)
 
 
 # %% CLEAN DATA
