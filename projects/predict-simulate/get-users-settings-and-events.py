@@ -413,61 +413,63 @@ if os.path.exists(jsonFileName):
 
 
 # %% PUMP SETTINGS
-                pumpSettings = data[data.type == "pumpSettings"].copy().dropna(axis=1, how="all")
+                if "pumpSettings" in data.type.unique():
+                    pumpSettings = data[data.type == "pumpSettings"].copy().dropna(axis=1, how="all")
 
-                # ISF
-                if "insulinSensitivity.amount" in list(pumpSettings):
-                    isfColHead = "insulinSensitivity"
-                else:
-                    isfColHead = "insulinSensitivities"
+                    # ISF
+                    if "insulinSensitivity.amount" in list(pumpSettings):
+                        isfColHead = "insulinSensitivity"
+                    else:
+                        isfColHead = "insulinSensitivities"
 
-                pumpSettings["isf_mmolL_U"] = pumpSettings[isfColHead + ".amount"]
-                pumpSettings["isf"] = mmolL_to_mgdL(pumpSettings["isf_mmolL_U"])
-                pumpSettings["isfTime"] = pd.to_datetime(pumpSettings["day"]) + \
-                    pd.to_timedelta(pumpSettings[isfColHead + ".start"], unit="ms")
+                    pumpSettings["isf_mmolL_U"] = pumpSettings[isfColHead + ".amount"]
+                    pumpSettings["isf"] = mmolL_to_mgdL(pumpSettings["isf_mmolL_U"])
+                    pumpSettings["isfTime"] = pd.to_datetime(pumpSettings["day"]) + \
+                        pd.to_timedelta(pumpSettings[isfColHead + ".start"], unit="ms")
 
-                isfCH = commonColumnHeadings.copy()
-                isfCH.extend(["isfTime", "isf", "isf_mmolL_U"])
-                isf = pumpSettings.loc[pumpSettings["isf"].notnull(), isfCH]
+                    isfCH = commonColumnHeadings.copy()
+                    isfCH.extend(["isfTime", "isf", "isf_mmolL_U"])
+                    isf = pumpSettings.loc[pumpSettings["isf"].notnull(), isfCH]
 
-                # CIR
-                if "carbRatio.amount" in list(pumpSettings):
-                    cirColHead = "carbRatio"
-                else:
-                    cirColHead = "carbRatios"
+                    # CIR
+                    if "carbRatio.amount" in list(pumpSettings):
+                        cirColHead = "carbRatio"
+                    else:
+                        cirColHead = "carbRatios"
 
-                pumpSettings["cir"] = pumpSettings[cirColHead + ".amount"]
-                pumpSettings["cirTime"] = pd.to_datetime(pumpSettings["day"]) + \
-                    pd.to_timedelta(pumpSettings[cirColHead + ".start"], unit="ms")
+                    pumpSettings["cir"] = pumpSettings[cirColHead + ".amount"]
+                    pumpSettings["cirTime"] = pd.to_datetime(pumpSettings["day"]) + \
+                        pd.to_timedelta(pumpSettings[cirColHead + ".start"], unit="ms")
 
-                cirCH = commonColumnHeadings.copy()
-                cirCH.extend(["cirTime", "cir"])
-                cir = pumpSettings.loc[pumpSettings["cir"].notnull(), cirCH]
+                    cirCH = commonColumnHeadings.copy()
+                    cirCH.extend(["cirTime", "cir"])
+                    cir = pumpSettings.loc[pumpSettings["cir"].notnull(), cirCH]
 
 
-                # CORRECTION TARGET
-                if "bgTarget.start" in list(pumpSettings):
-                    bgTargetColHead = "bgTarget"
-                else:
-                    bgTargetColHead = "bgTargets"
+                    # CORRECTION TARGET
+                    if "bgTarget.start" in list(pumpSettings):
+                        bgTargetColHead = "bgTarget"
+                    else:
+                        bgTargetColHead = "bgTargets"
 
-                pumpSettings["correctionTargetLow_mmolL"] = pumpSettings[bgTargetColHead + ".low"]
-                pumpSettings["correctionTargetLow"] = \
-                    mmolL_to_mgdL(pumpSettings["correctionTargetLow_mmolL"])
+                    pumpSettings["correctionTargetLow_mmolL"] = pumpSettings[bgTargetColHead + ".low"]
+                    pumpSettings["correctionTargetLow"] = \
+                        mmolL_to_mgdL(pumpSettings["correctionTargetLow_mmolL"])
 
-                pumpSettings["correctionTargetHigh_mmolL"] = pumpSettings[bgTargetColHead + ".high"]
-                pumpSettings["correctionTargetHigh"] = \
-                    mmolL_to_mgdL(pumpSettings["correctionTargetHigh_mmolL"])
+                    pumpSettings["correctionTargetHigh_mmolL"] = pumpSettings[bgTargetColHead + ".high"]
+                    pumpSettings["correctionTargetHigh"] = \
+                        mmolL_to_mgdL(pumpSettings["correctionTargetHigh_mmolL"])
 
-                pumpSettings["correctionTargetTime"] = pd.to_datetime(pumpSettings["day"]) + \
-                    pd.to_timedelta(pumpSettings[bgTargetColHead + ".start"], unit="ms")
+                    pumpSettings["correctionTargetTime"] = pd.to_datetime(pumpSettings["day"]) + \
+                        pd.to_timedelta(pumpSettings[bgTargetColHead + ".start"], unit="ms")
 
-                ctCH = commonColumnHeadings.copy()
-                ctCH.extend(["correctionTargetTime", "correctionTargetLow", "correctionTargetHigh"])
-                correctionTarget = pumpSettings.loc[pumpSettings["correctionTargetLow"].notnull(), ctCH]
+                    ctCH = commonColumnHeadings.copy()
+                    ctCH.extend(["correctionTargetTime", "correctionTargetLow", "correctionTargetHigh"])
+                    correctionTarget = pumpSettings.loc[pumpSettings["correctionTargetLow"].notnull(), ctCH]
 
 
 # %% BASAL RATES (TIME, VALUE, DURATION, TYPE (SCHEDULED, TEMP, SUSPEND))
+
 
 
 # %% LOOP DATA (BINARY T/F)
@@ -489,8 +491,12 @@ if os.path.exists(jsonFileName):
 
 
 # %% MAKE THIS A FUNCTION SO THAT IT CAN BE RUN PER EACH INDIVIDUAL
+                else:
+                    metadata["flags"] = "no pump settings"
+            else:
+                metadata["flags"] = "no bolus wizard data"
         else:
-            metadata["flags"] = "no bolus wizard data"
+            metadata["flags"] = "no upload data"
     else:
         metadata["flags"] = "file contains no data"
 else:
