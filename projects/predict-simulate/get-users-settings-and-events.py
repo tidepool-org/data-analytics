@@ -474,7 +474,7 @@ if os.path.exists(jsonFileName):
                                     "roundedTime"]
 
 
-# %% FORMAT BOLUS DATA
+# %% BOLUS EVENTS (CORRECTION, AND MEAL INCLUING: CARBS, EXTENDED, DUAL)
             bolus = mergeWizardWithBolus(data)
             if len(bolus) > 0:
                 # get rid of duplicates that have the same ["time", "normal"]
@@ -482,29 +482,6 @@ if os.path.exists(jsonFileName):
                     td.clean.remove_duplicates(bolus, bolus[["time", "normal"]])
                 metadata["nBolusDuplicatesRemoved"] = nBolusDuplicatesRemoved
 
-
-# %% ISF, CIR
-                # ISF
-                if "insulinSensitivities" in list(bolus):
-                    pdb.set_trace()
-
-                bolus["isf_mmolL_U"] = bolus["insulinSensitivity"]
-                bolus["isf"] = mmolL_to_mgdL(bolus["isf_mmolL_U"])
-
-                isfCH = commonColumnHeadings.copy()
-                isfCH.extend(["isf", "isf_mmolL_U"])
-                isf = bolus.loc[bolus["isf"].notnull(), isfCH]
-
-                # CIR
-                if "carbRatios" in list(bolus):
-                    pdb.set_trace()
-
-                cirCH = commonColumnHeadings.copy()
-                cirCH.extend(["insulinCarbRatio"])
-                cir = bolus.loc[bolus["insulinCarbRatio"].notnull(), cirCH]
-
-
-# %% BOLUS EVENTS (CORRECTION, AND MEAL INCLUING: CARBS, EXTENDED, DUAL)
                 # get a summary of boluses per day
                 bolusDaySummary = get_bolusDaySummary(bolus)
 
@@ -512,9 +489,19 @@ if os.path.exists(jsonFileName):
                     bolus["extended"] = np.nan
                     bolus["duration"] = np.nan
 
+                # ISF associated with bolus event
+                if "insulinSensitivities" in list(bolus):
+                    pdb.set_trace()
+                if "carbRatios" in list(bolus):
+                    pdb.set_trace()
+
+                bolus["isf_mmolL_U"] = bolus["insulinSensitivity"]
+                bolus["isf"] = mmolL_to_mgdL(bolus["isf_mmolL_U"])
+
                 bolusCH = commonColumnHeadings.copy()
                 bolusCH.extend(["normal", "carbInput", "subType",
-                                "insulinOnBoard", "bgInput"])
+                                "insulinOnBoard", "bgInput",
+                                "isf", "isf_mmolL_U", "insulinCarbRatio"])
                 bolusEvents = bolus.loc[bolus["normal"].notnull(), bolusCH]
                 bolusEvents.loc[bolusEvents["bgInput"] == 0, "bgInput"] = np.nan
                 bolusEvents = bolusEvents.rename(columns={"normal": "unitsInsulin",
@@ -524,8 +511,8 @@ if os.path.exists(jsonFileName):
                 bolusEvents.loc[bolusEvents["carbInput"] == 0, "eventType"] = "meal"
 
 
-# %% INSULIN ACTIVITY DURATION
-
+# %% PUMP SETTINGS
+                pumpSettings = data[data.type == "pumpSettings"].copy().dropna(axis=1, how="all")
 
 # %% MAX BASAL RATE
 
