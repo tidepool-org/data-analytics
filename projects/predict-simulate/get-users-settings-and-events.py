@@ -122,6 +122,18 @@ def tempRemoveFields(df):
     return df, tempDf
 
 
+def tempRemoveFieldsV2(df):
+    removeFields = ["suppressed",
+                    "recommended",
+                    "payload"]
+
+    tempRemoveFields = list(set(df) & set(removeFields))
+    tempDf = df[tempRemoveFields]
+    df = df.drop(columns=tempRemoveFields)
+
+    return df, tempDf
+
+
 def removeBrackets(df, fieldName):
     if fieldName in list(df):
         df.loc[df[fieldName].notnull(), fieldName] = \
@@ -133,7 +145,7 @@ def removeBrackets(df, fieldName):
 def flattenJson(df, dataFieldsForExport):
 
     # remove fields that we don't want to flatten
-    df, holdData = tempRemoveFields(df)
+    #df, holdData = tempRemoveFields(df)
 
     # remove [] from annotations field
     df = removeBrackets(df, "annotations")
@@ -161,18 +173,57 @@ def flattenJson(df, dataFieldsForExport):
 
     # put df back into the main dataframe
     # and add the fields that were removed back in
+    pdb.set_trace
     columnFilter = list(set(newColHeadings) & set(dataFieldsForExport))
     tempDataFrame = newDataFrame.filter(items=columnFilter)
-    df = pd.concat([df, tempDataFrame, holdData], axis=1)
+    df = pd.concat([df, tempDataFrame], axis=1)
+    #df = pd.concat([df, tempDataFrame, holdData], axis=1)
 
     return df
 
 
+def flattenJsonV2(df, nEmbeddings):
+    # repeat this N times
+    for nEmbed in range(0, nEmbeddings):
+        # remove fields that we don't want to flatten
+        df, holdData = tempRemoveFieldsV2(df)
+
+        # get a list of data types of column headings
+        columnHeadings = list(df)  # ["payload", "suppressed"]
+
+        # loop through each columnHeading
+        newDataFrame = pd.DataFrame()
+
+        for colHead in columnHeadings:
+            if any(isinstance(item, list) for item in df[colHead]):
+                listBlob = df[colHead][df[colHead].astype(str).str[0] == "["]
+                df.loc[listBlob.index, colHead] = df.loc[listBlob.index, colHead].str[0]
+
+            # if the df field has embedded json
+            if any(isinstance(item, dict) for item in df[colHead]):
+                # grab the data that is in brackets
+                jsonBlob = df[colHead][df[colHead].astype(str).str[0] == "{"]
+
+                # replace those values with nan
+                df.loc[jsonBlob.index, colHead] = np.nan
+
+                # turn jsonBlob to dataframe
+                newDataFrame = pd.concat([newDataFrame, pd.DataFrame(jsonBlob.tolist(),
+                                         index=jsonBlob.index).add_prefix(colHead + '.')], axis=1)
+
+        df = pd.concat([df, newDataFrame, holdData], axis=1)
+
+    df.sort_index(axis=1, inplace=True)
+
+    return df
+
+
+
 def mergeWizardWithBolus(df):
 
-    if "wizard" in data["type"].unique():
-        bolusData = data[data.type == "bolus"].copy().dropna(axis=1, how="all")
-        wizardData = data[data.type == "wizard"].copy().dropna(axis=1, how="all")
+    if "wizard" in df["type"].unique():
+        bolusData = df[df.type == "bolus"].copy().dropna(axis=1, how="all")
+        wizardData = df[df.type == "wizard"].copy().dropna(axis=1, how="all")
 
         # merge the wizard data with the bolus data
         wizardData["calculatorId"] = wizardData["id"]
@@ -371,7 +422,8 @@ if os.path.exists(jsonFileName):
         data.sort_values("time", inplace=True)
 
         # flatten the embedded json
-        data = flattenJson(data, dataFieldExportList)
+        #data = flattenJson(data, dataFieldExportList)
+        data = flattenJsonV2(data, 2)
 
 
 
