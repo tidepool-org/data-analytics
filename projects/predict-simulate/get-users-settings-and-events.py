@@ -469,9 +469,7 @@ if os.path.exists(jsonFileName):
 
             commonColumnHeadings = ["hashID",
                                     "age",
-                                    "ylw",
-                                    "utcTime",
-                                    "roundedTime"]
+                                    "ylw"]
 
 
 # %% BOLUS EVENTS (CORRECTION, AND MEAL INCLUING: CARBS, EXTENDED, DUAL)
@@ -499,7 +497,7 @@ if os.path.exists(jsonFileName):
                 bolus["isf"] = mmolL_to_mgdL(bolus["isf_mmolL_U"])
 
                 bolusCH = commonColumnHeadings.copy()
-                bolusCH.extend(["normal", "carbInput", "subType",
+                bolusCH.extend(["utcTime", "roundedTime", "normal", "carbInput", "subType",
                                 "insulinOnBoard", "bgInput",
                                 "isf", "isf_mmolL_U", "insulinCarbRatio"])
                 bolusEvents = bolus.loc[bolus["normal"].notnull(), bolusCH]
@@ -513,6 +511,22 @@ if os.path.exists(jsonFileName):
 
 # %% PUMP SETTINGS
                 pumpSettings = data[data.type == "pumpSettings"].copy().dropna(axis=1, how="all")
+
+                #ISF
+                if "insulinSensitivity.amount" in list(pumpSettings):
+                    isfColHead = "insulinSensitivity"
+                else:
+                    isfColHead = "insulinSensitivities"
+
+                pumpSettings["isf_mmolL_U"] = pumpSettings[isfColHead + ".amount"]
+                pumpSettings["isf"] = mmolL_to_mgdL(pumpSettings["isf_mmolL_U"])
+                pumpSettings["time"] = pd.to_datetime(pumpSettings["day"]) + \
+                    pd.to_timedelta(pumpSettings[isfColHead + ".start"], unit="ms")
+
+                isfCH = commonColumnHeadings.copy()
+                isfCH.extend(["time", "isf", "isf_mmolL_U"])
+                isf = pumpSettings.loc[pumpSettings["isf"].notnull(), isfCH]
+
 
 # %% MAX BASAL RATE
 
