@@ -341,37 +341,37 @@ def common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLa
 # LoopKit.GlucoseEffect(startDate: 2018-12-06 13:40:00 +0000, quantity: 86.8639 mg/dL)]
 
 
-# set up some example data
-effectValuesAtDate = np.array([  0,  -3,  -3,  -3, -3])
-exampleCgmTime = np.array([345.3, 350.3, 355.2833333333333333, 360.2833333333333333])
-exampleCgmData = np.array([64, 69, 93, 116])
-startingGlucose = 360.2833333333333333
-startingGlucoseValue = 116
-
-momentumTime, momentum = bg_momentum(exampleCgmTime, exampleCgmData)
-
-previousEffectValue = momentum[0]
-blendCount = len(momentum) - 2
-timeDelta = (momentumTime[1] - momentumTime[0])
-momentumOffset = startingGlucose - momentumTime[0]
-blendSlope = 1.0 / blendCount
-blendOffset = momentumOffset / timeDelta * blendSlope
-
-newEffectValuesAtDate = np.array([])
-newEffectBG = np.array([])
-for index, effect, effectTime in zip(np.arange(len(momentum)), momentum, momentumTime):
-    value = effect
-    effectValueChange = value - previousEffectValue
-#    print(effectValueChange)
-    split = min(1.0, max(0.0, ((len(momentum) - index) / blendCount) - blendSlope + blendOffset))
-#    print(split)
-    effectBlend = (1.0 - split) * (effectValuesAtDate[index])
-    momentumBlend = split * effectValueChange
-#    print(momentumBlend)
-    newEffectValuesAtDate = np.append(newEffectValuesAtDate, effectBlend + momentumBlend)
-    newEffectBG = np.append(newEffectBG, startingGlucoseValue + newEffectValuesAtDate[index])
-    startingGlucoseValue = newEffectBG[index]
-    previousEffectValue = value
+## set up some example data
+#effectValuesAtDate = np.array([  0,  -3,  -3,  -3, -3])
+#exampleCgmTime = np.array([345.3, 350.3, 355.2833333333333333, 360.2833333333333333])
+#exampleCgmData = np.array([64, 69, 93, 116])
+#startingGlucose = 360.2833333333333333
+#startingGlucoseValue = 116
+#
+#momentumTime, momentum = bg_momentum(exampleCgmTime, exampleCgmData)
+#
+#previousEffectValue = momentum[0]
+#blendCount = len(momentum) - 2
+#timeDelta = (momentumTime[1] - momentumTime[0])
+#momentumOffset = startingGlucose - momentumTime[0]
+#blendSlope = 1.0 / blendCount
+#blendOffset = momentumOffset / timeDelta * blendSlope
+#
+#newEffectValuesAtDate = np.array([])
+#newEffectBG = np.array([])
+#for index, effect, effectTime in zip(np.arange(len(momentum)), momentum, momentumTime):
+#    value = effect
+#    effectValueChange = value - previousEffectValue
+##    print(effectValueChange)
+#    split = min(1.0, max(0.0, ((len(momentum) - index) / blendCount) - blendSlope + blendOffset))
+##    print(split)
+#    effectBlend = (1.0 - split) * (effectValuesAtDate[index])
+#    momentumBlend = split * effectValueChange
+##    print(momentumBlend)
+#    newEffectValuesAtDate = np.append(newEffectValuesAtDate, effectBlend + momentumBlend)
+#    newEffectBG = np.append(newEffectBG, startingGlucoseValue + newEffectValuesAtDate[index])
+#    startingGlucoseValue = newEffectBG[index]
+#    previousEffectValue = value
 
 
 # %% testing the linear regression
@@ -465,14 +465,15 @@ def momenutum_effect(exampleCgmTime, exampleCgmData):
 
     momentum = timeIntervalSinceLastCgm * bgSlope
 
-    return simulationDateRange, momentum
+    return simulationDateRange, momentum, bgSlope
 
 exampleCgmTime = np.array([467515177, 467515476, 467515777])
 exampleCgmData = np.array([123, 120, 129])
 
-momentumTime, momentum  = momenutum_effect(exampleCgmTime, exampleCgmData)
+momentumTime, momentum, slope  = momenutum_effect(exampleCgmTime, exampleCgmData)
 
 # %% test the blending effect using the xcode test case
+
 
 #▿ PredictedGlucoseValue
 #  ▿ startDate : 2015-10-30 15:17:27 +0000
@@ -533,6 +534,8 @@ momentumTime, momentum  = momenutum_effect(exampleCgmTime, exampleCgmData)
 #      - timeIntervalSinceReferenceDate : 467912700.0
 #    - quantity : -97.4284 mg/dL
 
+
+
 #▿ 7 elements
 #  ▿ 0 : PredictedGlucoseValue
 #    ▿ startDate : 2015-10-30 15:17:27 +0000
@@ -562,6 +565,57 @@ momentumTime, momentum  = momenutum_effect(exampleCgmTime, exampleCgmData)
 #    ▿ startDate : 2015-10-30 15:45:00 +0000
 #      - timeIntervalSinceReferenceDate : 467912700.0
 #    - quantity : 108.777 mg/dL
+
+momentum = np.array([0, -0.51, -1.51, -2.51, -3.51])
+momentumTime = np.array([467910900, 467911200, 467911500, 467911800, 467912100])
+insulinEffect = np.array([-96.6443, -96.919, -97.1471, -97.3095, -97.4078, -97.447, -97.4284])  # comes from insulin effect example
+insulinEffectTime = np.array([467910900, 467911200, 467911500, 467911800, 467912100, 467912400, 467912700])
+startingGlucoseValue = np.array([111])
+startingGlucoseTime = np.array([467910900.])
+
+# the insulin effect OR the other effects need to get processed first
+effectValues = []
+previousEffectValue = insulinEffect[0]
+for effect in insulinEffect:
+    value = effect
+    effectValueChange = value - previousEffectValue
+    effectValues = np.append(effectValues, value - previousEffectValue)
+    previousEffectValue = value
+
+# then the blended effect
+previousEffectValue = momentum[0]
+blendCount = len(momentum) - 2
+timeDelta = (momentumTime[1] - momentumTime[0])
+momentumOffset = startingGlucoseTime - momentumTime[0]
+blendSlope = 1.0 / blendCount
+blendOffset = momentumOffset / timeDelta * blendSlope
+
+neweffectValues = np.array([])
+newEffectBG = np.array([])
+
+for index, effect, effectTime in zip(np.arange(len(momentum)), momentum, momentumTime):
+    value = effect
+    effectValueChange = value - previousEffectValue
+#    print(effectValueChange)
+    split = min(1.0, max(0.0, ((len(momentum) - index) / blendCount) - blendSlope + blendOffset))
+    print(split)
+    effectBlend = (1.0 - split) * (effectValues[index])
+    momentumBlend = split * effectValueChange
+#    print(momentumBlend)
+    neweffectValues = np.append(neweffectValues, effectBlend + momentumBlend)
+#    print(effectBlend, momentumBlend)
+    newEffectBG = np.append(newEffectBG, startingGlucoseValue + neweffectValues[index])
+    startingGlucoseValue = newEffectBG[index]
+    previousEffectValue = value
+
+# %% VERY NEXT ACTION IS TO MAKE A FEW FIGURES TO DEMONSTRATE THE EFFECT
+
+
+
+
+
+
+
 
 # %% define the insulin model and number of insulin boluses
 #

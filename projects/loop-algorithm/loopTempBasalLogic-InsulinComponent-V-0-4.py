@@ -213,7 +213,7 @@ xData = insulinEffect["minutesSinceDelivery"]/60
 
 # %% set figure properties
 versionNumber = 0
-subversionNumber = 3
+subversionNumber = 4
 figureClass = "LoopOverview-InsulinEffect" + "-" + \
     "V" + str(versionNumber) + "-" +str(subversionNumber)
 outputPath = os.path.join(".", "figures")
@@ -357,49 +357,158 @@ startTimeAMPM = "AM"
 predictedTime = np.arange(360, 725, 5)
 predictedCgm = 205 + (insulinEffect["cumulativeGlucoseEffect"][0:73].values)
 
-# make the figure
-figureName = "insulin-effect-example"
-fig, ax = plt.subplots(figsize=figureSizeInches)
-plt.ylim((80, 220))
+## make the figure
+#figureName = "insulin-effect-example"
+#fig, ax = plt.subplots(figsize=figureSizeInches)
+#plt.ylim((80, 220))
 yLabel = "Glucose (mg/dL)"
 
 # plot correction range
 correction_min = 90
 correction_max = 120
+#
+## plot correction range
+#ax.fill_between(np.arange(0, 725, 5),
+#                correction_min,
+#                correction_max,
+#                facecolor='#B5E7FF', lw=0)
+#
+#ax.plot([], [], color='#B5E7FF', linewidth=10,
+#        label="Correction Range: %d-%d" % (correction_min, correction_max))
+#
+## plot predicted cgm
+#ax.plot(predictedTime, predictedCgm, linestyle="--", color="#31B0FF", lw=1, label="Prediction (Insulin Effect Only)")
+#
+#        # plot simulated cgm
+#ax.scatter(simulatedTime, simulatedCgm, s=10, color="#31B0FF", label="CGM Data")
+#
+#
+## show the insulin delivered
+#ax.plot(predictedTime[0] - 5, predictedCgm[0] + 5,
+#        marker='v', markersize=16, color="#f09a37",
+#        ls="None", label="%d Units of Insulin Delivered" % insulinAmount)
+#
+#
+## plot eventual bg
+#ax.plot(predictedTime[-1], predictedCgm[-1],
+#        marker='*', markersize=16, color="#4faef8",
+#        ls="None", label="Eventual BG = %d" % predictedCgm[-1])
+#
+#
+## define the legend
+#leg = plt.legend(scatterpoints=3, edgecolor="black")
+#for text in leg.get_texts():
+#    text.set_color('#606060')
+#    text.set_weight('normal')
+#
+## run the common figure elements here
+#ax = common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLabelFontSize, coord_color, yLabel_xOffset=50)
+#
+## extras for this plot
+#ax.set_xlabel("")
+#plt.xlim([min(simulatedTime) - 15, max(predictedTime) + 15])
+#ax.text(max(ax.get_xlim()),
+#        max(ax.get_ylim()) + 7,
+#        "Eventually %d mg/dL" % predictedCgm[-1],
+#        horizontalalignment="right", fontproperties=figureFont, size=labelFontSize, color=coord_color)
+#
+## set tick marks
+#minuteTicks = np.arange(0, (len(simulatedTime) + len(predictedTime)) * 5 + 1, 60)
+#hourTicks = np.int64(minuteTicks / 60)
+#hourLabels = make_hour_labels(startTimeHour, startTimeAMPM, hourTicks)
+#ax.set_xticks(minuteTicks)
+#ax.set_xticklabels(hourLabels)
+#
+#plt.savefig(os.path.join(outputPath, figureClass + figureName + ".png"))
+#plt.show()
+#plt.close('all')
 
-# plot correction range
-ax.fill_between(np.arange(0, 725, 5),
-                correction_min,
-                correction_max,
-                facecolor='#bde5fc', lw=0)
 
-ax.plot([], [], color='#bde5fc', linewidth=10,
-        label="Correction Range: %d-%d" % (correction_min, correction_max))
+# new format
+figureName = "insulin-effect-example"
+fig, ax = plt.subplots(figsize=figureSizeInches)
+bgRange = (80, 220)
+plt.ylim(bgRange)
+ax.set_xlim([min(simulatedTime) - 5, max(predictedTime) + 15])
 
 # show the insulin delivered
-ax.plot(predictedTime[0] - 5, predictedCgm[0] + 5,
-        marker='v', markersize=16, color="#f09a37",
+ax.plot(predictedTime[0], predictedCgm[0] + 7.5,
+        marker='v', markersize=14, color="#f09a37",
         ls="None", label="%d Units of Insulin Delivered" % insulinAmount)
 
+# plot correction range
+ax.fill_between([ax.get_xlim()[0], ax.get_xlim()[1]],
+                [correction_min, correction_min],
+                [correction_max, correction_max],
+                facecolor='#B5E7FF', lw=0)
+
+ax.plot([], [], color='#B5E7FF', linewidth=10,
+        label="Correction Range = %d - %d" % (correction_min, correction_max))
+
 # plot predicted cgm
-ax.plot(predictedTime, predictedCgm, linestyle="--", color="#4faef8", lw=4, label="Prediction (Insulin Effect Only)")
+ax.plot(predictedTime, predictedCgm, linestyle="--", color="#f09a37", lw=2, label="Predicted Glucose (Insulin Effect Only)")
+
+# plot simulated cgm
+ax.scatter(simulatedTime, simulatedCgm, s=10, color="#31B0FF", label="CGM Data")
+
+## plot the Correction Target
+#ax.plot(predictedTime[-1], correction_target,
+#        marker='*', markersize=16, color="purple", alpha=0.5,
+#        ls="None", label="Correction Target = %d" % correction_target)
+
+# plot the current time
+ax.plot(simulatedTime[-1], simulatedCgm[-1],
+        marker='*', markersize=16, color=coord_color, markeredgecolor = "black", alpha=0.5,
+        ls="None", label="Current Time BG =  %d" % simulatedCgm[-1])
 
 # plot eventual bg
 ax.plot(predictedTime[-1], predictedCgm[-1],
-        marker='*', markersize=16, color="#4faef8",
+        marker='*', markersize=16, color="#31B0FF", alpha=0.5,
         ls="None", label="Eventual BG = %d" % predictedCgm[-1])
 
-# plot simulated cgm
-ax.scatter(simulatedTime, simulatedCgm, s=18, color="#4faef8", label="CGM Data")
+## find and plot minimum BG
+#min_idx = np.argmin(predictedCgm)
+#ax.plot(predictedTime[min_idx], predictedCgm[min_idx],
+#        marker='*', markersize=16, color="red", alpha=0.25,
+#        ls="None", label="Minimum Predicted BG = %d" % predictedCgm[min_idx])
 
-# define the legend
-leg = plt.legend(scatterpoints=3, edgecolor="black")
+## plot suspend threshold line
+#ax.hlines(suspendThreshold, ax.get_xlim()[0], ax.get_xlim()[1],
+#          colors="red", label="Suspend Threshold = %d" % suspendThreshold)
+
+## place holder for the delta vertical line in the legend
+#delta = int(predictedCgm[-1] - correction_target)
+#ax.plot(-10, 10, ls="None", marker="|", markersize=16, markeredgewidth=6, alpha=0.5,
+#        color="purple", label="Delta = %d" % delta)
+
+# run the common figure elements here
+ax = common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLabelFontSize, coord_color, yLabel_xOffset=32)
+
+# change the order of the legend items
+handles, labels = ax.get_legend_handles_labels()
+#pdb.set_trace()
+handles = [handles[0], handles[5], handles[3], handles[2], handles[4],
+           handles[1]]
+labels = [labels[0], labels[5], labels[3], labels[2], labels[4],
+          labels[1]]
+
+# format the legend
+leg = ax.legend(handles, labels, scatterpoints=3, edgecolor="black", loc=1)
 for text in leg.get_texts():
     text.set_color('#606060')
     text.set_weight('normal')
 
-# run the common figure elements here
-ax = common_figure_elements(ax, xLabel, yLabel, figureFont, labelFontSize, tickLabelFontSize, coord_color, yLabel_xOffset=50)
+## plot the delta
+#ax.vlines(predictedTime[-1] + 10, min([correction_target, predictedCgm[-1]]),
+#          max([correction_target, predictedCgm[-1]]), linewidth=6, alpha=0.5, colors="purple")
+
+# set tick marks
+minuteTicks = np.arange(0, (len(simulatedTime) + len(predictedTime)) * 5 + 1, 60)
+hourTicks = np.int64(minuteTicks / 60)
+hourLabels = make_hour_labels(startTimeHour, startTimeAMPM, hourTicks)
+ax.set_xticks(minuteTicks)
+ax.set_xticklabels(hourLabels)
+
 
 # extras for this plot
 ax.set_xlabel("")
@@ -409,16 +518,12 @@ ax.text(max(ax.get_xlim()),
         "Eventually %d mg/dL" % predictedCgm[-1],
         horizontalalignment="right", fontproperties=figureFont, size=labelFontSize, color=coord_color)
 
-# set tick marks
-minuteTicks = np.arange(0, (len(simulatedTime) + len(predictedTime)) * 5 + 1, 60)
-hourTicks = np.int64(minuteTicks / 60)
-hourLabels = make_hour_labels(startTimeHour, startTimeAMPM, hourTicks)
-ax.set_xticks(minuteTicks)
-ax.set_xticklabels(hourLabels)
+
 
 plt.savefig(os.path.join(outputPath, figureClass + figureName + ".png"))
 plt.show()
 plt.close('all')
+
 
 
 # %% insulin activity curves

@@ -385,7 +385,8 @@ xDataInHours = cumulativeInsulinEffect["minutesSinceFirstDelivery"]/60
 # %% counter basal effect
 figureName = "effect-suspend-1-hour" + "-" + \
     "V" + str(versionNumber) + "-" +str(subversionNumber)
-yLabel = "Glucose (mg/dL)"
+xLabel = "Time Since Start of Temp Basal (Hours)"
+yLabel = "Cumulative BG (mg/dL) Rise from Temp Basal of 0 U/hr for 1 hr with ISF of 50"
 fig, ax = plt.subplots(figsize=figureSizeInches)
 
 # plot the curve
@@ -397,7 +398,7 @@ ax = common_figure_elements(ax, xLabel, yLabel, figureFont,
                             yLabel_xOffset=0.75)
 
 # extras for this plot
-ax.set_xlim(-0.1, 14)
+ax.set_xlim(-0.1, 6)
 
 # save the figure
 plt.savefig(os.path.join(outputPath, figureClass + figureName + ".png"))
