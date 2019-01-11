@@ -512,7 +512,7 @@ if os.path.exists(jsonFileName):
 # %% PUMP SETTINGS
                 pumpSettings = data[data.type == "pumpSettings"].copy().dropna(axis=1, how="all")
 
-                #ISF
+                # ISF
                 if "insulinSensitivity.amount" in list(pumpSettings):
                     isfColHead = "insulinSensitivity"
                 else:
@@ -520,12 +520,26 @@ if os.path.exists(jsonFileName):
 
                 pumpSettings["isf_mmolL_U"] = pumpSettings[isfColHead + ".amount"]
                 pumpSettings["isf"] = mmolL_to_mgdL(pumpSettings["isf_mmolL_U"])
-                pumpSettings["time"] = pd.to_datetime(pumpSettings["day"]) + \
+                pumpSettings["isfTime"] = pd.to_datetime(pumpSettings["day"]) + \
                     pd.to_timedelta(pumpSettings[isfColHead + ".start"], unit="ms")
 
                 isfCH = commonColumnHeadings.copy()
-                isfCH.extend(["time", "isf", "isf_mmolL_U"])
+                isfCH.extend(["isfTime", "isf", "isf_mmolL_U"])
                 isf = pumpSettings.loc[pumpSettings["isf"].notnull(), isfCH]
+
+                # CIR
+                if "carbRatio.amount" in list(pumpSettings):
+                    cirColHead = "carbRatio"
+                else:
+                    cirColHead = "carbRatios"
+
+                pumpSettings["cir"] = pumpSettings[cirColHead + ".amount"]
+                pumpSettings["cirTime"] = pd.to_datetime(pumpSettings["day"]) + \
+                    pd.to_timedelta(pumpSettings[cirColHead + ".start"], unit="ms")
+
+                cirCH = commonColumnHeadings.copy()
+                cirCH.extend(["cirTime", "cir"])
+                cir = pumpSettings.loc[pumpSettings["cir"].notnull(), cirCH]
 
 
 # %% MAX BASAL RATE
