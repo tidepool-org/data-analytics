@@ -21,6 +21,9 @@ work-record-archive
 export
 internal
 data
+figures
+isf-basal-figures
+fonts
 
 # Test
 htmlcov
