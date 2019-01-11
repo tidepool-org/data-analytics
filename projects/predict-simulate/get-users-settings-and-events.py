@@ -542,13 +542,26 @@ if os.path.exists(jsonFileName):
                 cir = pumpSettings.loc[pumpSettings["cir"].notnull(), cirCH]
 
 
-# %% MAX BASAL RATE
+                # CORRECTION TARGET
+                if "bgTarget.start" in list(pumpSettings):
+                    bgTargetColHead = "bgTarget"
+                else:
+                    bgTargetColHead = "bgTargets"
 
+                pumpSettings["correctionTargetLow_mmolL"] = pumpSettings[bgTargetColHead + ".low"]
+                pumpSettings["correctionTargetLow"] = \
+                    mmolL_to_mgdL(pumpSettings["correctionTargetLow_mmolL"])
 
-# %% MAX BOLUS AMOUNT
+                pumpSettings["correctionTargetHigh_mmolL"] = pumpSettings[bgTargetColHead + ".high"]
+                pumpSettings["correctionTargetHigh"] = \
+                    mmolL_to_mgdL(pumpSettings["correctionTargetHigh_mmolL"])
 
+                pumpSettings["correctionTargetTime"] = pd.to_datetime(pumpSettings["day"]) + \
+                    pd.to_timedelta(pumpSettings[bgTargetColHead + ".start"], unit="ms")
 
-# %% CORRECTION TARGET
+                ctCH = commonColumnHeadings.copy()
+                ctCH.extend(["correctionTargetTime", "correctionTargetLow", "correctionTargetHigh"])
+                correctionTarget = pumpSettings.loc[pumpSettings["correctionTargetLow"].notnull(), ctCH]
 
 
 # %% BASAL RATES (TIME, VALUE, DURATION, TYPE (SCHEDULED, TEMP, SUSPEND))
