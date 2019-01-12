@@ -511,13 +511,10 @@ for dIndex in range(0, len(donors)):
                     # get a summary of boluses per day
                     bolusDaySummary = get_bolusDaySummary(bolus)
 
-                    if "extended" not in bolus:
-                        bolus["extended"] = np.nan
-                        bolus["duration"] = np.nan
-
-                    # cir associated with bolus event
+                    # isf and cir associated with bolus event
                     if "insulinSensitivities" in list(bolus):
                         pdb.set_trace()
+
                     if "carbRatios" in list(bolus):
                         pdb.set_trace()
 
@@ -535,6 +532,20 @@ for dIndex in range(0, len(donors)):
                     bolusEvents["bg_mgdL"] = mmolL_to_mgdL(bolusEvents["bg_mmolL"])
                     bolusEvents["eventType"] = "correction"
                     bolusEvents.loc[bolusEvents["carbInput"] > 0, "eventType"] = "meal"
+
+                    if "duration" in list(bolus):
+                        bolus["durationHours"] = bolus["duration"] / 1000.0 / 3600.0
+                        bolus["rate"] = bolus["extended"] / bolus["durationHours"]
+                        bolusExtendedCH = commonColumnHeadings.copy()
+                        bolusExtendedCH.extend(["utcTime", "roundedTime", "durationHours", "rate",  "type"])
+                        bolusExtendedEvents = bolus.loc[
+                                ((bolus["extended"].notnull()) &
+                                 (bolus["duration"] > 0)), bolusExtendedCH]
+
+                    if "extended" not in bolus:
+                        bolus["extended"] = np.nan
+                        bolus["duration"] = np.nan
+
 
                     # get start and end times
                     bolusBeginDate, bolusEndDate = getStartAndEndTimes(bolus, "day")
@@ -706,8 +717,12 @@ for dIndex in range(0, len(donors)):
 
                             # actual basal delivered
                             abrColHeadings = commonColumnHeadings.copy()
-                            abrColHeadings.extend(["utcTime", "roundedTime", "durationHours", "rate"])
+                            abrColHeadings.extend(["utcTime", "roundedTime", "durationHours", "rate", "type"])
                             abr = basal[abrColHeadings]
+                            if "duration" in list(bolus):
+                                abr = pd.concat([abr, bolusExtendedEvents], ignore_index=True)
+                                abr.sort_values("utcTime", inplace=True)
+
 
                             # get a summary of basals per day
                             basalDaySummary = get_basalDaySummary(basal)
@@ -770,7 +785,7 @@ for dIndex in range(0, len(donors)):
 
 
                                 # %% NUMBER OF DAYS OF PUMP AND CGM DATA, OVERALL AND PER EACH AGE & YLW
-                                pdb.set_trace()
+
 
 
     # %% STATS PER EACH TYPE, OVERALL AND PER EACH AGE & YLW (MIN, PERCENTILES, MAX, MEAN, SD, IQR, COV)
