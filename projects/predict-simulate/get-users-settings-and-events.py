@@ -424,7 +424,7 @@ donors = td.load.load_csv(os.path.join(donorPath, donorList))
 # %% MAKE THIS A FUNCTION SO THAT IT CAN BE RUN PER EACH INDIVIDUAL
 
 # this is where the loop will go:
-for dIndex in range(0, len(donors)):
+for dIndex in range(140, len(donors)):
 
     # clear output dataframes
     isf, cir, correctionTarget = pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
@@ -432,131 +432,139 @@ for dIndex in range(0, len(donors)):
     # %% ID, HASHID, AGE, & YLW
     userID = donors.userID[dIndex]
     hashID = donors.hashID[dIndex]
-    # round all birthdays and diagnosis dates to the first day of the month (to protect identities)
-    bDate = pd.to_datetime(donors.bDay[dIndex][0:7])
-    dDate = pd.to_datetime(donors.dDay[dIndex][0:7])
-
-
-    # %% LOAD IN DONOR JSON DATA
     metadata = pd.DataFrame(index=[dIndex])
-    jsonDataPath = os.path.join(donorPath, phiDate + "-donorJsonData")
-    jsonFileName = os.path.join(jsonDataPath, "PHI-" + userID + ".json")
+    # round all birthdays and diagnosis dates to the first day of the month (to protect identities)
+    if (pd.isnull(donors.bDay[dIndex]) + pd.isnull(donors.dDay[dIndex])) == 0:
 
-    if os.path.exists(jsonFileName):
-        fileSize = os.stat(jsonFileName).st_size
-        metadata["fileSizeKB"] = fileSize / 1000
-        if fileSize > 1000:
-            data = td.load.load_json(jsonFileName)
-
-            # sort the data by time
-            data.sort_values("time", inplace=True)
-
-            # flatten the embedded json
-            data = flattenJson(data)
+        bDate = pd.to_datetime(donors.bDay[dIndex][0:7])
+        dDate = pd.to_datetime(donors.dDay[dIndex][0:7])
 
 
-            # %% CLEAN DATA
-            # remove negative durations
-            data, nNegativeDurations = removeNegativeDurations(data)
-            metadata["nNegativeDurations"] = nNegativeDurations
+        # %% LOAD IN DONOR JSON DATA
 
-            # get rid of cgm values too low/high (< 38 & > 402 mg/dL)
-            data, nInvalidCgmValues = removeInvalidCgmValues(data)
-            metadata["nInvalidCgmValues"] = nInvalidCgmValues
+        jsonDataPath = os.path.join(donorPath, phiDate + "-donorJsonData")
+        jsonFileName = os.path.join(jsonDataPath, "PHI-" + userID + ".json")
 
-            # Tslim calibration bug fix
-            data, nTandemAndPayloadCalReadings = tslimCalibrationFix(data)
-            metadata["nTandemAndPayloadCalReadings"] = nTandemAndPayloadCalReadings
+        if os.path.exists(jsonFileName):
+            fileSize = os.stat(jsonFileName).st_size
+            metadata["fileSizeKB"] = fileSize / 1000
+            if fileSize > 1000:
+                data = td.load.load_json(jsonFileName)
 
+                # sort the data by time
+                data.sort_values("time", inplace=True)
 
-            # %% ADD UPLOAD DATE
-            # attach upload time to each record, for resolving duplicates
-            if "upload" in data.type.unique():
-                data = addUploadDate(data)
+                # flatten the embedded json
+                data = flattenJson(data)
 
 
-                # %% TIME (UTC, TIMEZONE, DAY AND EVENTUALLY LOCAL TIME)
-                data["utcTime"] = pd.to_datetime(data["time"])
-                data["timezone"].fillna(method='ffill', inplace=True)
-                data["timezone"].fillna(method='bfill', inplace=True)
-                data["day"] = pd.DatetimeIndex(data["utcTime"]).date
+                # %% CLEAN DATA
+                # remove negative durations
+                data, nNegativeDurations = removeNegativeDurations(data)
+                metadata["nNegativeDurations"] = nNegativeDurations
 
-                # round to the nearest 5 minutes
-                # TODO: once roundTime is pushed to tidals repository then this line can be replaced
-                # with td.clean.round_time
-                data = round_time(data, timeIntervalMinutes=5, timeField="time",
-                                  roundedTimeFieldName="roundedTime", startWithFirstRecord=True,
-                                  verbose=False)
-                data.sort_values("uploadTime", ascending=False, inplace=True)
+                # get rid of cgm values too low/high (< 38 & > 402 mg/dL)
+                data, nInvalidCgmValues = removeInvalidCgmValues(data)
+                metadata["nInvalidCgmValues"] = nInvalidCgmValues
 
-
-                # %% ID, HASHID, AGE, & YLW
-                data["userID"] = userID
-                data["hashID"] = hashID
-                data["age"] = np.floor((data["utcTime"] - bDate).dt.days/365.25).astype(int)
-                data["ylw"] = np.floor((data["utcTime"] - dDate).dt.days/365.25).astype(int)
-
-                commonColumnHeadings = ["hashID",
-                                        "age",
-                                        "ylw"]
+                # Tslim calibration bug fix
+                data, nTandemAndPayloadCalReadings = tslimCalibrationFix(data)
+                metadata["nTandemAndPayloadCalReadings"] = nTandemAndPayloadCalReadings
 
 
-                # %% BOLUS EVENTS (CORRECTION, AND MEAL INCLUING: CARBS, EXTENDED, DUAL)
-                bolus = mergeWizardWithBolus(data)
-                if len(bolus) > 0:
-                    # get rid of duplicates that have the same ["time", "normal"]
-                    bolus.sort_values("uploadTime", ascending=False, inplace=True)
-                    bolus, nBolusDuplicatesRemoved = \
-                        td.clean.remove_duplicates(bolus, bolus[["deviceTime", "normal"]])
-                    metadata["nBolusDuplicatesRemoved"] = nBolusDuplicatesRemoved
-
-                    # get a summary of boluses per day
-                    bolusDaySummary = get_bolusDaySummary(bolus)
-
-                    # isf and cir associated with bolus event
-                    if "insulinSensitivities" in list(bolus):
-                        pdb.set_trace()
-
-                    if "carbRatios" in list(bolus):
-                        pdb.set_trace()
-
-                    bolus["isf_mmolL_U"] = bolus["insulinSensitivity"]
-                    bolus["isf"] = mmolL_to_mgdL(bolus["isf_mmolL_U"])
-
-                    bolusCH = commonColumnHeadings.copy()
-                    bolusCH.extend(["utcTime", "roundedTime", "normal", "carbInput", "subType",
-                                    "insulinOnBoard", "bgInput",
-                                    "isf", "isf_mmolL_U", "insulinCarbRatio"])
-                    bolusEvents = bolus.loc[bolus["normal"].notnull(), bolusCH]
-                    bolusEvents.loc[bolusEvents["bgInput"] == 0, "bgInput"] = np.nan
-                    bolusEvents = bolusEvents.rename(columns={"normal": "unitsInsulin",
-                                                              "bgInput": "bg_mmolL"})
-                    bolusEvents["bg_mgdL"] = mmolL_to_mgdL(bolusEvents["bg_mmolL"])
-                    bolusEvents["eventType"] = "correction"
-                    bolusEvents.loc[bolusEvents["carbInput"] > 0, "eventType"] = "meal"
-
-                    if "duration" in list(bolus):
-                        bolus["durationHours"] = bolus["duration"] / 1000.0 / 3600.0
-                        bolus["rate"] = bolus["extended"] / bolus["durationHours"]
-                        bolusExtendedCH = commonColumnHeadings.copy()
-                        bolusExtendedCH.extend(["utcTime", "roundedTime", "durationHours", "rate",  "type"])
-                        bolusExtendedEvents = bolus.loc[
-                                ((bolus["extended"].notnull()) &
-                                 (bolus["duration"] > 0)), bolusExtendedCH]
-
-                    if "extended" not in bolus:
-                        bolus["extended"] = np.nan
-                        bolus["duration"] = np.nan
+                # %% ADD UPLOAD DATE
+                # attach upload time to each record, for resolving duplicates
+                if (("upload" in data.type.unique()) &
+                    ("basal" in data.type.unique()) &
+                    ("bolus" in data.type.unique()) &
+                    ("cbg" in data.type.unique()) &
+                    ("pumpSettings" in data.type.unique())):
+                    data = addUploadDate(data)
 
 
-                    # get start and end times
-                    bolusBeginDate, bolusEndDate = getStartAndEndTimes(bolus, "day")
-                    metadata["bolus.beginDate"] = bolusBeginDate
-                    metadata["bolus.endDate"] = bolusEndDate
+                    # %% TIME (UTC, TIMEZONE, DAY AND EVENTUALLY LOCAL TIME)
+                    data["utcTime"] = pd.to_datetime(data["time"])
+                    data["timezone"].fillna(method='ffill', inplace=True)
+                    data["timezone"].fillna(method='bfill', inplace=True)
+                    data["day"] = pd.DatetimeIndex(data["utcTime"]).date
+
+                    # round to the nearest 5 minutes
+                    # TODO: once roundTime is pushed to tidals repository then this line can be replaced
+                    # with td.clean.round_time
+                    data = round_time(data, timeIntervalMinutes=5, timeField="time",
+                                      roundedTimeFieldName="roundedTime", startWithFirstRecord=True,
+                                      verbose=False)
+                    data.sort_values("uploadTime", ascending=False, inplace=True)
 
 
-                    # %% PUMP SETTINGS
-                    if "pumpSettings" in data.type.unique():
+                    # %% ID, HASHID, AGE, & YLW
+                    data["userID"] = userID
+                    data["hashID"] = hashID
+                    data["age"] = np.floor((data["utcTime"] - bDate).dt.days/365.25).astype(int)
+                    data["ylw"] = np.floor((data["utcTime"] - dDate).dt.days/365.25).astype(int)
+
+                    commonColumnHeadings = ["hashID",
+                                            "age",
+                                            "ylw"]
+
+
+                    # %% BOLUS EVENTS (CORRECTION, AND MEAL INCLUING: CARBS, EXTENDED, DUAL)
+                    bolus = mergeWizardWithBolus(data)
+                    if len(bolus) > 0:
+                        # get rid of duplicates that have the same ["time", "normal"]
+                        bolus.sort_values("uploadTime", ascending=False, inplace=True)
+                        bolus, nBolusDuplicatesRemoved = \
+                            td.clean.remove_duplicates(bolus, bolus[["deviceTime", "normal"]])
+                        metadata["nBolusDuplicatesRemoved"] = nBolusDuplicatesRemoved
+
+                        # get a summary of boluses per day
+                        bolusDaySummary = get_bolusDaySummary(bolus)
+
+                        # isf and cir associated with bolus event
+                        if "insulinSensitivities" in list(bolus):
+                            pdb.set_trace()
+
+                        if "carbRatios" in list(bolus):
+                            pdb.set_trace()
+
+                        bolus["isf_mmolL_U"] = bolus["insulinSensitivity"]
+                        bolus["isf"] = mmolL_to_mgdL(bolus["isf_mmolL_U"])
+
+                        bolusCH = commonColumnHeadings.copy()
+                        bolusCH.extend(["utcTime", "roundedTime", "normal", "carbInput", "subType",
+                                        "insulinOnBoard", "bgInput",
+                                        "isf", "isf_mmolL_U", "insulinCarbRatio"])
+                        bolusEvents = bolus.loc[bolus["normal"].notnull(), bolusCH]
+                        bolusEvents.loc[bolusEvents["bgInput"] == 0, "bgInput"] = np.nan
+                        bolusEvents = bolusEvents.rename(columns={"normal": "unitsInsulin",
+                                                                  "bgInput": "bg_mmolL"})
+                        bolusEvents["bg_mgdL"] = mmolL_to_mgdL(bolusEvents["bg_mmolL"])
+                        bolusEvents["eventType"] = "correction"
+                        bolusEvents.loc[bolusEvents["carbInput"] > 0, "eventType"] = "meal"
+
+                        if "duration" in list(bolus):
+                            bolus["duration"].replace(0, np.nan, inplace=True)
+                            bolus["durationHours"] = bolus["duration"] / 1000.0 / 3600.0
+                            bolus["rate"] = bolus["extended"] / bolus["durationHours"]
+                            bolusExtendedCH = commonColumnHeadings.copy()
+                            bolusExtendedCH.extend(["utcTime", "roundedTime", "durationHours", "rate",  "type"])
+                            bolusExtendedEvents = bolus.loc[
+                                    ((bolus["extended"].notnull()) &
+                                     (bolus["duration"] > 0)), bolusExtendedCH]
+
+                        if "extended" not in bolus:
+                            bolus["extended"] = np.nan
+                            bolus["duration"] = np.nan
+
+
+                        # get start and end times
+                        bolusBeginDate, bolusEndDate = getStartAndEndTimes(bolus, "day")
+                        metadata["bolus.beginDate"] = bolusBeginDate
+                        metadata["bolus.endDate"] = bolusEndDate
+
+
+                        # %% PUMP SETTINGS
+
                         pumpSettings = data[data.type == "pumpSettings"].copy().dropna(axis=1, how="all")
                         pumpSettings.sort_values("uploadTime", ascending=False, inplace=True)
 
@@ -692,174 +700,168 @@ for dIndex in range(0, len(donors)):
 
 
                         # %% ACTUAL BASAL RATES (TIME, VALUE, DURATION, TYPE (SCHEDULED, TEMP, SUSPEND))
-                        if "basal" in data.type.unique():
-                            basal = data[data.type == "basal"].copy().dropna(axis=1, how="all")
-                            basal.sort_values("uploadTime", ascending=False, inplace=True)
+                        basal = data[data.type == "basal"].copy().dropna(axis=1, how="all")
+                        basal.sort_values("uploadTime", ascending=False, inplace=True)
 
-                            basalBeginDate, basalEndDate = getStartAndEndTimes(basal, "day")
-                            metadata["basal.beginDate"] = basalBeginDate
-                            metadata["basal.endDate"] = basalEndDate
+                        basalBeginDate, basalEndDate = getStartAndEndTimes(basal, "day")
+                        metadata["basal.beginDate"] = basalBeginDate
+                        metadata["basal.endDate"] = basalEndDate
 
-                            basal, nBasalDuplicatesRemoved = \
-                                td.clean.remove_duplicates(basal, basal[["deliveryType", "deviceTime", "duration", "rate"]])
-                            metadata["basal.nBasalDuplicatesRemoved"] = nBasalDuplicatesRemoved
+                        basal, nBasalDuplicatesRemoved = \
+                            td.clean.remove_duplicates(basal, basal[["deliveryType", "deviceTime", "duration", "rate"]])
+                        metadata["basal.nBasalDuplicatesRemoved"] = nBasalDuplicatesRemoved
 
-                            # fill NaNs with 0, as it indicates a suspend (temp basal of 0)
-                            basal.rate.fillna(0, inplace=True)
+                        # fill NaNs with 0, as it indicates a suspend (temp basal of 0)
+                        basal.rate.fillna(0, inplace=True)
 
-                            # get rid of basals that have durations of 0
-                            nBasalDuration0 = sum(basal.duration > 0)
-                            basal = basal[basal.duration > 0]
-                            metadata["basal.nBasalDuration0"] = nBasalDuration0
+                        # get rid of basals that have durations of 0
+                        nBasalDuration0 = sum(basal.duration > 0)
+                        basal = basal[basal.duration > 0]
+                        metadata["basal.nBasalDuration0"] = nBasalDuration0
 
-                            # get rid of basal durations that are unrealistic
-                            nUnrealisticBasalDuration = ((basal.duration < 0) | (basal.duration > 86400000))
-                            metadata["nUnrealisticBasalDuration"] = sum(nUnrealisticBasalDuration)
-                            basal.loc[nUnrealisticBasalDuration, "duration"] = np.nan
+                        # get rid of basal durations that are unrealistic
+                        nUnrealisticBasalDuration = ((basal.duration < 0) | (basal.duration > 86400000))
+                        metadata["nUnrealisticBasalDuration"] = sum(nUnrealisticBasalDuration)
+                        basal.loc[nUnrealisticBasalDuration, "duration"] = np.nan
 
-                            # calculate the total amount of insulin delivered (duration * rate)
-                            basal["durationHours"] = basal["duration"] / 1000.0 / 3600.0
-                            basal["totalAmountOfBasalInsulin"] = basal["durationHours"] * basal["rate"]
+                        # calculate the total amount of insulin delivered (duration * rate)
+                        basal["durationHours"] = basal["duration"] / 1000.0 / 3600.0
+                        basal["totalAmountOfBasalInsulin"] = basal["durationHours"] * basal["rate"]
 
-                            # actual basal delivered
-                            abrColHeadings = commonColumnHeadings.copy()
-                            abrColHeadings.extend(["utcTime", "roundedTime", "durationHours", "rate", "type"])
-                            abr = basal[abrColHeadings]
-                            if "duration" in list(bolus):
-                                abr = pd.concat([abr, bolusExtendedEvents], ignore_index=True)
-                                abr.sort_values("utcTime", inplace=True)
+                        # actual basal delivered
+                        abrColHeadings = commonColumnHeadings.copy()
+                        abrColHeadings.extend(["utcTime", "roundedTime", "durationHours", "rate", "type"])
+                        abr = basal[abrColHeadings]
+                        if "duration" in list(bolus):
+                            abr = pd.concat([abr, bolusExtendedEvents], ignore_index=True)
+                            abr.sort_values("utcTime", inplace=True)
 
-                            # get a summary of basals per day
-                            basalDaySummary = get_basalDaySummary(basal)
-
-
-                            # %% GET CLOSED LOOP DAYS WITH TEMP BASAL DATA
-                            # group data by type
-                            groupedData = data.groupby(by="type")
-
-                            isClosedLoopDay, is670g, metadata = \
-                                getClosedLoopDays(groupedData, 30, metadata)
-
-                            # %% CGM DATA
-                            if "cbg" in data.type.unique():
-
-                                # filter by cgm and sort by uploadTime
-                                cgmData = groupedData.get_group("cbg").dropna(axis=1, how="all")
-
-                                # get rid of duplicates that have the same ["deviceTime", "value"]
-                                cgmData, nCgmDuplicatesRemovedDeviceTime = removeCgmDuplicates(cgmData, "deviceTime")
-                                metadata["nCgmDuplicatesRemovedDeviceTime"] = nCgmDuplicatesRemovedDeviceTime
-
-                                # get rid of duplicates that have the same ["time", "value"]
-                                cgmData, nCgmDuplicatesRemovedUtcTime = removeCgmDuplicates(cgmData, "time")
-                                metadata["cnCgmDuplicatesRemovedUtcTime"] = nCgmDuplicatesRemovedUtcTime
-
-                                # get rid of duplicates that have the same "roundedTime"
-                                cgmData, nCgmDuplicatesRemovedRoundedTime = removeDuplicates(cgmData, "roundedTime")
-                                metadata["nCgmDuplicatesRemovedRoundedTime"] = nCgmDuplicatesRemovedRoundedTime
-
-                                # get start and end times
-                                cgmBeginDate, cgmEndDate = getStartAndEndTimes(cgmData, "day")
-                                metadata["cgm.beginDate"] = cgmBeginDate
-                                metadata["cgm.endDate"] = cgmEndDate
-
-                                # get a list of dexcom cgms
-                                cgmData, percentDexcom = getListOfDexcomCGMDays(cgmData)
-                                metadata["cgm.percentDexcomCGM"] = percentDexcom
-
-                                # group by date (day) and get stats
-                                catDF = cgmData.groupby(cgmData["day"])
-                                cgmRecordsPerDay = \
-                                    pd.DataFrame(catDF.value.count()). \
-                                    rename(columns={"value": "cgm.count"})
-                                dayDate = catDF.day.describe()["top"]
-                                dexcomCGM = catDF.dexcomCGM.describe()["top"]
-                                nTypesCGM = catDF.dexcomCGM.describe()["unique"]
-                                cgmRecordsPerDay["cgm.dexcomOnly"] = \
-                                    (dexcomCGM & (nTypesCGM == 1))
-                                cgmRecordsPerDay["date"] = cgmRecordsPerDay.index
-
-                                # filter the cgm data
-                                cgmColHeadings = commonColumnHeadings.copy()
-                                cgmColHeadings.extend(["utcTime", "roundedTime", "value"])
-
-                                # get data in mg/dL units
-                                cgm = cgmData[cgmColHeadings]
-                                cgm = cgm.rename(columns={'value': 'mmol_L'})
-                                cgm["mg_dL"] = mmolL_to_mgdL(cgm["mmol_L"]).astype(int)
+                        # get a summary of basals per day
+                        basalDaySummary = get_basalDaySummary(basal)
 
 
-                                # %% NUMBER OF DAYS OF PUMP AND CGM DATA, OVERALL AND PER EACH AGE & YLW
+                        # %% GET CLOSED LOOP DAYS WITH TEMP BASAL DATA
+                        # group data by type
+                        groupedData = data.groupby(by="type")
 
-                                # COMBINE DAY SUMMARIES
-                                # group by date (day) and get stats
-                                catDF = data.groupby(data["day"])
-                                dataPerDay = \
-                                    pd.DataFrame(catDF.hashID.describe()["top"]). \
-                                    rename(columns={"top": "hashID"})
-                                dataPerDay["age"] = catDF.age.mean()
-                                dataPerDay["ylw"] = catDF.ylw.mean()
+                        isClosedLoopDay, is670g, metadata = \
+                            getClosedLoopDays(groupedData, 30, metadata)
 
+                        # %% CGM DATA
+                        # filter by cgm and sort by uploadTime
+                        cgmData = groupedData.get_group("cbg").dropna(axis=1, how="all")
 
-                                # calculate all of the data start and end range
-                                # this can be used for looking at settings
-                                dayBeginDate = min(cgmBeginDate, bolusBeginDate, basalBeginDate)
-                                dayEndDate = max(cgmEndDate, bolusEndDate, basalEndDate)
-                                metadata["day.beginDate"] = dayBeginDate
-                                metadata["day.endDate"] = dayEndDate
-                                rng = pd.date_range(dayBeginDate, dayEndDate).date
-                                dayData = pd.DataFrame(rng, columns=["day"])
-                                for dfType in [dataPerDay, basalDaySummary, bolusDaySummary, cgmRecordsPerDay]:
-                                    dayData = pd.merge(dayData, dfType.reset_index(), on="day", how="left")
-                                for dfType in [isClosedLoopDay, is670g]:
-                                    dayData = pd.merge(dayData, dfType, on="day", how="left")
+                        # get rid of duplicates that have the same ["deviceTime", "value"]
+                        cgmData, nCgmDuplicatesRemovedDeviceTime = removeCgmDuplicates(cgmData, "deviceTime")
+                        metadata["nCgmDuplicatesRemovedDeviceTime"] = nCgmDuplicatesRemovedDeviceTime
 
+                        # get rid of duplicates that have the same ["time", "value"]
+                        cgmData, nCgmDuplicatesRemovedUtcTime = removeCgmDuplicates(cgmData, "time")
+                        metadata["cnCgmDuplicatesRemovedUtcTime"] = nCgmDuplicatesRemovedUtcTime
 
-                                dayData["validPumpData"] = dayData["numberOfNormalBoluses"] > 3
-                                dayData["validCGMData"] = dayData["cgm.count"] > (288*.75)
-                                # calculate the start and end of contiguous data
-                                # these dates can be used when simulating and predicting, where
-                                # you need both pump and cgm data
-                                contiguousBeginDate = max(cgmBeginDate, bolusBeginDate, basalBeginDate)
-                                contiguousEndDate = min(cgmEndDate, bolusEndDate, basalEndDate)
-                                metadata["contiguous.beginDate"] = contiguousBeginDate
-                                metadata["contiguous.endDate"] = contiguousEndDate
+                        # get rid of duplicates that have the same "roundedTime"
+                        cgmData, nCgmDuplicatesRemovedRoundedTime = removeDuplicates(cgmData, "roundedTime")
+                        metadata["nCgmDuplicatesRemovedRoundedTime"] = nCgmDuplicatesRemovedRoundedTime
 
-                                # get a summary by age, and ylw
-                                catDF = dayData.groupby("age")
-                                ageSummary = pd.DataFrame(catDF.validPumpData.sum())
-                                ageSummary.rename(columns={"validPumpData": "nDaysValidPump"}, inplace=True)
-                                ageSummary["nDaysValidCgm"] = pd.DataFrame(catDF.validCGMData.sum())
-                                ageSummary["nDaysclosedLopp"] = pd.DataFrame(catDF["basal.closedLoopDays"].sum())
-                                ageSummary["n670gDays"] = pd.DataFrame(catDF["670g"].sum())
-                                ageSummary.reset_index(inplace=True)
+                        # get start and end times
+                        cgmBeginDate, cgmEndDate = getStartAndEndTimes(cgmData, "day")
+                        metadata["cgm.beginDate"] = cgmBeginDate
+                        metadata["cgm.endDate"] = cgmEndDate
 
-                                catDF = dayData.groupby("ylw")
-                                ylwSummary = pd.DataFrame(catDF.validPumpData.sum())
-                                ylwSummary.rename(columns={"validPumpData": "nDaysValidPump"}, inplace=True)
-                                ylwSummary["nDaysValidCgm"] = pd.DataFrame(catDF.validCGMData.sum())
-                                ylwSummary["nDaysclosedLopp"] = pd.DataFrame(catDF["basal.closedLoopDays"].sum())
-                                ylwSummary["n670gDays"] = pd.DataFrame(catDF["670g"].sum())
-                                ylwSummary.reset_index(inplace=True)
+                        # get a list of dexcom cgms
+                        cgmData, percentDexcom = getListOfDexcomCGMDays(cgmData)
+                        metadata["cgm.percentDexcomCGM"] = percentDexcom
 
-                                # %% STATS PER EACH TYPE, OVERALL AND PER EACH AGE & YLW (MIN, PERCENTILES, MAX, MEAN, SD, IQR, COV)
+                        # group by date (day) and get stats
+                        catDF = cgmData.groupby(cgmData["day"])
+                        cgmRecordsPerDay = \
+                            pd.DataFrame(catDF.value.count()). \
+                            rename(columns={"value": "cgm.count"})
+                        dayDate = catDF.day.describe()["top"]
+                        dexcomCGM = catDF.dexcomCGM.describe()["top"]
+                        nTypesCGM = catDF.dexcomCGM.describe()["unique"]
+                        cgmRecordsPerDay["cgm.dexcomOnly"] = \
+                            (dexcomCGM & (nTypesCGM == 1))
+                        cgmRecordsPerDay["date"] = cgmRecordsPerDay.index
+
+                        # filter the cgm data
+                        cgmColHeadings = commonColumnHeadings.copy()
+                        cgmColHeadings.extend(["utcTime", "roundedTime", "value"])
+
+                        # get data in mg/dL units
+                        cgm = cgmData[cgmColHeadings]
+                        cgm = cgm.rename(columns={'value': 'mmol_L'})
+                        cgm["mg_dL"] = mmolL_to_mgdL(cgm["mmol_L"]).astype(int)
 
 
-                                # %% SAVE RESULTS
+                        # %% NUMBER OF DAYS OF PUMP AND CGM DATA, OVERALL AND PER EACH AGE & YLW
 
-                        else:
-                            metadata["flags"] = "no basal data"
+                        # COMBINE DAY SUMMARIES
+                        # group by date (day) and get stats
+                        catDF = data.groupby(data["day"])
+                        dataPerDay = \
+                            pd.DataFrame(catDF.hashID.describe()["top"]). \
+                            rename(columns={"top": "hashID"})
+                        dataPerDay["age"] = catDF.age.mean()
+                        dataPerDay["ylw"] = catDF.ylw.mean()
+
+
+                        # calculate all of the data start and end range
+                        # this can be used for looking at settings
+                        dayBeginDate = min(cgmBeginDate, bolusBeginDate, basalBeginDate)
+                        dayEndDate = max(cgmEndDate, bolusEndDate, basalEndDate)
+                        metadata["day.beginDate"] = dayBeginDate
+                        metadata["day.endDate"] = dayEndDate
+                        rng = pd.date_range(dayBeginDate, dayEndDate).date
+                        dayData = pd.DataFrame(rng, columns=["day"])
+                        for dfType in [dataPerDay, basalDaySummary, bolusDaySummary, cgmRecordsPerDay]:
+                            dayData = pd.merge(dayData, dfType.reset_index(), on="day", how="left")
+                        for dfType in [isClosedLoopDay, is670g]:
+                            dayData = pd.merge(dayData, dfType, on="day", how="left")
+
+
+                        dayData["validPumpData"] = dayData["numberOfNormalBoluses"] > 3
+                        dayData["validCGMData"] = dayData["cgm.count"] > (288*.75)
+                        # calculate the start and end of contiguous data
+                        # these dates can be used when simulating and predicting, where
+                        # you need both pump and cgm data
+                        contiguousBeginDate = max(cgmBeginDate, bolusBeginDate, basalBeginDate)
+                        contiguousEndDate = min(cgmEndDate, bolusEndDate, basalEndDate)
+                        metadata["contiguous.beginDate"] = contiguousBeginDate
+                        metadata["contiguous.endDate"] = contiguousEndDate
+
+                        # get a summary by age, and ylw
+                        catDF = dayData.groupby("age")
+                        ageSummary = pd.DataFrame(catDF.validPumpData.sum())
+                        ageSummary.rename(columns={"validPumpData": "nDaysValidPump"}, inplace=True)
+                        ageSummary["nDaysValidCgm"] = pd.DataFrame(catDF.validCGMData.sum())
+                        ageSummary["nDaysclosedLopp"] = pd.DataFrame(catDF["basal.closedLoopDays"].sum())
+                        ageSummary["n670gDays"] = pd.DataFrame(catDF["670g"].sum())
+                        ageSummary.reset_index(inplace=True)
+
+                        catDF = dayData.groupby("ylw")
+                        ylwSummary = pd.DataFrame(catDF.validPumpData.sum())
+                        ylwSummary.rename(columns={"validPumpData": "nDaysValidPump"}, inplace=True)
+                        ylwSummary["nDaysValidCgm"] = pd.DataFrame(catDF.validCGMData.sum())
+                        ylwSummary["nDaysclosedLopp"] = pd.DataFrame(catDF["basal.closedLoopDays"].sum())
+                        ylwSummary["n670gDays"] = pd.DataFrame(catDF["670g"].sum())
+                        ylwSummary.reset_index(inplace=True)
+
+                            # %% STATS PER EACH TYPE, OVERALL AND PER EACH AGE & YLW (MIN, PERCENTILES, MAX, MEAN, SD, IQR, COV)
+
+
+                            # %% SAVE RESULTS
+
                     else:
-                        metadata["flags"] = "no pump settings"
+                        metadata["flags"] = "no bolus wizard data"
                 else:
-                    metadata["flags"] = "no bolus wizard data"
+                    metadata["flags"] = "missing either pump or cgm  data"
             else:
-                metadata["flags"] = "no upload data"
+                metadata["flags"] = "file contains no data"
         else:
-            metadata["flags"] = "file contains no data"
+            metadata["flags"] = "file does not exist"
     else:
-        metadata["flags"] = "file does not exist"
-
+        metadata["flags"] = "fmissing bDay/dDay"
     print("done with", dIndex)
 
 
