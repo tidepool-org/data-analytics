@@ -14,7 +14,6 @@ license: BSD-2-Clause
 # %% REQUIRED LIBRARIES
 import pandas as pd
 import numpy as np
-import tidals as td
 import os
 import pdb
 
@@ -413,18 +412,28 @@ def getListOfDexcomCGMDays(df):
     return df, percentDexcomCGM
 
 
+def load_csv(dataPathAndName):
+    df = pd.read_csv(dataPathAndName, low_memory=False)
+    return df
+
+
+def load_json(dataPathAndName):
+    df = pd.read_json(dataPathAndName, orient="records")
+    return df
+
+
 # %% LOAD IN ONE FILE, BUT EVENTUALLY THIS WILL LOOOP THROUGH ALL USER'S
 dataPulledDate = "2018-09-28"
 phiDate = "PHI-" + dataPulledDate
 donorPath = os.path.join("..", "bigdata-processing-pipeline", "data", phiDate + "-donor-data")
 
 donorList = phiDate + "-uniqueDonorList.csv"
-donors = td.load.load_csv(os.path.join(donorPath, donorList))
+donors = load_csv(os.path.join(donorPath, donorList))
 
 # %% MAKE THIS A FUNCTION SO THAT IT CAN BE RUN PER EACH INDIVIDUAL
 
 # this is where the loop will go:
-for dIndex in range(140, len(donors)):
+for dIndex in range(335, len(donors)):
 
     # clear output dataframes
     isf, cir, correctionTarget = pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
@@ -449,7 +458,7 @@ for dIndex in range(140, len(donors)):
             fileSize = os.stat(jsonFileName).st_size
             metadata["fileSizeKB"] = fileSize / 1000
             if fileSize > 1000:
-                data = td.load.load_json(jsonFileName)
+                data = load_json(jsonFileName)
 
                 # sort the data by time
                 data.sort_values("time", inplace=True)
@@ -514,7 +523,7 @@ for dIndex in range(140, len(donors)):
                         # get rid of duplicates that have the same ["time", "normal"]
                         bolus.sort_values("uploadTime", ascending=False, inplace=True)
                         bolus, nBolusDuplicatesRemoved = \
-                            td.clean.remove_duplicates(bolus, bolus[["deviceTime", "normal"]])
+                            removeDuplicates(bolus, ["deviceTime", "normal"])
                         metadata["nBolusDuplicatesRemoved"] = nBolusDuplicatesRemoved
 
                         # get a summary of boluses per day
@@ -569,7 +578,7 @@ for dIndex in range(140, len(donors)):
                         pumpSettings.sort_values("uploadTime", ascending=False, inplace=True)
 
                         pumpSettings, nPumpSettingsDuplicatesRemoved = \
-                        td.clean.remove_duplicates(pumpSettings, pumpSettings[["deviceTime"]])
+                        removeDuplicates(pumpSettings, "deviceTime")
                         metadata["nPumpSettingsDuplicatesRemoved"] = nPumpSettingsDuplicatesRemoved
 
                         # ISF
@@ -587,7 +596,8 @@ for dIndex in range(140, len(donors)):
                         else:
                             isfColHead = "insulinSensitivities"
                             isf = pd.DataFrame(columns=isfColHeadings)
-                            for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
+                            for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"].astype(str)):
+                                print(p, actSched)
                                 tempDF = pd.DataFrame(pumpSettings.loc[p, isfColHead + "." + actSched])
                                 tempDF["day"] = pumpSettings.loc[p, "day"]
                                 tempDF["isf.time"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
@@ -708,7 +718,7 @@ for dIndex in range(140, len(donors)):
                         metadata["basal.endDate"] = basalEndDate
 
                         basal, nBasalDuplicatesRemoved = \
-                            td.clean.remove_duplicates(basal, basal[["deliveryType", "deviceTime", "duration", "rate"]])
+                            removeDuplicates(basal, ["deliveryType", "deviceTime", "duration", "rate"])
                         metadata["basal.nBasalDuplicatesRemoved"] = nBasalDuplicatesRemoved
 
                         # fill NaNs with 0, as it indicates a suspend (temp basal of 0)
