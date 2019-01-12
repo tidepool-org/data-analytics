@@ -427,13 +427,24 @@ dataPulledDate = "2018-09-28"
 phiDate = "PHI-" + dataPulledDate
 donorPath = os.path.join("..", "bigdata-processing-pipeline", "data", phiDate + "-donor-data")
 
+phiOutputPath = os.path.join(donorPath, "PHI-settings-and-events")
+outputPath = os.path.join(donorPath, "settings-and-events")
+
+
+# create anonExportDataPath folders
+if not os.path.exists(phiOutputPath):
+    os.makedirs(phiOutputPath)
+    os.makedirs(outputPath)
+
 donorList = phiDate + "-uniqueDonorList.csv"
 donors = load_csv(os.path.join(donorPath, donorList))
+
+allMetadata = donors[['hashID', 'diagnosisType']].copy()
 
 # %% MAKE THIS A FUNCTION SO THAT IT CAN BE RUN PER EACH INDIVIDUAL
 
 # this is where the loop will go:
-for dIndex in range(335, len(donors)):
+for dIndex in range(0, len(donors)):
 
     # clear output dataframes
     isf, cir, correctionTarget = pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
@@ -442,6 +453,14 @@ for dIndex in range(335, len(donors)):
     userID = donors.userID[dIndex]
     hashID = donors.hashID[dIndex]
     metadata = pd.DataFrame(index=[dIndex])
+    metadata["hashID"] = hashID
+
+    # make folder to save data
+    processedDataPath = os.path.join(phiOutputPath, "PHI-" + userID)
+    if not os.path.exists(processedDataPath):
+        os.makedirs(processedDataPath)
+
+
     # round all birthdays and diagnosis dates to the first day of the month (to protect identities)
     if (pd.isnull(donors.bDay[dIndex]) + pd.isnull(donors.dDay[dIndex])) == 0:
 
@@ -873,10 +892,20 @@ for dIndex in range(335, len(donors)):
                         ylwSummary["n670gDays"] = pd.DataFrame(catDF["670g"].sum())
                         ylwSummary.reset_index(inplace=True)
 
-                            # %% STATS PER EACH TYPE, OVERALL AND PER EACH AGE & YLW (MIN, PERCENTILES, MAX, MEAN, SD, IQR, COV)
+                        # %% STATS PER EACH TYPE, OVERALL AND PER EACH AGE & YLW (MIN, PERCENTILES, MAX, MEAN, SD, IQR, COV)
 
 
-                            # %% SAVE RESULTS
+
+
+
+                        # %% SAVE RESULTS
+
+
+                        # save the processed data
+                        basal.to_csv(os.path.join(processedDataPath, "basal-PHI-" + userID + ".csv"))
+                        bolus.to_csv(os.path.join(processedDataPath, "bolus-PHI-" + userID + ".csv"))
+                        cgmData.to_csv(os.path.join(processedDataPath, "cgm-PHI-" + userID + ".csv"))
+                        pumpSettings.to_csv(os.path.join(processedDataPath, "pumpSettings-PHI-" + userID + ".csv"))
 
                     else:
                         metadata["flags"] = "no bolus wizard data"
@@ -888,6 +917,11 @@ for dIndex in range(335, len(donors)):
             metadata["flags"] = "file does not exist"
     else:
         metadata["flags"] = "fmissing bDay/dDay"
+
+    # write metaData to allMetadata
+    allMetadata = pd.merge(allMetadata, metadata, how="left", on="hashID")
+    allMetadata.to_csv(os.path.join(outputPath, "allMetadata.csv"))
+
     print("done with", dIndex)
 
 
