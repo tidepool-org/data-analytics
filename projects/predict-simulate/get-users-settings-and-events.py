@@ -343,22 +343,22 @@ def getClosedLoopDays(groupedData, nTempBasalsPerDayIsClosedLoop, metadata):
         nTempBasalsPerDay = tbDataFrame.resample("D").sum()
         closedLoopDF = pd.DataFrame(nTempBasalsPerDay,
                                     index=nTempBasalsPerDay.index.date)
-        closedLoopDF["date"] = nTempBasalsPerDay.index.date
+        closedLoopDF["day"] = nTempBasalsPerDay.index.date
         closedLoopDF["basal.closedLoopDays"] = \
             closedLoopDF["basal.temp.count"] >= nTB
         nClosedLoopDays = closedLoopDF["basal.closedLoopDays"].sum()
 
         # get the number of days with 670g
-        basalData["date"] = pd.to_datetime(basalData.time).dt.date
-        bdGroup = basalData.groupby("date")
+        basalData["day"] = pd.to_datetime(basalData.time).dt.date
+        bdGroup = basalData.groupby("day")
         topPump = bdGroup.deviceId.describe()["top"]
         med670g = pd.DataFrame(topPump.str.contains("1780")).rename(columns={"top":"670g"})
         med670g.reset_index(inplace=True)
         n670gDays = med670g["670g"].sum()
 
     else:
-        closedLoopDF = pd.DataFrame(columns=["basal.closedLoopDays", "date"])
-        med670g = pd.DataFrame(columns=["670g", "date"])
+        closedLoopDF = pd.DataFrame(columns=["basal.closedLoopDays", "day"])
+        med670g = pd.DataFrame(columns=["670g", "day"])
         nClosedLoopDays = 0
         n670gDays = 0
 
@@ -420,6 +420,8 @@ donorPath = os.path.join("..", "bigdata-processing-pipeline", "data", phiDate + 
 
 donorList = phiDate + "-uniqueDonorList.csv"
 donors = td.load.load_csv(os.path.join(donorPath, donorList))
+
+# %% MAKE THIS A FUNCTION SO THAT IT CAN BE RUN PER EACH INDIVIDUAL
 
 # this is where the loop will go:
 for dIndex in range(0, len(donors)):
@@ -694,6 +696,10 @@ for dIndex in range(0, len(donors)):
                             basal = data[data.type == "basal"].copy().dropna(axis=1, how="all")
                             basal.sort_values("uploadTime", ascending=False, inplace=True)
 
+                            basalBeginDate, basalEndDate = getStartAndEndTimes(basal, "day")
+                            metadata["basal.beginDate"] = basalBeginDate
+                            metadata["basal.endDate"] = basalEndDate
+
                             basal, nBasalDuplicatesRemoved = \
                                 td.clean.remove_duplicates(basal, basal[["deliveryType", "deviceTime", "duration", "rate"]])
                             metadata["basal.nBasalDuplicatesRemoved"] = nBasalDuplicatesRemoved
@@ -722,7 +728,6 @@ for dIndex in range(0, len(donors)):
                             if "duration" in list(bolus):
                                 abr = pd.concat([abr, bolusExtendedEvents], ignore_index=True)
                                 abr.sort_values("utcTime", inplace=True)
-
 
                             # get a summary of basals per day
                             basalDaySummary = get_basalDaySummary(basal)
@@ -786,15 +791,62 @@ for dIndex in range(0, len(donors)):
 
                                 # %% NUMBER OF DAYS OF PUMP AND CGM DATA, OVERALL AND PER EACH AGE & YLW
 
+                                # COMBINE DAY SUMMARIES
+                                # group by date (day) and get stats
+                                catDF = data.groupby(data["day"])
+                                dataPerDay = \
+                                    pd.DataFrame(catDF.hashID.describe()["top"]). \
+                                    rename(columns={"top": "hashID"})
+                                dataPerDay["age"] = catDF.age.mean()
+                                dataPerDay["ylw"] = catDF.ylw.mean()
 
 
-    # %% STATS PER EACH TYPE, OVERALL AND PER EACH AGE & YLW (MIN, PERCENTILES, MAX, MEAN, SD, IQR, COV)
+                                # calculate all of the data start and end range
+                                # this can be used for looking at settings
+                                dayBeginDate = min(cgmBeginDate, bolusBeginDate, basalBeginDate)
+                                dayEndDate = max(cgmEndDate, bolusEndDate, basalEndDate)
+                                metadata["day.beginDate"] = dayBeginDate
+                                metadata["day.endDate"] = dayEndDate
+                                rng = pd.date_range(dayBeginDate, dayEndDate).date
+                                dayData = pd.DataFrame(rng, columns=["day"])
+                                for dfType in [dataPerDay, basalDaySummary, bolusDaySummary, cgmRecordsPerDay]:
+                                    dayData = pd.merge(dayData, dfType.reset_index(), on="day", how="left")
+                                for dfType in [isClosedLoopDay, is670g]:
+                                    dayData = pd.merge(dayData, dfType, on="day", how="left")
 
 
-    # %% SAVE RESULTS
+                                dayData["validPumpData"] = dayData["numberOfNormalBoluses"] > 3
+                                dayData["validCGMData"] = dayData["cgm.count"] > (288*.75)
+                                # calculate the start and end of contiguous data
+                                # these dates can be used when simulating and predicting, where
+                                # you need both pump and cgm data
+                                contiguousBeginDate = max(cgmBeginDate, bolusBeginDate, basalBeginDate)
+                                contiguousEndDate = min(cgmEndDate, bolusEndDate, basalEndDate)
+                                metadata["contiguous.beginDate"] = contiguousBeginDate
+                                metadata["contiguous.endDate"] = contiguousEndDate
+
+                                # get a summary by age, and ylw
+                                catDF = dayData.groupby("age")
+                                ageSummary = pd.DataFrame(catDF.validPumpData.sum())
+                                ageSummary.rename(columns={"validPumpData": "nDaysValidPump"}, inplace=True)
+                                ageSummary["nDaysValidCgm"] = pd.DataFrame(catDF.validCGMData.sum())
+                                ageSummary["nDaysclosedLopp"] = pd.DataFrame(catDF["basal.closedLoopDays"].sum())
+                                ageSummary["n670gDays"] = pd.DataFrame(catDF["670g"].sum())
+                                ageSummary.reset_index(inplace=True)
+
+                                catDF = dayData.groupby("ylw")
+                                ylwSummary = pd.DataFrame(catDF.validPumpData.sum())
+                                ylwSummary.rename(columns={"validPumpData": "nDaysValidPump"}, inplace=True)
+                                ylwSummary["nDaysValidCgm"] = pd.DataFrame(catDF.validCGMData.sum())
+                                ylwSummary["nDaysclosedLopp"] = pd.DataFrame(catDF["basal.closedLoopDays"].sum())
+                                ylwSummary["n670gDays"] = pd.DataFrame(catDF["670g"].sum())
+                                ylwSummary.reset_index(inplace=True)
+
+                                # %% STATS PER EACH TYPE, OVERALL AND PER EACH AGE & YLW (MIN, PERCENTILES, MAX, MEAN, SD, IQR, COV)
 
 
-    # %% MAKE THIS A FUNCTION SO THAT IT CAN BE RUN PER EACH INDIVIDUAL
+                                # %% SAVE RESULTS
+
                         else:
                             metadata["flags"] = "no basal data"
                     else:
@@ -812,8 +864,8 @@ for dIndex in range(0, len(donors)):
 
 
 # %% V2 DATA TO GRAB
+# FIGURE OUT WHY TEMP BASAL COUNTS ARE DIFFERENT BETWEEN THE TWO DIFFERENT METHODS
 # MAX BASAL RATE, MAX BOLUS AMOUNT, AND INSULIN DURATION SET ON SELECT PUMPS
-# RE-EVALUATE THE WAY EXTENDED BOLUSES ARE BEING ACCOUNTED (ARE THEY ALSO SHOWING UP IN BASAL DATA?)
 # ALERT SETTINGS
 # ESTIMATED LOCAL TIME
 # PUMP AND CGM DEVICE ()
