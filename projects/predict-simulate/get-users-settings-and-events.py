@@ -509,13 +509,14 @@ for dIndex in range(0, len(donors)):
                         # CORRECTION TARGET
                         ctColHeadings = commonColumnHeadings.copy()
                         ctColHeadings.extend(["ct.time", "ct.low", "ct.high", "ct.target", "ct.range"])
+                        correctionTarget
                         if "bgTarget.start" in list(pumpSettings):
-                            bgTargetColHead = "bgTarget."
+                            ctColHead = "bgTarget."
 
                             for targetType in ["low", "high", "target", "range"]:
-                                if bgTargetColHead + targetType in list(pumpSettings):
+                                if ctColHead + targetType in list(pumpSettings):
                                     pumpSettings["ct." + targetType + "_mmolL"] = \
-                                        pumpSettings[bgTargetColHead + targetType]
+                                        pumpSettings[ctColHead + targetType]
 
                                     pumpSettings["ct." + targetType] = \
                                         mmolL_to_mgdL(pumpSettings["ct." + targetType + "_mmolL"])
@@ -524,13 +525,32 @@ for dIndex in range(0, len(donors)):
                                     pumpSettings["ct." + targetType]  = np.nan
 
                             pumpSettings["ct.time"] = pd.to_datetime(pumpSettings["day"]) + \
-                                pd.to_timedelta(pumpSettings[bgTargetColHead + "start"], unit="ms")
+                                pd.to_timedelta(pumpSettings[ctColHead + "start"], unit="ms")
 
                             correctionTarget = pumpSettings.loc[pumpSettings["bgTarget.start"].notnull(), ctColHeadings]
 
                         else:
-                            bgTargetColHead = "bgTargets"
-                            pdb.set_trace()
+                            ctColHead = "bgTargets"
+                            correctionTarget = pd.DataFrame(columns=ctColHeadings)
+                            for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
+                                tempDF = pd.DataFrame(pumpSettings.loc[p, ctColHead + "." + actSched])
+                                tempDF["day"] = pumpSettings.loc[p, "day"]
+                                tempDF["ct.time"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
+                                tempDF["hashID"] = pumpSettings.loc[p, "hashID"]
+                                tempDF["age"] = pumpSettings.loc[p, "age"]
+                                tempDF["ylw"] = pumpSettings.loc[p, "ylw"]
+                                for targetType in ["low", "high", "target", "range"]:
+                                    if targetType in list(tempDF):
+                                        tempDF["ct." + targetType + "_mmolL"] = \
+                                            tempDF[targetType]
+
+                                        tempDF["ct." + targetType] = \
+                                            mmolL_to_mgdL(tempDF["ct." + targetType + "_mmolL"])
+                                    else:
+                                        tempDF["ct." + targetType + "_mmolL"] = np.nan
+                                        tempDF["ct." + targetType]  = np.nan
+
+                                correctionTarget = pd.concat([correctionTarget, tempDF[ctColHeadings]], ignore_index=True)
 
                         # SCHEDULED BASAL RATES
                         sbrColHeadings = commonColumnHeadings.copy()
