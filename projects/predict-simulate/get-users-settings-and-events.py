@@ -596,8 +596,15 @@ for dIndex in range(335, len(donors)):
                         else:
                             isfColHead = "insulinSensitivities"
                             isf = pd.DataFrame(columns=isfColHeadings)
-                            for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"].astype(str)):
-                                print(p, actSched)
+
+                            # edge case where active schedule is a float
+
+
+                            for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
+                                # edge case where actSchedule is float
+                                if isinstance(actSched, float):
+                                    actSched = str(int(actSched))
+
                                 tempDF = pd.DataFrame(pumpSettings.loc[p, isfColHead + "." + actSched])
                                 tempDF["day"] = pumpSettings.loc[p, "day"]
                                 tempDF["isf.time"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
@@ -623,6 +630,9 @@ for dIndex in range(335, len(donors)):
                             cirColHead = "carbRatios"
                             cir = pd.DataFrame(columns=cirColHeadings)
                             for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
+                                # edge case where actSchedule is float
+                                if isinstance(actSched, float):
+                                    actSched = str(int(actSched))
                                 tempDF = pd.DataFrame(pumpSettings.loc[p, cirColHead + "." + actSched])
                                 tempDF["day"] = pumpSettings.loc[p, "day"]
                                 tempDF["cir.time"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
@@ -660,6 +670,9 @@ for dIndex in range(335, len(donors)):
                             ctColHead = "bgTargets"
                             correctionTarget = pd.DataFrame(columns=ctColHeadings)
                             for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
+                                # edge case where actSchedule is float
+                                if isinstance(actSched, float):
+                                    actSched = str(int(actSched))
                                 tempDF = pd.DataFrame(pumpSettings.loc[p, ctColHead + "." + actSched])
                                 tempDF["day"] = pumpSettings.loc[p, "day"]
                                 tempDF["ct.time"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
@@ -684,6 +697,9 @@ for dIndex in range(335, len(donors)):
                         sbrColHeadings.extend(["sbrTime", "rate", "type"])
                         sbr = pd.DataFrame(columns=sbrColHeadings)
                         for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
+                            # edge case where actSchedule is float
+                            if isinstance(actSched, float):
+                                actSched = str(int(actSched))
                             if 'Auto Mode' not in actSched:
                                 tempDF = pd.DataFrame(pumpSettings.loc[p, "basalSchedules." + actSched])
                                 tempDF["day"] = pumpSettings.loc[p, "day"]
