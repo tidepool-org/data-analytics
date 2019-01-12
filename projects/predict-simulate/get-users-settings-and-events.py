@@ -32,6 +32,8 @@ def removeNegativeDurations(df):
         nNegativeDurations = sum(df.duration < 0)
         if nNegativeDurations > 0:
             df = df[~(df.duration < 0)]
+    else:
+        nNegativeDurations = np.nan
 
     return df, nNegativeDurations
 
@@ -329,295 +331,324 @@ donorList = phiDate + "-uniqueDonorList.csv"
 donors = td.load.load_csv(os.path.join(donorPath, donorList))
 
 # this is where the loop will go:
-dIndex = 2
+for dIndex in range(0, len(donors)):
 
-# %% ID, HASHID, AGE, & YLW
-userID = donors.userID[dIndex]
-hashID = donors.hashID[dIndex]
-# round all birthdays and diagnosis dates to the first day of the month (to protect identities)
-bDate = pd.to_datetime(donors.bDay[dIndex][0:7])
-dDate = pd.to_datetime(donors.dDay[dIndex][0:7])
-
-
-# %% LOAD IN DONOR JSON DATA
-metadata = pd.DataFrame(index=[dIndex])
-jsonDataPath = os.path.join(donorPath, phiDate + "-donorJsonData")
-jsonFileName = os.path.join(jsonDataPath, "PHI-" + userID + ".json")
-
-if os.path.exists(jsonFileName):
-    fileSize = os.stat(jsonFileName).st_size
-    metadata["fileSizeKB"] = fileSize / 1000
-    if fileSize > 1000:
-        data = td.load.load_json(jsonFileName)
-
-        # sort the data by time
-        data.sort_values("time", inplace=True)
-
-        # flatten the embedded json
-        data = flattenJson(data)
+    # %% ID, HASHID, AGE, & YLW
+    userID = donors.userID[dIndex]
+    hashID = donors.hashID[dIndex]
+    # round all birthdays and diagnosis dates to the first day of the month (to protect identities)
+    bDate = pd.to_datetime(donors.bDay[dIndex][0:7])
+    dDate = pd.to_datetime(donors.dDay[dIndex][0:7])
 
 
-        # %% CLEAN DATA
-        # remove negative durations
-        data, nNegativeDurations = removeNegativeDurations(data)
-        metadata["nNegativeDurations"] = nNegativeDurations
+    # %% LOAD IN DONOR JSON DATA
+    metadata = pd.DataFrame(index=[dIndex])
+    jsonDataPath = os.path.join(donorPath, phiDate + "-donorJsonData")
+    jsonFileName = os.path.join(jsonDataPath, "PHI-" + userID + ".json")
 
-        # get rid of cgm values too low/high (< 38 & > 402 mg/dL)
-        data, nInvalidCgmValues = removeInvalidCgmValues(data)
-        metadata["nInvalidCgmValues"] = nInvalidCgmValues
+    if os.path.exists(jsonFileName):
+        fileSize = os.stat(jsonFileName).st_size
+        metadata["fileSizeKB"] = fileSize / 1000
+        if fileSize > 1000:
+            data = td.load.load_json(jsonFileName)
 
-        # Tslim calibration bug fix
-        data, nTandemAndPayloadCalReadings = tslimCalibrationFix(data)
-        metadata["nTandemAndPayloadCalReadings"] = nTandemAndPayloadCalReadings
+            # sort the data by time
+            data.sort_values("time", inplace=True)
 
-
-        # %% ADD UPLOAD DATE
-        # attach upload time to each record, for resolving duplicates
-        if "upload" in data.type.unique():
-            data = addUploadDate(data)
+            # flatten the embedded json
+            data = flattenJson(data)
 
 
-# %% TIME (UTC, TIMEZONE, DAY AND EVENTUALLY LOCAL TIME)
-            data["utcTime"] = pd.to_datetime(data["time"])
-            data["timezone"].fillna(method='ffill', inplace=True)
-            data["timezone"].fillna(method='bfill', inplace=True)
-            data["day"] = pd.DatetimeIndex(data["utcTime"]).date
+            # %% CLEAN DATA
+            # remove negative durations
+            data, nNegativeDurations = removeNegativeDurations(data)
+            metadata["nNegativeDurations"] = nNegativeDurations
 
-            # round to the nearest 5 minutes
-            # TODO: once roundTime is pushed to tidals repository then this line can be replaced
-            # with td.clean.round_time
-            data = round_time(data, timeIntervalMinutes=5, timeField="time",
-                              roundedTimeFieldName="roundedTime", startWithFirstRecord=True,
-                              verbose=False)
-            data.sort_values("uploadTime", ascending=False, inplace=True)
+            # get rid of cgm values too low/high (< 38 & > 402 mg/dL)
+            data, nInvalidCgmValues = removeInvalidCgmValues(data)
+            metadata["nInvalidCgmValues"] = nInvalidCgmValues
 
-
-            # %% ID, HASHID, AGE, & YLW
-            data["userID"] = userID
-            data["hashID"] = hashID
-            data["age"] = np.floor((data["utcTime"] - bDate).dt.days/365.25).astype(int)
-            data["ylw"] = np.floor((data["utcTime"] - dDate).dt.days/365.25).astype(int)
-
-            commonColumnHeadings = ["hashID",
-                                    "age",
-                                    "ylw"]
+            # Tslim calibration bug fix
+            data, nTandemAndPayloadCalReadings = tslimCalibrationFix(data)
+            metadata["nTandemAndPayloadCalReadings"] = nTandemAndPayloadCalReadings
 
 
-            # %% BOLUS EVENTS (CORRECTION, AND MEAL INCLUING: CARBS, EXTENDED, DUAL)
-            bolus = mergeWizardWithBolus(data)
-            if len(bolus) > 0:
-                # get rid of duplicates that have the same ["time", "normal"]
-                bolus.sort_values("uploadTime", ascending=False, inplace=True)
-                bolus, nBolusDuplicatesRemoved = \
-                    td.clean.remove_duplicates(bolus, bolus[["deviceTime", "normal"]])
-                metadata["nBolusDuplicatesRemoved"] = nBolusDuplicatesRemoved
-
-                # get a summary of boluses per day
-                bolusDaySummary = get_bolusDaySummary(bolus)
-
-                if "extended" not in bolus:
-                    bolus["extended"] = np.nan
-                    bolus["duration"] = np.nan
-
-                # ISF associated with bolus event
-                if "insulinSensitivities" in list(bolus):
-                    pdb.set_trace()
-                if "carbRatios" in list(bolus):
-                    pdb.set_trace()
-
-                bolus["isf_mmolL_U"] = bolus["insulinSensitivity"]
-                bolus["isf"] = mmolL_to_mgdL(bolus["isf_mmolL_U"])
-
-                bolusCH = commonColumnHeadings.copy()
-                bolusCH.extend(["utcTime", "roundedTime", "normal", "carbInput", "subType",
-                                "insulinOnBoard", "bgInput",
-                                "isf", "isf_mmolL_U", "insulinCarbRatio"])
-                bolusEvents = bolus.loc[bolus["normal"].notnull(), bolusCH]
-                bolusEvents.loc[bolusEvents["bgInput"] == 0, "bgInput"] = np.nan
-                bolusEvents = bolusEvents.rename(columns={"normal": "unitsInsulin",
-                                                          "bgInput": "bg_mmolL"})
-                bolusEvents["bg_mgdL"] = mmolL_to_mgdL(bolusEvents["bg_mmolL"])
-                bolusEvents["eventType"] = "correction"
-                bolusEvents.loc[bolusEvents["carbInput"] == 0, "eventType"] = "meal"
+            # %% ADD UPLOAD DATE
+            # attach upload time to each record, for resolving duplicates
+            if "upload" in data.type.unique():
+                data = addUploadDate(data)
 
 
-                # %% PUMP SETTINGS
-                if "pumpSettings" in data.type.unique():
-                    pumpSettings = data[data.type == "pumpSettings"].copy().dropna(axis=1, how="all")
-                    pumpSettings.sort_values("uploadTime", ascending=False, inplace=True)
+                # %% TIME (UTC, TIMEZONE, DAY AND EVENTUALLY LOCAL TIME)
+                data["utcTime"] = pd.to_datetime(data["time"])
+                data["timezone"].fillna(method='ffill', inplace=True)
+                data["timezone"].fillna(method='bfill', inplace=True)
+                data["day"] = pd.DatetimeIndex(data["utcTime"]).date
 
-                    pumpSettings, nPumpSettingsDuplicatesRemoved = \
-                    td.clean.remove_duplicates(pumpSettings, pumpSettings[["deviceTime"]])
-                    metadata["nPumpSettingsDuplicatesRemoved"] = nPumpSettingsDuplicatesRemoved
+                # round to the nearest 5 minutes
+                # TODO: once roundTime is pushed to tidals repository then this line can be replaced
+                # with td.clean.round_time
+                data = round_time(data, timeIntervalMinutes=5, timeField="time",
+                                  roundedTimeFieldName="roundedTime", startWithFirstRecord=True,
+                                  verbose=False)
+                data.sort_values("uploadTime", ascending=False, inplace=True)
 
-                    # ISF
-                    if "insulinSensitivity.amount" in list(pumpSettings):
-                        isfColHead = "insulinSensitivity"
-                    else:
-                        isfColHead = "insulinSensitivities"
+
+                # %% ID, HASHID, AGE, & YLW
+                data["userID"] = userID
+                data["hashID"] = hashID
+                data["age"] = np.floor((data["utcTime"] - bDate).dt.days/365.25).astype(int)
+                data["ylw"] = np.floor((data["utcTime"] - dDate).dt.days/365.25).astype(int)
+
+                commonColumnHeadings = ["hashID",
+                                        "age",
+                                        "ylw"]
+
+
+                # %% BOLUS EVENTS (CORRECTION, AND MEAL INCLUING: CARBS, EXTENDED, DUAL)
+                bolus = mergeWizardWithBolus(data)
+                if len(bolus) > 0:
+                    # get rid of duplicates that have the same ["time", "normal"]
+                    bolus.sort_values("uploadTime", ascending=False, inplace=True)
+                    bolus, nBolusDuplicatesRemoved = \
+                        td.clean.remove_duplicates(bolus, bolus[["deviceTime", "normal"]])
+                    metadata["nBolusDuplicatesRemoved"] = nBolusDuplicatesRemoved
+
+                    # get a summary of boluses per day
+                    bolusDaySummary = get_bolusDaySummary(bolus)
+
+                    if "extended" not in bolus:
+                        bolus["extended"] = np.nan
+                        bolus["duration"] = np.nan
+
+                    # cir associated with bolus event
+                    if "insulinSensitivities" in list(bolus):
+                        pdb.set_trace()
+                    if "carbRatios" in list(bolus):
                         pdb.set_trace()
 
-                    pumpSettings["isf_mmolL_U"] = pumpSettings[isfColHead + ".amount"]
-                    pumpSettings["isf"] = mmolL_to_mgdL(pumpSettings["isf_mmolL_U"])
-                    pumpSettings["isfTime"] = pd.to_datetime(pumpSettings["day"]) + \
-                        pd.to_timedelta(pumpSettings[isfColHead + ".start"], unit="ms")
+                    bolus["isf_mmolL_U"] = bolus["insulinSensitivity"]
+                    bolus["isf"] = mmolL_to_mgdL(bolus["isf_mmolL_U"])
 
-                    isfCH = commonColumnHeadings.copy()
-                    isfCH.extend(["isfTime", "isf", "isf_mmolL_U"])
-                    isf = pumpSettings.loc[pumpSettings["isf"].notnull(), isfCH]
-
-                    # CIR
-                    if "carbRatio.amount" in list(pumpSettings):
-                        cirColHead = "carbRatio"
-                    else:
-                        cirColHead = "carbRatios"
-                        pdb.set_trace()
-
-                    pumpSettings["cir"] = pumpSettings[cirColHead + ".amount"]
-                    pumpSettings["cirTime"] = pd.to_datetime(pumpSettings["day"]) + \
-                        pd.to_timedelta(pumpSettings[cirColHead + ".start"], unit="ms")
-
-                    cirCH = commonColumnHeadings.copy()
-                    cirCH.extend(["cirTime", "cir"])
-                    cir = pumpSettings.loc[pumpSettings["cir"].notnull(), cirCH]
+                    bolusCH = commonColumnHeadings.copy()
+                    bolusCH.extend(["utcTime", "roundedTime", "normal", "carbInput", "subType",
+                                    "insulinOnBoard", "bgInput",
+                                    "isf", "isf_mmolL_U", "insulinCarbRatio"])
+                    bolusEvents = bolus.loc[bolus["normal"].notnull(), bolusCH]
+                    bolusEvents.loc[bolusEvents["bgInput"] == 0, "bgInput"] = np.nan
+                    bolusEvents = bolusEvents.rename(columns={"normal": "unitsInsulin",
+                                                              "bgInput": "bg_mmolL"})
+                    bolusEvents["bg_mgdL"] = mmolL_to_mgdL(bolusEvents["bg_mmolL"])
+                    bolusEvents["eventType"] = "correction"
+                    bolusEvents.loc[bolusEvents["carbInput"] == 0, "eventType"] = "meal"
 
 
-                    # CORRECTION TARGET
-                    if "bgTarget.start" in list(pumpSettings):
-                        bgTargetColHead = "bgTarget"
-                    else:
-                        bgTargetColHead = "bgTargets"
-                        pdb.set_trace()
+                    # %% PUMP SETTINGS
+                    if "pumpSettings" in data.type.unique():
+                        pumpSettings = data[data.type == "pumpSettings"].copy().dropna(axis=1, how="all")
+                        pumpSettings.sort_values("uploadTime", ascending=False, inplace=True)
 
-                    # low
-                    if bgTargetColHead + ".low" in list(pumpSettings):
-                        pumpSettings["correctionTargetLow_mmolL"] = pumpSettings[bgTargetColHead + ".low"]
-                        pumpSettings["correctionTargetLow"] = \
-                            mmolL_to_mgdL(pumpSettings["correctionTargetLow_mmolL"])
-                    else:
-                        pumpSettings["correctionTargetLow_mmolL"] = np.nan
-                        pumpSettings["correctionTargetLow"] = np.nan
+                        pumpSettings, nPumpSettingsDuplicatesRemoved = \
+                        td.clean.remove_duplicates(pumpSettings, pumpSettings[["deviceTime"]])
+                        metadata["nPumpSettingsDuplicatesRemoved"] = nPumpSettingsDuplicatesRemoved
 
-                    # high
-                    if bgTargetColHead + ".high" in list(pumpSettings):
-                        pumpSettings["correctionTargetHigh_mmolL"] = pumpSettings[bgTargetColHead + ".high"]
-                        pumpSettings["correctionTargetHigh"] = \
-                            mmolL_to_mgdL(pumpSettings["correctionTargetHigh_mmolL"])
+                        # ISF
+                        isfCH = commonColumnHeadings.copy()
+                        isfCH.extend(["isfTime", "isf", "isf_mmolL_U"])
 
-                    else:
-                        pumpSettings["correctionTargetHigh_mmolL"] = np.nan
-                        pumpSettings["correctionTargetHigh"] = np.nan
+                        if "insulinSensitivity.amount" in list(pumpSettings):
+                            isfColHead = "insulinSensitivity"
+                            pumpSettings["isf_mmolL_U"] = pumpSettings[isfColHead + ".amount"]
+                            pumpSettings["isf"] = mmolL_to_mgdL(pumpSettings["isf_mmolL_U"])
+                            pumpSettings["isfTime"] = pd.to_datetime(pumpSettings["day"]) + \
+                                pd.to_timedelta(pumpSettings[isfColHead + ".start"], unit="ms")
 
-                    # target
-                    if bgTargetColHead + ".target" in list(pumpSettings):
-                        pumpSettings["correctionTarget_mmolL"] = pumpSettings[bgTargetColHead + ".target"]
-                        pumpSettings["correctionTarget"] = \
-                            mmolL_to_mgdL(pumpSettings["correctionTarget_mmolL"])
-
-                    else:
-                        pumpSettings["correctionTarget_mmolL"] = np.nan
-                        pumpSettings["correctionTarget"] = np.nan
-
-                    # range
-                    if bgTargetColHead + ".range" in list(pumpSettings):
-                        pumpSettings["correctionTargetRange_mmolL"] = pumpSettings[bgTargetColHead + ".range"]
-                        pumpSettings["correctionTargetRange"] = \
-                            mmolL_to_mgdL(pumpSettings["correctionTargetRange_mmolL"])
-
-                    else:
-                        pumpSettings["correctionTargetRange_mmolL"] = np.nan
-                        pumpSettings["correctionTargetRange"] =np.nan
-
-                    pumpSettings["ctTime"] = pd.to_datetime(pumpSettings["day"]) + \
-                        pd.to_timedelta(pumpSettings[bgTargetColHead + ".start"], unit="ms")
-
-                    ctCH = commonColumnHeadings.copy()
-                    ctCH.extend(["ctTime", "correctionTargetLow", "correctionTargetHigh",
-                                 "correctionTarget", "correctionTargetRange"])
-                    correctionTarget = pumpSettings.loc[pumpSettings["ctTime"].notnull(), ctCH]
-
-                    # SCHEDULED BASAL RATES
-                    sbrCH = commonColumnHeadings.copy()
-                    sbrCH.extend(["sbrTime", "rate", "type"])
-                    sbr = pd.DataFrame(columns=sbrCH)
-                    for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
-                        if 'Auto Mode' not in actSched:
-                            tempDF = pd.DataFrame(pumpSettings.loc[p, "basalSchedules." + actSched])
-                            tempDF["day"] = pumpSettings.loc[p, "day"]
-                            tempDF["type"] = np.nan
-                            tempDF["sbrTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
+                            isf = pumpSettings.loc[pumpSettings["isf"].notnull(), isfCH]
                         else:
-                            tempDF = pd.DataFrame(index=[0])
-                            tempDF["sbrTime"] = np.nan
-                            tempDF["rate"] = np.nan
-                            tempDF["type"] = "AutoMode"
-
-                        tempDF["hashID"] = pumpSettings.loc[p, "hashID"]
-                        tempDF["age"] = pumpSettings.loc[p, "age"]
-                        tempDF["ylw"] = pumpSettings.loc[p, "ylw"]
-                        sbr = pd.concat([sbr, tempDF[sbrCH]], ignore_index=True)
-
-
-                    # %% ACTUAL BASAL RATES (TIME, VALUE, DURATION, TYPE (SCHEDULED, TEMP, SUSPEND))
-                    if "basal" in data.type.unique():
-                        basal = data[data.type == "basal"].copy().dropna(axis=1, how="all")
-                        basal.sort_values("uploadTime", ascending=False, inplace=True)
-
-                        basal, nBasalDuplicatesRemoved = \
-                            td.clean.remove_duplicates(basal, basal[["deliveryType", "deviceTime", "duration", "rate"]])
-                        metadata["basal.nBasalDuplicatesRemoved"] = nBasalDuplicatesRemoved
-
-                        # fill NaNs with 0, as it indicates a suspend (temp basal of 0)
-                        basal.rate.fillna(0, inplace=True)
-
-                        # get rid of basals that have durations of 0
-                        nBasalDuration0 = sum(basal.duration > 0)
-                        basal = basal[basal.duration > 0]
-                        metadata["basal.nBasalDuration0"] = nBasalDuration0
-
-                        # get rid of basal durations that are unrealistic
-                        nUnrealisticBasalDuration = ((basal.duration < 0) | (basal.duration > 86400000))
-                        metadata["nUnrealisticBasalDuration"] = sum(nUnrealisticBasalDuration)
-                        basal.loc[nUnrealisticBasalDuration, "duration"] = np.nan
-
-                        # calculate the total amount of insulin delivered (duration * rate)
-                        basal["durationHours"] = basal["duration"] / 1000.0 / 3600.0
-                        basal["totalAmountOfBasalInsulin"] = basal["durationHours"] * basal["rate"]
-
-                        # get a summary of basals per day
-                        basalDaySummary = get_basalDaySummary(basal)
+                            isfColHead = "insulinSensitivities"
+                            isf = pd.DataFrame(columns=isfCH)
+                            for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
+                                tempDF = pd.DataFrame(pumpSettings.loc[p, isfColHead + "." + actSched])
+                                tempDF["day"] = pumpSettings.loc[p, "day"]
+                                tempDF["isfTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
+                                tempDF["hashID"] = pumpSettings.loc[p, "hashID"]
+                                tempDF["age"] = pumpSettings.loc[p, "age"]
+                                tempDF["ylw"] = pumpSettings.loc[p, "ylw"]
+                                tempDF["isf_mmolL_U"] = tempDF["amount"]
+                                tempDF["isf"] = mmolL_to_mgdL(tempDF["isf_mmolL_U"])
+                                isf = pd.concat([isf, tempDF[isfCH]], ignore_index=True)
 
 
-# %% LOOP DATA (BINARY T/F)
+
+                        # CIR
+                        cirCH = commonColumnHeadings.copy()
+                        cirCH.extend(["cirTime", "cir"])
+
+                        if "carbRatio.amount" in list(pumpSettings):
+                            cirColHead = "carbRatio"
+                            pumpSettings["cir"] = pumpSettings[cirColHead + ".amount"]
+                            pumpSettings["cirTime"] = pd.to_datetime(pumpSettings["day"]) + \
+                                pd.to_timedelta(pumpSettings[cirColHead + ".start"], unit="ms")
+
+                            cir = pumpSettings.loc[pumpSettings["cir"].notnull(), cirCH]
+                        else:
+                            cirColHead = "carbRatios"
+                            cir = pd.DataFrame(columns=cirCH)
+                            for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
+                                tempDF = pd.DataFrame(pumpSettings.loc[p, cirColHead + "." + actSched])
+                                tempDF["day"] = pumpSettings.loc[p, "day"]
+                                tempDF["cirTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
+                                tempDF["hashID"] = pumpSettings.loc[p, "hashID"]
+                                tempDF["age"] = pumpSettings.loc[p, "age"]
+                                tempDF["ylw"] = pumpSettings.loc[p, "ylw"]
+                                tempDF["cir"] = tempDF["amount"].astype(float)
+                                cir = pd.concat([cir, tempDF[cirCH]], ignore_index=True)
 
 
-# %% CGM DATA
+                        # CORRECTION TARGET
+                        ctCH = commonColumnHeadings.copy()
+                        ctCH.extend(["ctTime", "correctionTargetLow", "correctionTargetHigh",
+                                     "correctionTarget", "correctionTargetRange"])
+                        if "bgTarget.start" in list(pumpSettings):
+                            bgTargetColHead = "bgTarget"
+
+                            # low
+                            if bgTargetColHead + ".low" in list(pumpSettings):
+                                pumpSettings["correctionTargetLow_mmolL"] = pumpSettings[bgTargetColHead + ".low"]
+                                pumpSettings["correctionTargetLow"] = \
+                                    mmolL_to_mgdL(pumpSettings["correctionTargetLow_mmolL"])
+                            else:
+                                pumpSettings["correctionTargetLow_mmolL"] = np.nan
+                                pumpSettings["correctionTargetLow"] = np.nan
+
+                            # high
+                            if bgTargetColHead + ".high" in list(pumpSettings):
+                                pumpSettings["correctionTargetHigh_mmolL"] = pumpSettings[bgTargetColHead + ".high"]
+                                pumpSettings["correctionTargetHigh"] = \
+                                    mmolL_to_mgdL(pumpSettings["correctionTargetHigh_mmolL"])
+
+                            else:
+                                pumpSettings["correctionTargetHigh_mmolL"] = np.nan
+                                pumpSettings["correctionTargetHigh"] = np.nan
+
+                            # target
+                            if bgTargetColHead + ".target" in list(pumpSettings):
+                                pumpSettings["correctionTarget_mmolL"] = pumpSettings[bgTargetColHead + ".target"]
+                                pumpSettings["correctionTarget"] = \
+                                    mmolL_to_mgdL(pumpSettings["correctionTarget_mmolL"])
+
+                            else:
+                                pumpSettings["correctionTarget_mmolL"] = np.nan
+                                pumpSettings["correctionTarget"] = np.nan
+
+                            # range
+                            if bgTargetColHead + ".range" in list(pumpSettings):
+                                pumpSettings["correctionTargetRange_mmolL"] = pumpSettings[bgTargetColHead + ".range"]
+                                pumpSettings["correctionTargetRange"] = \
+                                    mmolL_to_mgdL(pumpSettings["correctionTargetRange_mmolL"])
+
+                            else:
+                                pumpSettings["correctionTargetRange_mmolL"] = np.nan
+                                pumpSettings["correctionTargetRange"] =np.nan
+
+                            pumpSettings["ctTime"] = pd.to_datetime(pumpSettings["day"]) + \
+                                pd.to_timedelta(pumpSettings[bgTargetColHead + ".start"], unit="ms")
 
 
-# %% NUMBER OF DAYS OF PUMP AND CGM DATA, OVERALL AND PER EACH AGE & YLW
+                            correctionTarget = pumpSettings.loc[pumpSettings["ctTime"].notnull(), ctCH]
+
+                        else:
+                            bgTargetColHead = "bgTargets"
+                            pdb.set_trace()
 
 
-# %% STATS PER EACH TYPE, OVERALL AND PER EACH AGE & YLW (MIN, PERCENTILES, MAX, MEAN, SD, IQR, COV)
+
+                        # SCHEDULED BASAL RATES
+                        sbrCH = commonColumnHeadings.copy()
+                        sbrCH.extend(["sbrTime", "rate", "type"])
+                        sbr = pd.DataFrame(columns=sbrCH)
+                        for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
+                            if 'Auto Mode' not in actSched:
+                                tempDF = pd.DataFrame(pumpSettings.loc[p, "basalSchedules." + actSched])
+                                tempDF["day"] = pumpSettings.loc[p, "day"]
+                                tempDF["type"] = np.nan
+                                tempDF["sbrTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
+                            else:
+                                tempDF = pd.DataFrame(index=[0])
+                                tempDF["sbrTime"] = np.nan
+                                tempDF["rate"] = np.nan
+                                tempDF["type"] = "AutoMode"
+
+                            tempDF["hashID"] = pumpSettings.loc[p, "hashID"]
+                            tempDF["age"] = pumpSettings.loc[p, "age"]
+                            tempDF["ylw"] = pumpSettings.loc[p, "ylw"]
+                            sbr = pd.concat([sbr, tempDF[sbrCH]], ignore_index=True)
 
 
-# %% SAVE RESULTS
+                        # %% ACTUAL BASAL RATES (TIME, VALUE, DURATION, TYPE (SCHEDULED, TEMP, SUSPEND))
+                        if "basal" in data.type.unique():
+                            basal = data[data.type == "basal"].copy().dropna(axis=1, how="all")
+                            basal.sort_values("uploadTime", ascending=False, inplace=True)
+
+                            basal, nBasalDuplicatesRemoved = \
+                                td.clean.remove_duplicates(basal, basal[["deliveryType", "deviceTime", "duration", "rate"]])
+                            metadata["basal.nBasalDuplicatesRemoved"] = nBasalDuplicatesRemoved
+
+                            # fill NaNs with 0, as it indicates a suspend (temp basal of 0)
+                            basal.rate.fillna(0, inplace=True)
+
+                            # get rid of basals that have durations of 0
+                            nBasalDuration0 = sum(basal.duration > 0)
+                            basal = basal[basal.duration > 0]
+                            metadata["basal.nBasalDuration0"] = nBasalDuration0
+
+                            # get rid of basal durations that are unrealistic
+                            nUnrealisticBasalDuration = ((basal.duration < 0) | (basal.duration > 86400000))
+                            metadata["nUnrealisticBasalDuration"] = sum(nUnrealisticBasalDuration)
+                            basal.loc[nUnrealisticBasalDuration, "duration"] = np.nan
+
+                            # calculate the total amount of insulin delivered (duration * rate)
+                            basal["durationHours"] = basal["duration"] / 1000.0 / 3600.0
+                            basal["totalAmountOfBasalInsulin"] = basal["durationHours"] * basal["rate"]
+
+                            # get a summary of basals per day
+                            basalDaySummary = get_basalDaySummary(basal)
 
 
-# %% MAKE THIS A FUNCTION SO THAT IT CAN BE RUN PER EACH INDIVIDUAL
+    # %% LOOP DATA (BINARY T/F)
+
+
+    # %% CGM DATA
+
+
+    # %% NUMBER OF DAYS OF PUMP AND CGM DATA, OVERALL AND PER EACH AGE & YLW
+
+
+    # %% STATS PER EACH TYPE, OVERALL AND PER EACH AGE & YLW (MIN, PERCENTILES, MAX, MEAN, SD, IQR, COV)
+
+
+    # %% SAVE RESULTS
+
+
+    # %% MAKE THIS A FUNCTION SO THAT IT CAN BE RUN PER EACH INDIVIDUAL
+                        else:
+                            metadata["flags"] = "no basal data"
                     else:
-                        metadata["flags"] = "no basal data"
+                        metadata["flags"] = "no pump settings"
                 else:
-                    metadata["flags"] = "no pump settings"
+                    metadata["flags"] = "no bolus wizard data"
             else:
-                metadata["flags"] = "no bolus wizard data"
+                metadata["flags"] = "no upload data"
         else:
-            metadata["flags"] = "no upload data"
+            metadata["flags"] = "file contains no data"
     else:
-        metadata["flags"] = "file contains no data"
-else:
-    metadata["flags"] = "file does not exist"
+        metadata["flags"] = "file does not exist"
+
+    print("done with", dIndex)
+
 
 # %% V2 DATA TO GRAB
+# MAX BASAL RATE, MAX BOLUS AMOUNT, AND INSULIN DURATION SET ON SELECT PUMPS
 # RE-EVALUATE THE WAY EXTENDED BOLUSES ARE BEING ACCOUNTED (ARE THEY ALSO SHOWING UP IN BASAL DATA?)
 # ALERT SETTINGS
 # ESTIMATED LOCAL TIME
