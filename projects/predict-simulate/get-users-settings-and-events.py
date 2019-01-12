@@ -329,7 +329,7 @@ donorList = phiDate + "-uniqueDonorList.csv"
 donors = td.load.load_csv(os.path.join(donorPath, donorList))
 
 # this is where the loop will go:
-dIndex = 2379
+dIndex = 2
 
 # %% ID, HASHID, AGE, & YLW
 userID = donors.userID[dIndex]
@@ -459,11 +459,11 @@ if os.path.exists(jsonFileName):
 
                     pumpSettings["isf_mmolL_U"] = pumpSettings[isfColHead + ".amount"]
                     pumpSettings["isf"] = mmolL_to_mgdL(pumpSettings["isf_mmolL_U"])
-                    pumpSettings["time"] = pd.to_datetime(pumpSettings["day"]) + \
+                    pumpSettings["isfTime"] = pd.to_datetime(pumpSettings["day"]) + \
                         pd.to_timedelta(pumpSettings[isfColHead + ".start"], unit="ms")
 
                     isfCH = commonColumnHeadings.copy()
-                    isfCH.extend(["time", "isf", "isf_mmolL_U"])
+                    isfCH.extend(["isfTime", "isf", "isf_mmolL_U"])
                     isf = pumpSettings.loc[pumpSettings["isf"].notnull(), isfCH]
 
                     # CIR
@@ -474,11 +474,11 @@ if os.path.exists(jsonFileName):
                         pdb.set_trace()
 
                     pumpSettings["cir"] = pumpSettings[cirColHead + ".amount"]
-                    pumpSettings["time"] = pd.to_datetime(pumpSettings["day"]) + \
+                    pumpSettings["cirTime"] = pd.to_datetime(pumpSettings["day"]) + \
                         pd.to_timedelta(pumpSettings[cirColHead + ".start"], unit="ms")
 
                     cirCH = commonColumnHeadings.copy()
-                    cirCH.extend(["time", "cir"])
+                    cirCH.extend(["cirTime", "cir"])
                     cir = pumpSettings.loc[pumpSettings["cir"].notnull(), cirCH]
 
 
@@ -489,32 +489,72 @@ if os.path.exists(jsonFileName):
                         bgTargetColHead = "bgTargets"
                         pdb.set_trace()
 
-                    pumpSettings["correctionTargetLow_mmolL"] = pumpSettings[bgTargetColHead + ".low"]
-                    pumpSettings["correctionTargetLow"] = \
-                        mmolL_to_mgdL(pumpSettings["correctionTargetLow_mmolL"])
+                    # low
+                    if bgTargetColHead + ".low" in list(pumpSettings):
+                        pumpSettings["correctionTargetLow_mmolL"] = pumpSettings[bgTargetColHead + ".low"]
+                        pumpSettings["correctionTargetLow"] = \
+                            mmolL_to_mgdL(pumpSettings["correctionTargetLow_mmolL"])
+                    else:
+                        pumpSettings["correctionTargetLow_mmolL"] = np.nan
+                        pumpSettings["correctionTargetLow"] = np.nan
 
-                    pumpSettings["correctionTargetHigh_mmolL"] = pumpSettings[bgTargetColHead + ".high"]
-                    pumpSettings["correctionTargetHigh"] = \
-                        mmolL_to_mgdL(pumpSettings["correctionTargetHigh_mmolL"])
+                    # high
+                    if bgTargetColHead + ".high" in list(pumpSettings):
+                        pumpSettings["correctionTargetHigh_mmolL"] = pumpSettings[bgTargetColHead + ".high"]
+                        pumpSettings["correctionTargetHigh"] = \
+                            mmolL_to_mgdL(pumpSettings["correctionTargetHigh_mmolL"])
 
-                    pumpSettings["correctionTargetTime"] = pd.to_datetime(pumpSettings["day"]) + \
+                    else:
+                        pumpSettings["correctionTargetHigh_mmolL"] = np.nan
+                        pumpSettings["correctionTargetHigh"] = np.nan
+
+                    # target
+                    if bgTargetColHead + ".target" in list(pumpSettings):
+                        pumpSettings["correctionTarget_mmolL"] = pumpSettings[bgTargetColHead + ".target"]
+                        pumpSettings["correctionTarget"] = \
+                            mmolL_to_mgdL(pumpSettings["correctionTarget_mmolL"])
+
+                    else:
+                        pumpSettings["correctionTarget_mmolL"] = np.nan
+                        pumpSettings["correctionTarget"] = np.nan
+
+                    # range
+                    if bgTargetColHead + ".range" in list(pumpSettings):
+                        pumpSettings["correctionTargetRange_mmolL"] = pumpSettings[bgTargetColHead + ".range"]
+                        pumpSettings["correctionTargetRange"] = \
+                            mmolL_to_mgdL(pumpSettings["correctionTargetRange_mmolL"])
+
+                    else:
+                        pumpSettings["correctionTargetRange_mmolL"] = np.nan
+                        pumpSettings["correctionTargetRange"] =np.nan
+
+                    pumpSettings["ctTime"] = pd.to_datetime(pumpSettings["day"]) + \
                         pd.to_timedelta(pumpSettings[bgTargetColHead + ".start"], unit="ms")
 
                     ctCH = commonColumnHeadings.copy()
-                    ctCH.extend(["correctionTargetTime", "correctionTargetLow", "correctionTargetHigh"])
-                    correctionTarget = pumpSettings.loc[pumpSettings["correctionTargetLow"].notnull(), ctCH]
+                    ctCH.extend(["ctTime", "correctionTargetLow", "correctionTargetHigh",
+                                 "correctionTarget", "correctionTargetRange"])
+                    correctionTarget = pumpSettings.loc[pumpSettings["ctTime"].notnull(), ctCH]
 
                     # SCHEDULED BASAL RATES
                     sbrCH = commonColumnHeadings.copy()
-                    sbrCH.extend(["time", "rate"])
+                    sbrCH.extend(["sbrTime", "rate", "type"])
                     sbr = pd.DataFrame(columns=sbrCH)
                     for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
-                        tempDF = pd.DataFrame(pumpSettings.loc[p, "basalSchedules." + actSched])
-                        tempDF["day"] = pumpSettings.loc[p, "day"]
+                        if 'Auto Mode' not in actSched:
+                            tempDF = pd.DataFrame(pumpSettings.loc[p, "basalSchedules." + actSched])
+                            tempDF["day"] = pumpSettings.loc[p, "day"]
+                            tempDF["type"] = np.nan
+                            tempDF["sbrTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
+                        else:
+                            tempDF = pd.DataFrame(index=[0])
+                            tempDF["sbrTime"] = np.nan
+                            tempDF["rate"] = np.nan
+                            tempDF["type"] = "AutoMode"
+
                         tempDF["hashID"] = pumpSettings.loc[p, "hashID"]
                         tempDF["age"] = pumpSettings.loc[p, "age"]
                         tempDF["ylw"] = pumpSettings.loc[p, "ylw"]
-                        tempDF["time"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
                         sbr = pd.concat([sbr, tempDF[sbrCH]], ignore_index=True)
 
 
@@ -549,9 +589,6 @@ if os.path.exists(jsonFileName):
 
 
 # %% LOOP DATA (BINARY T/F)
-
-
-
 
 
 # %% CGM DATA
