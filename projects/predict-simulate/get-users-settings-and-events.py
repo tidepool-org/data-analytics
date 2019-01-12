@@ -99,24 +99,24 @@ def flattenJson(df):
     # loop through each columnHeading
     newDataFrame = pd.DataFrame()
 
-        for colHead in columnHeadings:
-            if any(isinstance(item, list) for item in df[colHead]):
-                listBlob = df[colHead][df[colHead].astype(str).str[0] == "["]
-                df.loc[listBlob.index, colHead] = df.loc[listBlob.index, colHead].str[0]
+    for colHead in columnHeadings:
+        if any(isinstance(item, list) for item in df[colHead]):
+            listBlob = df[colHead][df[colHead].astype(str).str[0] == "["]
+            df.loc[listBlob.index, colHead] = df.loc[listBlob.index, colHead].str[0]
 
-            # if the df field has embedded json
-            if any(isinstance(item, dict) for item in df[colHead]):
-                # grab the data that is in brackets
-                jsonBlob = df[colHead][df[colHead].astype(str).str[0] == "{"]
+        # if the df field has embedded json
+        if any(isinstance(item, dict) for item in df[colHead]):
+            # grab the data that is in brackets
+            jsonBlob = df[colHead][df[colHead].astype(str).str[0] == "{"]
 
-                # replace those values with nan
-                df.loc[jsonBlob.index, colHead] = np.nan
+            # replace those values with nan
+            df.loc[jsonBlob.index, colHead] = np.nan
 
-                # turn jsonBlob to dataframe
-                newDataFrame = pd.concat([newDataFrame, pd.DataFrame(jsonBlob.tolist(),
-                                         index=jsonBlob.index).add_prefix(colHead + '.')], axis=1)
+            # turn jsonBlob to dataframe
+            newDataFrame = pd.concat([newDataFrame, pd.DataFrame(jsonBlob.tolist(),
+                                     index=jsonBlob.index).add_prefix(colHead + '.')], axis=1)
 
-        df = pd.concat([df, newDataFrame, holdData], axis=1)
+    df = pd.concat([df, newDataFrame, holdData], axis=1)
 
     df.sort_index(axis=1, inplace=True)
 
@@ -334,6 +334,7 @@ dIndex = 2379
 # %% ID, HASHID, AGE, & YLW
 userID = donors.userID[dIndex]
 hashID = donors.hashID[dIndex]
+# round all birthdays and diagnosis dates to the first day of the month (to protect identities)
 bDate = pd.to_datetime(donors.bDay[dIndex][0:7])
 dDate = pd.to_datetime(donors.dDay[dIndex][0:7])
 
@@ -370,7 +371,7 @@ if os.path.exists(jsonFileName):
         metadata["nTandemAndPayloadCalReadings"] = nTandemAndPayloadCalReadings
 
 
-# %% ADD UPLOAD DATE
+        # %% ADD UPLOAD DATE
         # attach upload time to each record, for resolving duplicates
         if "upload" in data.type.unique():
             data = addUploadDate(data)
@@ -388,9 +389,10 @@ if os.path.exists(jsonFileName):
             data = round_time(data, timeIntervalMinutes=5, timeField="time",
                               roundedTimeFieldName="roundedTime", startWithFirstRecord=True,
                               verbose=False)
+            data.sort_values("uploadTime", ascending=False, inplace=True)
 
 
-# %% ID, HASHID, AGE, & YLW
+            # %% ID, HASHID, AGE, & YLW
             data["userID"] = userID
             data["hashID"] = hashID
             data["age"] = np.floor((data["utcTime"] - bDate).dt.days/365.25).astype(int)
@@ -401,12 +403,13 @@ if os.path.exists(jsonFileName):
                                     "ylw"]
 
 
-# %% BOLUS EVENTS (CORRECTION, AND MEAL INCLUING: CARBS, EXTENDED, DUAL)
+            # %% BOLUS EVENTS (CORRECTION, AND MEAL INCLUING: CARBS, EXTENDED, DUAL)
             bolus = mergeWizardWithBolus(data)
             if len(bolus) > 0:
                 # get rid of duplicates that have the same ["time", "normal"]
+                bolus.sort_values("uploadTime", ascending=False, inplace=True)
                 bolus, nBolusDuplicatesRemoved = \
-                    td.clean.remove_duplicates(bolus, bolus[["time", "normal"]])
+                    td.clean.remove_duplicates(bolus, bolus[["deviceTime", "normal"]])
                 metadata["nBolusDuplicatesRemoved"] = nBolusDuplicatesRemoved
 
                 # get a summary of boluses per day
@@ -438,23 +441,29 @@ if os.path.exists(jsonFileName):
                 bolusEvents.loc[bolusEvents["carbInput"] == 0, "eventType"] = "meal"
 
 
-# %% PUMP SETTINGS
+                # %% PUMP SETTINGS
                 if "pumpSettings" in data.type.unique():
                     pumpSettings = data[data.type == "pumpSettings"].copy().dropna(axis=1, how="all")
+                    pumpSettings.sort_values("uploadTime", ascending=False, inplace=True)
+
+                    pumpSettings, nPumpSettingsDuplicatesRemoved = \
+                    td.clean.remove_duplicates(pumpSettings, pumpSettings[["deviceTime"]])
+                    metadata["nPumpSettingsDuplicatesRemoved"] = nPumpSettingsDuplicatesRemoved
 
                     # ISF
                     if "insulinSensitivity.amount" in list(pumpSettings):
                         isfColHead = "insulinSensitivity"
                     else:
                         isfColHead = "insulinSensitivities"
+                        pdb.set_trace()
 
                     pumpSettings["isf_mmolL_U"] = pumpSettings[isfColHead + ".amount"]
                     pumpSettings["isf"] = mmolL_to_mgdL(pumpSettings["isf_mmolL_U"])
-                    pumpSettings["isfTime"] = pd.to_datetime(pumpSettings["day"]) + \
+                    pumpSettings["time"] = pd.to_datetime(pumpSettings["day"]) + \
                         pd.to_timedelta(pumpSettings[isfColHead + ".start"], unit="ms")
 
                     isfCH = commonColumnHeadings.copy()
-                    isfCH.extend(["isfTime", "isf", "isf_mmolL_U"])
+                    isfCH.extend(["time", "isf", "isf_mmolL_U"])
                     isf = pumpSettings.loc[pumpSettings["isf"].notnull(), isfCH]
 
                     # CIR
@@ -462,13 +471,14 @@ if os.path.exists(jsonFileName):
                         cirColHead = "carbRatio"
                     else:
                         cirColHead = "carbRatios"
+                        pdb.set_trace()
 
                     pumpSettings["cir"] = pumpSettings[cirColHead + ".amount"]
-                    pumpSettings["cirTime"] = pd.to_datetime(pumpSettings["day"]) + \
+                    pumpSettings["time"] = pd.to_datetime(pumpSettings["day"]) + \
                         pd.to_timedelta(pumpSettings[cirColHead + ".start"], unit="ms")
 
                     cirCH = commonColumnHeadings.copy()
-                    cirCH.extend(["cirTime", "cir"])
+                    cirCH.extend(["time", "cir"])
                     cir = pumpSettings.loc[pumpSettings["cir"].notnull(), cirCH]
 
 
@@ -477,6 +487,7 @@ if os.path.exists(jsonFileName):
                         bgTargetColHead = "bgTarget"
                     else:
                         bgTargetColHead = "bgTargets"
+                        pdb.set_trace()
 
                     pumpSettings["correctionTargetLow_mmolL"] = pumpSettings[bgTargetColHead + ".low"]
                     pumpSettings["correctionTargetLow"] = \
