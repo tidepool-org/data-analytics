@@ -704,6 +704,11 @@ for dIndex in range(0, len(donors)):
                             basal["durationHours"] = basal["duration"] / 1000.0 / 3600.0
                             basal["totalAmountOfBasalInsulin"] = basal["durationHours"] * basal["rate"]
 
+                            # actual basal delivered
+                            abrColHeadings = commonColumnHeadings.copy()
+                            abrColHeadings.extend(["utcTime", "roundedTime", "durationHours", "rate"])
+                            abr = basal[abrColHeadings]
+
                             # get a summary of basals per day
                             basalDaySummary = get_basalDaySummary(basal)
 
@@ -764,7 +769,8 @@ for dIndex in range(0, len(donors)):
                                 cgm["mg_dL"] = mmolL_to_mgdL(cgm["mmol_L"]).astype(int)
 
 
-    # %% NUMBER OF DAYS OF PUMP AND CGM DATA, OVERALL AND PER EACH AGE & YLW
+                                # %% NUMBER OF DAYS OF PUMP AND CGM DATA, OVERALL AND PER EACH AGE & YLW
+                                pdb.set_trace()
 
 
     # %% STATS PER EACH TYPE, OVERALL AND PER EACH AGE & YLW (MIN, PERCENTILES, MAX, MEAN, SD, IQR, COV)
