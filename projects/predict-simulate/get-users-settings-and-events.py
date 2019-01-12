@@ -322,6 +322,97 @@ def get_basalDaySummary(basal):
     return basalDaySummary
 
 
+def filterAndSort(groupedDF, filterByField, sortByField):
+    filterDF = groupedDF.get_group(filterByField).dropna(axis=1, how="all")
+    filterDF = filterDF.sort_values(sortByField)
+    return filterDF
+
+
+def getClosedLoopDays(groupedData, nTempBasalsPerDayIsClosedLoop, metadata):
+    # filter by basal data and sort by time
+    if "basal" in groupedData.type.unique():
+        basalData = filterAndSort(groupedData, "basal", "time")
+
+        # get closed loop days
+        nTB = nTempBasalsPerDayIsClosedLoop
+
+        tbDataFrame = basalData.loc[basalData.deliveryType == "temp", ["time"]]
+        tbDataFrame.index = pd.to_datetime(tbDataFrame["time"])
+        tbDataFrame = tbDataFrame.drop(["time"], axis=1)
+        tbDataFrame["basal.temp.count"] = 1
+        nTempBasalsPerDay = tbDataFrame.resample("D").sum()
+        closedLoopDF = pd.DataFrame(nTempBasalsPerDay,
+                                    index=nTempBasalsPerDay.index.date)
+        closedLoopDF["date"] = nTempBasalsPerDay.index.date
+        closedLoopDF["basal.closedLoopDays"] = \
+            closedLoopDF["basal.temp.count"] >= nTB
+        nClosedLoopDays = closedLoopDF["basal.closedLoopDays"].sum()
+
+        # get the number of days with 670g
+        basalData["date"] = pd.to_datetime(basalData.time).dt.date
+        bdGroup = basalData.groupby("date")
+        topPump = bdGroup.deviceId.describe()["top"]
+        med670g = pd.DataFrame(topPump.str.contains("1780")).rename(columns={"top":"670g"})
+        med670g.reset_index(inplace=True)
+        n670gDays = med670g["670g"].sum()
+
+    else:
+        closedLoopDF = pd.DataFrame(columns=["basal.closedLoopDays", "date"])
+        med670g = pd.DataFrame(columns=["670g", "date"])
+        nClosedLoopDays = 0
+        n670gDays = 0
+
+    metadata["basal.closedLoopDays.count"] = nClosedLoopDays
+    metadata["med670gDays.count"] = n670gDays
+
+    return closedLoopDF, med670g, metadata
+
+
+def removeDuplicates(df, criteriaDF):
+    nBefore = len(df)
+    df = df.loc[~(df[criteriaDF].duplicated())]
+    df = df.reset_index(drop=True)
+    nDuplicatesRemoved = nBefore - len(df)
+
+    return df, nDuplicatesRemoved
+
+
+def removeCgmDuplicates(df, timeCriterion):
+    if timeCriterion in df:
+        df.sort_values(by=[timeCriterion, "uploadTime"],
+                       ascending=[False, False],
+                       inplace=True)
+        dfIsNull = df[df[timeCriterion].isnull()]
+        dfNotNull = df[df[timeCriterion].notnull()]
+        dfNotNull, nDuplicatesRemoved = removeDuplicates(dfNotNull, [timeCriterion, "value"])
+        df = pd.concat([dfIsNull, dfNotNull])
+        df.sort_values(by=[timeCriterion, "uploadTime"],
+                       ascending=[False, False],
+                       inplace=True)
+    else:
+        nDuplicatesRemoved = 0
+
+    return df, nDuplicatesRemoved
+
+
+def getStartAndEndTimes(df, dateTimeField):
+    dfBeginDate = df[dateTimeField].min()
+    dfEndDate = df[dateTimeField].max()
+
+    return dfBeginDate, dfEndDate
+
+
+def getListOfDexcomCGMDays(df):
+    # search for dexcom cgms
+    searchfor = ["Dex", "tan", "IR", "unk"]
+    # create dexcom boolean field
+    if "deviceId" in df.columns.values:
+        totalCgms = len(df.deviceId.notnull())
+        df["dexcomCGM"] = df.deviceId.str.contains("|".join(searchfor))
+        percentDexcomCGM = df.dexcomCGM.sum() / totalCgms * 100
+    return df, percentDexcomCGM
+
+
 # %% LOAD IN ONE FILE, BUT EVENTUALLY THIS WILL LOOOP THROUGH ALL USER'S
 dataPulledDate = "2018-09-28"
 phiDate = "PHI-" + dataPulledDate
@@ -443,7 +534,12 @@ for dIndex in range(0, len(donors)):
                                                               "bgInput": "bg_mmolL"})
                     bolusEvents["bg_mgdL"] = mmolL_to_mgdL(bolusEvents["bg_mmolL"])
                     bolusEvents["eventType"] = "correction"
-                    bolusEvents.loc[bolusEvents["carbInput"] == 0, "eventType"] = "meal"
+                    bolusEvents.loc[bolusEvents["carbInput"] > 0, "eventType"] = "meal"
+
+                    # get start and end times
+                    bolusBeginDate, bolusEndDate = getStartAndEndTimes(bolus, "day")
+                    metadata["bolus.beginDate"] = bolusBeginDate
+                    metadata["bolus.endDate"] = bolusEndDate
 
 
                     # %% PUMP SETTINGS
@@ -509,7 +605,7 @@ for dIndex in range(0, len(donors)):
                         # CORRECTION TARGET
                         ctColHeadings = commonColumnHeadings.copy()
                         ctColHeadings.extend(["ct.time", "ct.low", "ct.high", "ct.target", "ct.range"])
-                        correctionTarget
+
                         if "bgTarget.start" in list(pumpSettings):
                             ctColHead = "bgTarget."
 
@@ -573,6 +669,14 @@ for dIndex in range(0, len(donors)):
                             tempDF["ylw"] = pumpSettings.loc[p, "ylw"]
                             sbr = pd.concat([sbr, tempDF[sbrColHeadings]], ignore_index=True)
 
+                        # max basal rate, max bolus amount, and insulin duration
+                        if "rateMaximum" in list(data):
+                            pdb.set_trace()
+                        if "amountMaximum" in list(data):
+                            pdb.set_trace()
+                        if "bolus.calculator" in list(data):
+                            pdb.set_trace()
+
 
                         # %% ACTUAL BASAL RATES (TIME, VALUE, DURATION, TYPE (SCHEDULED, TEMP, SUSPEND))
                         if "basal" in data.type.unique():
@@ -604,10 +708,60 @@ for dIndex in range(0, len(donors)):
                             basalDaySummary = get_basalDaySummary(basal)
 
 
-    # %% LOOP DATA (BINARY T/F)
+                            # %% GET CLOSED LOOP DAYS WITH TEMP BASAL DATA
+                            # group data by type
+                            groupedData = data.groupby(by="type")
 
+                            isClosedLoopDay, is670g, metadata = \
+                                getClosedLoopDays(groupedData, 30, metadata)
 
-    # %% CGM DATA
+                            # %% CGM DATA
+                            if "cbg" in data.type.unique():
+
+                                # filter by cgm and sort by uploadTime
+                                cgmData = groupedData.get_group("cbg").dropna(axis=1, how="all")
+
+                                # get rid of duplicates that have the same ["deviceTime", "value"]
+                                cgmData, nCgmDuplicatesRemovedDeviceTime = removeCgmDuplicates(cgmData, "deviceTime")
+                                metadata["nCgmDuplicatesRemovedDeviceTime"] = nCgmDuplicatesRemovedDeviceTime
+
+                                # get rid of duplicates that have the same ["time", "value"]
+                                cgmData, nCgmDuplicatesRemovedUtcTime = removeCgmDuplicates(cgmData, "time")
+                                metadata["cnCgmDuplicatesRemovedUtcTime"] = nCgmDuplicatesRemovedUtcTime
+
+                                # get rid of duplicates that have the same "roundedTime"
+                                cgmData, nCgmDuplicatesRemovedRoundedTime = removeDuplicates(cgmData, "roundedTime")
+                                metadata["nCgmDuplicatesRemovedRoundedTime"] = nCgmDuplicatesRemovedRoundedTime
+
+                                # get start and end times
+                                cgmBeginDate, cgmEndDate = getStartAndEndTimes(cgmData, "day")
+                                metadata["cgm.beginDate"] = cgmBeginDate
+                                metadata["cgm.endDate"] = cgmEndDate
+
+                                # get a list of dexcom cgms
+                                cgmData, percentDexcom = getListOfDexcomCGMDays(cgmData)
+                                metadata["cgm.percentDexcomCGM"] = percentDexcom
+
+                                # group by date (day) and get stats
+                                catDF = cgmData.groupby(cgmData["day"])
+                                cgmRecordsPerDay = \
+                                    pd.DataFrame(catDF.value.count()). \
+                                    rename(columns={"value": "cgm.count"})
+                                dayDate = catDF.day.describe()["top"]
+                                dexcomCGM = catDF.dexcomCGM.describe()["top"]
+                                nTypesCGM = catDF.dexcomCGM.describe()["unique"]
+                                cgmRecordsPerDay["cgm.dexcomOnly"] = \
+                                    (dexcomCGM & (nTypesCGM == 1))
+                                cgmRecordsPerDay["date"] = cgmRecordsPerDay.index
+
+                                # filter the cgm data
+                                cgmColHeadings = commonColumnHeadings.copy()
+                                cgmColHeadings.extend(["utcTime", "roundedTime", "value"])
+
+                                # get data in mg/dL units
+                                cgm = cgmData[cgmColHeadings]
+                                cgm = cgm.rename(columns={'value': 'mmol_L'})
+                                cgm["mg_dL"] = mmolL_to_mgdL(cgm["mmol_L"]).astype(int)
 
 
     # %% NUMBER OF DAYS OF PUMP AND CGM DATA, OVERALL AND PER EACH AGE & YLW
