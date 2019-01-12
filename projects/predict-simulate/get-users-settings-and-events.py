@@ -88,17 +88,16 @@ def tempRemoveFields(df):
     return df, tempDf
 
 
-def flattenJson(df, nEmbeddings):
-    # repeat this N times
-    for nEmbed in range(0, nEmbeddings):
-        # remove fields that we don't want to flatten
-        df, holdData = tempRemoveFields(df)
+def flattenJson(df):
 
-        # get a list of data types of column headings
-        columnHeadings = list(df)  # ["payload", "suppressed"]
+    # remove fields that we don't want to flatten
+    df, holdData = tempRemoveFields(df)
 
-        # loop through each columnHeading
-        newDataFrame = pd.DataFrame()
+    # get a list of data types of column headings
+    columnHeadings = list(df)
+
+    # loop through each columnHeading
+    newDataFrame = pd.DataFrame()
 
         for colHead in columnHeadings:
             if any(isinstance(item, list) for item in df[colHead]):
@@ -295,6 +294,32 @@ def get_bolusDaySummary(bolusData):
     return bolusDaySummary
 
 
+def get_basalDaySummary(basal):
+    # group data by day
+    basalByDay = basal.groupby(basal["day"])
+
+    # total basal insulin per day
+    basalDaySummary = pd.DataFrame(basalByDay.totalAmountOfBasalInsulin.sum())
+
+    # total number of basals types per day
+    basalTypePerDay = basal.groupby(["day", "deliveryType"]).size().unstack()
+
+    basalDaySummary["numberOfScheduledBasals"] = basalTypePerDay["scheduled"].fillna(0)
+    if "suspend" not in list(basalTypePerDay):
+        basalDaySummary["numberOfSuspendedBasals"] = 0
+    else:
+        basalDaySummary["numberOfSuspendedBasals"] = basalTypePerDay["suspend"].fillna(0)
+    if "temp" not in list(basalTypePerDay):
+        basalDaySummary["numberOfTempBasals"] = 0
+    else:
+        basalDaySummary["numberOfTempBasals"] = basalTypePerDay["temp"].fillna(0)
+
+    basalDaySummary["totalNumberOfBasals"] = basalDaySummary["numberOfScheduledBasals"] + \
+                                 basalDaySummary["numberOfTempBasals"]
+
+    return basalDaySummary
+
+
 # %% LOAD IN ONE FILE, BUT EVENTUALLY THIS WILL LOOOP THROUGH ALL USER'S
 dataPulledDate = "2018-09-28"
 phiDate = "PHI-" + dataPulledDate
@@ -323,14 +348,15 @@ if os.path.exists(jsonFileName):
     metadata["fileSizeKB"] = fileSize / 1000
     if fileSize > 1000:
         data = td.load.load_json(jsonFileName)
+
         # sort the data by time
         data.sort_values("time", inplace=True)
 
         # flatten the embedded json
-        data = flattenJson(data, 2)
+        data = flattenJson(data)
 
 
-# %% CLEAN DATA
+        # %% CLEAN DATA
         # remove negative durations
         data, nNegativeDurations = removeNegativeDurations(data)
         metadata["nNegativeDurations"] = nNegativeDurations
@@ -467,9 +493,48 @@ if os.path.exists(jsonFileName):
                     ctCH.extend(["correctionTargetTime", "correctionTargetLow", "correctionTargetHigh"])
                     correctionTarget = pumpSettings.loc[pumpSettings["correctionTargetLow"].notnull(), ctCH]
 
+                    # SCHEDULED BASAL RATES
+                    sbrCH = commonColumnHeadings.copy()
+                    sbrCH.extend(["time", "rate"])
+                    sbr = pd.DataFrame(columns=sbrCH)
+                    for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
+                        tempDF = pd.DataFrame(pumpSettings.loc[p, "basalSchedules." + actSched])
+                        tempDF["day"] = pumpSettings.loc[p, "day"]
+                        tempDF["hashID"] = pumpSettings.loc[p, "hashID"]
+                        tempDF["age"] = pumpSettings.loc[p, "age"]
+                        tempDF["ylw"] = pumpSettings.loc[p, "ylw"]
+                        tempDF["time"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
+                        sbr = pd.concat([sbr, tempDF[sbrCH]], ignore_index=True)
 
-# %% BASAL RATES (TIME, VALUE, DURATION, TYPE (SCHEDULED, TEMP, SUSPEND))
 
+                    # %% ACTUAL BASAL RATES (TIME, VALUE, DURATION, TYPE (SCHEDULED, TEMP, SUSPEND))
+                    if "basal" in data.type.unique():
+                        basal = data[data.type == "basal"].copy().dropna(axis=1, how="all")
+                        basal.sort_values("uploadTime", ascending=False, inplace=True)
+
+                        basal, nBasalDuplicatesRemoved = \
+                            td.clean.remove_duplicates(basal, basal[["deliveryType", "deviceTime", "duration", "rate"]])
+                        metadata["basal.nBasalDuplicatesRemoved"] = nBasalDuplicatesRemoved
+
+                        # fill NaNs with 0, as it indicates a suspend (temp basal of 0)
+                        basal.rate.fillna(0, inplace=True)
+
+                        # get rid of basals that have durations of 0
+                        nBasalDuration0 = sum(basal.duration > 0)
+                        basal = basal[basal.duration > 0]
+                        metadata["basal.nBasalDuration0"] = nBasalDuration0
+
+                        # get rid of basal durations that are unrealistic
+                        nUnrealisticBasalDuration = ((basal.duration < 0) | (basal.duration > 86400000))
+                        metadata["nUnrealisticBasalDuration"] = sum(nUnrealisticBasalDuration)
+                        basal.loc[nUnrealisticBasalDuration, "duration"] = np.nan
+
+                        # calculate the total amount of insulin delivered (duration * rate)
+                        basal["durationHours"] = basal["duration"] / 1000.0 / 3600.0
+                        basal["totalAmountOfBasalInsulin"] = basal["durationHours"] * basal["rate"]
+
+                        # get a summary of basals per day
+                        basalDaySummary = get_basalDaySummary(basal)
 
 
 # %% LOOP DATA (BINARY T/F)
@@ -491,6 +556,8 @@ if os.path.exists(jsonFileName):
 
 
 # %% MAKE THIS A FUNCTION SO THAT IT CAN BE RUN PER EACH INDIVIDUAL
+                    else:
+                        metadata["flags"] = "no basal data"
                 else:
                     metadata["flags"] = "no pump settings"
             else:
@@ -503,6 +570,7 @@ else:
     metadata["flags"] = "file does not exist"
 
 # %% V2 DATA TO GRAB
+# RE-EVALUATE THE WAY EXTENDED BOLUSES ARE BEING ACCOUNTED (ARE THEY ALSO SHOWING UP IN BASAL DATA?)
 # ALERT SETTINGS
 # ESTIMATED LOCAL TIME
 # PUMP AND CGM DEVICE ()
