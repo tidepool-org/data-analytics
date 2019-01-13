@@ -752,9 +752,6 @@ for dIndex in [0]:  #range(0, len(donors)):
                             isfColHead = "insulinSensitivities"
                             isf = pd.DataFrame(columns=isfColHeadings)
 
-                            # edge case where active schedule is a float
-
-
                             for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
                                 # edge case where actSchedule is float
                                 if isinstance(actSched, float):
@@ -762,7 +759,7 @@ for dIndex in [0]:  #range(0, len(donors)):
 
                                 tempDF = pd.DataFrame(pumpSettings.loc[p, isfColHead + "." + actSched])
                                 tempDF["day"] = pumpSettings.loc[p, "day"]
-                                tempDF["localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
+                                tempDF["isf.localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
                                 tempDF["hashID"] = pumpSettings.loc[p, "hashID"]
                                 tempDF["age"] = pumpSettings.loc[p, "age"]
                                 tempDF["ylw"] = pumpSettings.loc[p, "ylw"]
@@ -773,16 +770,29 @@ for dIndex in [0]:  #range(0, len(donors)):
 
                         # CIR
 #                        cirColHeadings = commonColumnHeadings.copy()
-                        cirColHeadings = ["localTime", "cir"]
+                        cirColHeadings = ["cir.localTime", "cir"]
 
                         if "carbRatio.amount" in list(pumpSettings):
                             cirColHead = "carbRatio"
                             pumpSettings["cir"] = pumpSettings[cirColHead + ".amount"]
-                            pumpSettings["localTime"] = pd.to_datetime(pumpSettings["day"]) + \
+                            pumpSettings["cir.localTime"] = pd.to_datetime(pumpSettings["day"]) + \
                                 pd.to_timedelta(pumpSettings[cirColHead + ".start"], unit="ms")
 
                             cir = pumpSettings.loc[pumpSettings["carbRatio.amount"].notnull(), cirColHeadings]
+
+                            # add a day summary
+                            cirDaySummary = cir.copy()
+                            cirDaySummary["day"] = cirDaySummary["cir.localTime"].dt.date
+                            cirDaySummary.drop(columns=["cir.localTime"], inplace=True)
+                            cirDaySummary["cir.min"] = cirDaySummary["cir"]
+                            cirDaySummary["cir.weightedMean"] = cirDaySummary["cir"]
+                            cirDaySummary["cir.max"] = cirDaySummary["cir"]
+                            cirDaySummary = pd.concat([cirDaySummary, dataPulledDF], sort=False)
+                            cirDaySummary.reset_index(inplace=True, drop=True)
+                            cirDaySummary.fillna(method='ffill', inplace=True)
+
                         else:
+
                             cirColHead = "carbRatios"
                             cir = pd.DataFrame(columns=cirColHeadings)
                             for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
@@ -791,17 +801,18 @@ for dIndex in [0]:  #range(0, len(donors)):
                                     actSched = str(int(actSched))
                                 tempDF = pd.DataFrame(pumpSettings.loc[p, cirColHead + "." + actSched])
                                 tempDF["day"] = pumpSettings.loc[p, "day"]
-                                tempDF["localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
+                                tempDF["cir.localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
                                 tempDF["hashID"] = pumpSettings.loc[p, "hashID"]
                                 tempDF["age"] = pumpSettings.loc[p, "age"]
                                 tempDF["ylw"] = pumpSettings.loc[p, "ylw"]
                                 tempDF["cir"] = tempDF["amount"].astype(float)
                                 cir = pd.concat([cir, tempDF[cirColHeadings]], ignore_index=True)
+                                pdb.set_trace()
 
 
                         # CORRECTION TARGET
 #                        ctColHeadings = commonColumnHeadings.copy()
-                        ctColHeadings = ["localTime", "ct.low", "ct.high", "ct.target", "ct.range"]
+                        ctColHeadings = ["ct.localTime", "ct.low", "ct.high", "ct.target", "ct.range"]
 
                         if "bgTarget.start" in list(pumpSettings):
                             ctColHead = "bgTarget."
@@ -817,12 +828,25 @@ for dIndex in [0]:  #range(0, len(donors)):
                                     pumpSettings["ct." + targetType + "_mmolL"] = np.nan
                                     pumpSettings["ct." + targetType]  = np.nan
 
-                            pumpSettings["localTime"] = pd.to_datetime(pumpSettings["day"]) + \
+                            pumpSettings["ct.localTime"] = pd.to_datetime(pumpSettings["day"]) + \
                                 pd.to_timedelta(pumpSettings[ctColHead + "start"], unit="ms")
 
                             correctionTarget = pumpSettings.loc[pumpSettings["bgTarget.start"].notnull(), ctColHeadings]
 
+
+                            # add a day summary
+                            ctDaySummary = correctionTarget.copy()
+                            ctDaySummary["day"] = ctDaySummary["ct.localTime"].dt.date
+                            ctDaySummary.drop(columns=["ct.localTime"], inplace=True)
+#                            ctDaySummary["ct.min"] = ctDaySummary["ct.target"]
+#                            ctDaySummary["ct.weightedMean"] = ctDaySummary["ct"]
+#                            ctDaySummary["ct.max"] = ctDaySummary["ct"]
+                            ctDaySummary = pd.concat([ctDaySummary, dataPulledDF], sort=False)
+                            ctDaySummary.reset_index(inplace=True, drop=True)
+                            ctDaySummary.fillna(method='ffill', inplace=True)
+
                         else:
+
                             ctColHead = "bgTargets"
                             correctionTarget = pd.DataFrame(columns=ctColHeadings)
                             for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
@@ -831,7 +855,7 @@ for dIndex in [0]:  #range(0, len(donors)):
                                     actSched = str(int(actSched))
                                 tempDF = pd.DataFrame(pumpSettings.loc[p, ctColHead + "." + actSched])
                                 tempDF["day"] = pumpSettings.loc[p, "day"]
-                                tempDF["localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
+                                tempDF["ct.localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
                                 tempDF["hashID"] = pumpSettings.loc[p, "hashID"]
                                 tempDF["age"] = pumpSettings.loc[p, "age"]
                                 tempDF["ylw"] = pumpSettings.loc[p, "ylw"]
@@ -847,11 +871,14 @@ for dIndex in [0]:  #range(0, len(donors)):
                                         tempDF["ct." + targetType]  = np.nan
 
                                 correctionTarget = pd.concat([correctionTarget, tempDF[ctColHeadings]], ignore_index=True)
+                                pdb.set_trace()
 
                         # SCHEDULED BASAL RATES
 #                        sbrColHeadings = commonColumnHeadings.copy()
-                        sbrColHeadings = ["localTime", "rate", "type"]
+                        sbrColHeadings = ["sbr.localTime", "rate", "type"]
                         sbr = pd.DataFrame(columns=sbrColHeadings)
+                        sbrDayColHeadings = ['day', 'sbr.min', 'sbr.weightedMean', 'sbr.max', 'type']
+                        sbrDaySummary = pd.DataFrame(columns=sbrDayColHeadings)
                         for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
                             # edge case where actSchedule is float
                             if isinstance(actSched, float):
@@ -860,17 +887,39 @@ for dIndex in [0]:  #range(0, len(donors)):
                                 tempDF = pd.DataFrame(pumpSettings.loc[p, "basalSchedules." + actSched])
                                 tempDF["day"] = pumpSettings.loc[p, "day"]
                                 tempDF["type"] = np.nan
-                                tempDF["localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
+                                tempDF["sbr.localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
+                                endOfDay = pd.DataFrame(pd.to_datetime(pumpSettings.loc[p, "day"] + pd.Timedelta(1, "D")), columns=["sbr.localTime"], index=[0])
+                                tempDF = get_setting_durations(tempDF, "sbr", endOfDay)
+                                tempDF = tempDF[:-1]
+
+                                tempDaySummary = pd.DataFrame(index=[0])
+                                tempDaySummary["day"] = tempDF["sbr.localTime"].dt.date
+                                tempDaySummary["sbr.min"] = tempDF["rate"].min()
+                                tempDaySummary["sbr.weightedMean"] = \
+                                    np.sum(tempDF["rate"] * tempDF["sbr.durationHours"]) / tempDF["sbr.durationHours"].sum()
+                                tempDaySummary["sbr.max"] = tempDF["rate"].max()
+                                tempDaySummary["type"] = np.nan
+
                             else:
                                 tempDF = pd.DataFrame(index=[0])
-                                tempDF["localTime"] = np.nan
+                                tempDF["day"] = pumpSettings.loc[p, "day"]
+                                tempDF["sbr.localTime"] = pd.to_datetime(tempDF["day"])
                                 tempDF["rate"] = np.nan
                                 tempDF["type"] = "AutoMode"
 
-                            tempDF["hashID"] = pumpSettings.loc[p, "hashID"]
-                            tempDF["age"] = pumpSettings.loc[p, "age"]
-                            tempDF["ylw"] = pumpSettings.loc[p, "ylw"]
+                                tempDaySummary = pd.DataFrame(index=[0])
+                                tempDaySummary["day"] = tempDF["sbr.localTime"].dt.date
+                                tempDaySummary["sbr.min"] = np.nan
+                                tempDaySummary["sbr.weightedMean"] = np.nan
+                                tempDaySummary["sbr.max"] = np.nan
+                                tempDaySummary["type"] = "AutoMode"
+
                             sbr = pd.concat([sbr, tempDF[sbrColHeadings]], ignore_index=True)
+                            sbrDaySummary = pd.concat([sbrDaySummary, tempDaySummary], ignore_index=True)
+
+                        sbrDaySummary = pd.concat([sbrDaySummary, dataPulledDF], sort=False)
+                        sbrDaySummary.reset_index(inplace=True, drop=True)
+                        sbrDaySummary.fillna(method='ffill', inplace=True)
 
                         # max basal rate, max bolus amount, and insulin duration
                         if "rateMaximum" in list(data):
@@ -1013,6 +1062,10 @@ for dIndex in [0]:  #range(0, len(donors)):
                         dayData["date"] = pd.to_datetime(dayData["day"])
                         dayData["tzo"] = dayData[['date', 'timezone']].apply(lambda x: getTimezoneOffset(*x), axis=1)
 
+
+
+
+
                         # calculate the start and end of contiguous data
                         # these dates can be used when simulating and predicting, where
                         # you need both pump and cgm data
@@ -1057,7 +1110,6 @@ for dIndex in [0]:  #range(0, len(donors)):
                         metadata["maxYLW"] = maxYLW
 
 
-
                         # %% calculate local time
                         abr["date"] = pd.to_datetime(abr["utcTime"].dt.date)
                         abr = pd.merge(abr, dayData[["date", "tzo", "isDSTChangeDay"]], how="left", on="date")
@@ -1074,11 +1126,18 @@ for dIndex in [0]:  #range(0, len(donors)):
 
                         # %% STATS PER EACH TYPE, OVERALL AND PER EACH AGE & YLW (MIN, PERCENTILES, MAX, MEAN, SD, IQR, COV)
                         # all settings
-                        allSettings = pd.merge(isf, cir, how="outer", on="localTime")
-                        allSettings = pd.merge(allSettings,
-                                               sbr.rename(columns={"rate": "sbr", "type": "sbr.type"}),
+
+                        allSettings = pd.merge(isf.rename(columns={"isf.localTime": "localTime"}),
+                                               cir.rename(columns={"cir.localTime": "localTime"}),
                                                how="outer", on="localTime")
-                        allSettings = pd.merge(allSettings, correctionTarget, how="outer", on="localTime")
+                        allSettings = pd.merge(allSettings,
+                                               sbr.rename(columns={"rate": "sbr",
+                                                                   "type": "sbr.type",
+                                                                   "sbr.localTime": "localTime"}),
+                                               how="outer", on="localTime")
+                        allSettings = pd.merge(allSettings,
+                                               correctionTarget.rename(columns={"ct.localTime": "localTime"}),
+                                               how="outer", on="localTime")
                         allSettings["hashID"] = hashID
                         allSettings["age"] = np.floor((allSettings["localTime"] - bDate).dt.days/365.25).astype(int)
                         allSettings["ylw"] = np.floor((allSettings["localTime"] - dDate).dt.days/365.25).astype(int)
@@ -1134,6 +1193,9 @@ for dIndex in [0]:  #range(0, len(donors)):
 
                         # %% day level stats
 
+
+
+                        # %% age and ylw stats
 
 
                         # %% SAVE RESULTS
