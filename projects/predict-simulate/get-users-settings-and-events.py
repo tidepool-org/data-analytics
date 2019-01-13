@@ -565,7 +565,7 @@ allMetadata = donors[['hashID', 'diagnosisType']].copy()
 # %% MAKE THIS A FUNCTION SO THAT IT CAN BE RUN PER EACH INDIVIDUAL
 
 # this is where the loop will go:
-for dIndex in [0]:  #range(0, len(donors)):
+for dIndex in range(0, len(donors)):
 
     # clear output dataframes
     isf, cir, correctionTarget = pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
@@ -831,7 +831,6 @@ for dIndex in [0]:  #range(0, len(donors)):
 
                             correctionTarget = pumpSettings.loc[pumpSettings["bgTarget.start"].notnull(), ctColHeadings]
 
-
                             # add a day summary
                             ctDaySummary = correctionTarget.copy()
                             ctDaySummary["day"] = ctDaySummary["ct.localTime"].dt.date
@@ -870,9 +869,9 @@ for dIndex in [0]:  #range(0, len(donors)):
 
                         # SCHEDULED BASAL RATES
 #                        sbrColHeadings = commonColumnHeadings.copy()
-                        sbrColHeadings = ["sbr.localTime", "rate", "type"]
+                        sbrColHeadings = ["sbr.localTime", "rate", "sbr.type"]
                         sbr = pd.DataFrame(columns=sbrColHeadings)
-                        sbrDayColHeadings = ['day', 'sbr.min', 'sbr.weightedMean', 'sbr.max', 'type']
+                        sbrDayColHeadings = ['day', 'sbr.min', 'sbr.weightedMean', 'sbr.max', 'sbr.type']
                         sbrDaySummary = pd.DataFrame(columns=sbrDayColHeadings)
                         for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
                             # edge case where actSchedule is float
@@ -881,7 +880,7 @@ for dIndex in [0]:  #range(0, len(donors)):
                             if 'Auto Mode' not in actSched:
                                 tempDF = pd.DataFrame(pumpSettings.loc[p, "basalSchedules." + actSched])
                                 tempDF["day"] = pumpSettings.loc[p, "day"]
-                                tempDF["type"] = np.nan
+                                tempDF["sbr.type"] = np.nan
                                 tempDF["sbr.localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
                                 endOfDay = pd.DataFrame(pd.to_datetime(pumpSettings.loc[p, "day"] + pd.Timedelta(1, "D")), columns=["sbr.localTime"], index=[0])
                                 tempDF = get_setting_durations(tempDF, "sbr", endOfDay)
@@ -893,21 +892,21 @@ for dIndex in [0]:  #range(0, len(donors)):
                                 tempDaySummary["sbr.weightedMean"] = \
                                     np.sum(tempDF["rate"] * tempDF["sbr.durationHours"]) / tempDF["sbr.durationHours"].sum()
                                 tempDaySummary["sbr.max"] = tempDF["rate"].max()
-                                tempDaySummary["type"] = np.nan
+                                tempDaySummary["sbr.type"] = np.nan
 
                             else:
                                 tempDF = pd.DataFrame(index=[0])
                                 tempDF["day"] = pumpSettings.loc[p, "day"]
                                 tempDF["sbr.localTime"] = pd.to_datetime(tempDF["day"])
                                 tempDF["rate"] = np.nan
-                                tempDF["type"] = "AutoMode"
+                                tempDF["sbr.type"] = "AutoMode"
 
                                 tempDaySummary = pd.DataFrame(index=[0])
                                 tempDaySummary["day"] = tempDF["sbr.localTime"].dt.date
                                 tempDaySummary["sbr.min"] = np.nan
                                 tempDaySummary["sbr.weightedMean"] = np.nan
                                 tempDaySummary["sbr.max"] = np.nan
-                                tempDaySummary["type"] = "AutoMode"
+                                tempDaySummary["sbr.type"] = "AutoMode"
 
                             sbr = pd.concat([sbr, tempDF[sbrColHeadings]], ignore_index=True)
                             sbrDaySummary = pd.concat([sbrDaySummary, tempDaySummary], ignore_index=True)
@@ -1049,7 +1048,6 @@ for dIndex in [0]:  #range(0, len(donors)):
                         for dfType in [isClosedLoopDay, is670g]:
                             dayData = pd.merge(dayData, dfType, on="day", how="left")
 
-
                         dayData["validPumpData"] = dayData["numberOfNormalBoluses"] > 3
                         dayData["validCGMData"] = dayData["cgm.count"] > (288*.75)
 
@@ -1059,8 +1057,27 @@ for dIndex in [0]:  #range(0, len(donors)):
 
                         # add settings to the dayData
                         dayData = pd.merge(dayData, isfDaySummary, on="day", how="left")
+                        dayData = pd.merge(dayData, cirDaySummary, on="day", how="left")
+                        dayData = pd.merge(dayData, ctDaySummary, on="day", how="left")
+                        dayData = pd.merge(dayData, sbrDaySummary, on="day", how="left")
 
-
+                        # fill data forward
+                        fillList = ['isf.min',
+                                    'isf.weightedMean',
+                                    'isf.max',
+                                    'cir.min',
+                                    'cir.weightedMean',
+                                    'cir.max',
+                                    'ct.low',
+                                    'ct.high',
+                                    'ct.target',
+                                    'ct.range',
+                                    'sbr.min',
+                                    'sbr.weightedMean',
+                                    'sbr.max',
+                                    'sbr.type']
+                        for fl in fillList:
+                            dayData[fl].fillna(method='ffill', inplace=True)
 
                         # calculate the start and end of contiguous data
                         # these dates can be used when simulating and predicting, where
@@ -1077,6 +1094,33 @@ for dIndex in [0]:  #range(0, len(donors)):
                         ageSummary["nDaysValidCgm"] = pd.DataFrame(catDF.validCGMData.sum())
                         ageSummary["nDaysClosedLoop"] = pd.DataFrame(catDF["basal.closedLoopDays"].sum())
                         ageSummary["n670gDays"] = pd.DataFrame(catDF["670g"].sum())
+
+                        # add in isf stats
+                        ageSummary["isf.nDays"] = catDF["isf.min"].count()
+                        ageSummary["isf.min"] = catDF["isf.min"].min()
+                        ageSummary["isf.weightedMean"] = catDF["isf.weightedMean"].sum() / catDF["isf.weightedMean"].count()
+                        ageSummary["isf.max"] = catDF["isf.max"].max()
+
+                        # add cir stats
+                        ageSummary["cir.nDays"] = catDF["cir.min"].count()
+                        ageSummary["cir.min"] = catDF["cir.min"].min()
+                        ageSummary["cir.weightedMean"] = catDF["cir.weightedMean"].sum() / catDF["cir.weightedMean"].count()
+                        ageSummary["cir.max"] = catDF["cir.max"].max()
+
+                        # correctionTarget stats
+                        for ch in ['ct.low','ct.high','ct.target', 'ct.range']:
+                            ageSummary[ch + ".nDays"] = catDF[ch].count()
+                            ageSummary[ch + ".min"] = catDF[ch].min()
+                            ageSummary[ch + ".weightedMean"] = catDF[ch].sum() / catDF[ch].count()
+                            ageSummary[ch + ".max"] = catDF[ch].max()
+
+                        # add sbr stats
+                        ageSummary["sbr.nDays"] = catDF["sbr.min"].count()
+                        ageSummary["sbr.min"] = catDF["sbr.min"].min()
+                        ageSummary["sbr.weightedMean"] = catDF["sbr.weightedMean"].sum() / catDF["sbr.weightedMean"].count()
+                        ageSummary["sbr.max"] = catDF["sbr.max"].max()
+                        ageSummary["sbr.nAutoMode"] = catDF["sbr.type"].count()
+
                         ageSummary.reset_index(inplace=True)
 
                         analysisCriterion = ageSummary[((ageSummary["nDaysValidPump"]> 28) &
@@ -1096,6 +1140,32 @@ for dIndex in [0]:  #range(0, len(donors)):
                         ylwSummary["nDaysValidCgm"] = pd.DataFrame(catDF.validCGMData.sum())
                         ylwSummary["nDaysClosedLoop"] = pd.DataFrame(catDF["basal.closedLoopDays"].sum())
                         ylwSummary["n670gDays"] = pd.DataFrame(catDF["670g"].sum())
+
+                        ylwSummary["isf.nDays"] = catDF["isf.min"].count()
+                        ylwSummary["isf.min"] = catDF["isf.min"].min()
+                        ylwSummary["isf.weightedMean"] = catDF["isf.weightedMean"].sum() / catDF["isf.weightedMean"].count()
+                        ylwSummary["isf.max"] = catDF["isf.max"].max()
+
+                        # add cir stats
+                        ylwSummary["cir.nDays"] = catDF["cir.min"].count()
+                        ylwSummary["cir.min"] = catDF["cir.min"].min()
+                        ylwSummary["cir.weightedMean"] = catDF["cir.weightedMean"].sum() / catDF["cir.weightedMean"].count()
+                        ylwSummary["cir.max"] = catDF["cir.max"].max()
+
+                        # correctionTarget stats
+                        for ch in ['ct.low','ct.high','ct.target', 'ct.range']:
+                            ylwSummary[ch + ".nDays"] = catDF[ch].count()
+                            ylwSummary[ch + ".min"] = catDF[ch].min()
+                            ylwSummary[ch + ".weightedMean"] = catDF[ch].sum() / catDF[ch].count()
+                            ylwSummary[ch + ".max"] = catDF[ch].max()
+
+                        # add sbr stats
+                        ylwSummary["sbr.nDays"] = catDF["sbr.min"].count()
+                        ylwSummary["sbr.min"] = catDF["sbr.min"].min()
+                        ylwSummary["sbr.weightedMean"] = catDF["sbr.weightedMean"].sum() / catDF["sbr.weightedMean"].count()
+                        ylwSummary["sbr.max"] = catDF["sbr.max"].max()
+                        ylwSummary["sbr.nAutoMode"] = catDF["sbr.type"].count()
+
                         ylwSummary.reset_index(inplace=True)
 
                         analysisCriterion = ylwSummary[((ylwSummary["nDaysValidPump"]> 28) &
@@ -1185,10 +1255,6 @@ for dIndex in [0]:  #range(0, len(donors)):
                                     "mg_dL", "mmol_L"]
 
                         cgmLite = cgmLite[colOrder]
-
-
-                        # %% day level stats
-
 
 
                         # %% age and ylw stats
