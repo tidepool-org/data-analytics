@@ -461,9 +461,90 @@ def isDSTChangeDay(currentDate, currentTimezone):
     return (tzoCurrentDay != tzoPreviousDay)
 
 
+def get_setting_durations(df, col, dataPulledDF):
+    df = pd.concat([df, dataPulledDF], sort=False)
+    df.sort_values(col + ".localTime", inplace=True)
+    df.reset_index(inplace=True, drop=True)
+    df.fillna(method='ffill', inplace=True)
+    durationHours = (df[col + ".localTime"].shift(-1) -
+                     df[col + ".localTime"]).dt.total_seconds() / 3600
+    durationHours.fillna(0, inplace=True)
+    durationHours[durationHours > 24] = 24
+    df[col + ".durationHours"] = durationHours
+
+    return df
+
+
+def get_settingStats(df, col, pumpCol):
+    df[col] = df[pumpCol]
+    df[col + ".min"] = df[col].min()
+    df[col + ".weightedMean"] = np.sum(df[col] * df[col + ".durationHours"]) / df[col + ".durationHours"].sum()
+    df[col + ".max"] = df[col].max()
+
+    return df
+
+
+def getPumpSettingsStats(df, col, pumpCol):
+    pumpColHeadings = [col + ".localTime", col, col + ".min",
+                       col + ".weightedMean", col + ".max"]
+    df[col] = df[pumpCol + ".amount"]
+    df[col + ".localTime"] = pd.to_datetime(df["day"]) + \
+        pd.to_timedelta(df[pumpCol + ".start"], unit="ms")
+    df[col + ".min"] = df[col]
+    df[col + ".weightedMean"] = df[col]
+    df[col + ".max"] = df[col]
+
+    df2 = df.loc[df[pumpCol + ".amount"].notnull(), pumpColHeadings]
+
+    return df, df2
+
+
+def processBasalSchedule(df, col):
+    colHeadings = [col + ".localTime", col, col + ".durationHours", col + ".type",
+                   col + ".min", col + ".weightedMean", col + ".max"]
+    summaryColHeadings = ["day", col + ".min", col + ".weightedMean", col + ".max"]
+    dropCols = ["rate", "start", col + ".localTime", col, col + ".durationHours", col + ".type"]
+
+    dailySchedule = pd.DataFrame(columns=colHeadings)
+    dailySummary = pd.DataFrame(columns=summaryColHeadings)
+
+    for p, actSched in zip(df.index, df["activeSchedule"]):
+        # edge case where actSchedule is float
+        if isinstance(actSched, float):
+            actSched = str(int(actSched))
+        if 'Auto Mode' not in actSched:
+            tempDF = pd.DataFrame(df.loc[p, "basalSchedules." + actSched])
+            tempDF["day"] = df.loc[p, "day"]
+            tempDF[col + ".type"] = np.nan
+            tempDF[col + ".localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
+            endOfDay = pd.DataFrame(pd.to_datetime(df.loc[p, "day"] + pd.Timedelta(1, "D")), columns=[col + ".localTime"], index=[0])
+            tempDF = get_setting_durations(tempDF, col, endOfDay)
+            tempDF = tempDF[:-1]
+            tempDF = get_settingStats(tempDF, col, "rate")
+            dailySchedule = pd.concat([dailySchedule, tempDF[colHeadings]], ignore_index=True, sort=False)
+            tempSummary = tempDF.drop(columns=dropCols)
+            tempSummary["day"] = df.loc[p, "day"]
+            tempSummary = tempSummary[0:1]
+            dailySummary = pd.concat([dailySummary, tempSummary], ignore_index=True, sort=False)
+
+        else:
+            pdb.set_trace()
+            tempDF = pd.DataFrame(index=[0])
+            tempDF[col + ".type"] = "AutoMode"
+            dailySchedule = pd.concat([dailySchedule, tempDF], ignore_index=True, sort=False)
+            tempSummary["day"] = df.loc[p, "day"]
+            tempSummary = tempSummary[0:1]
+            dailySummary = pd.concat([dailySummary, tempSummary], ignore_index=True, sort=False)
+
+    return dailySchedule, dailySummary
+
+
+
 
 # %% LOAD IN ONE FILE, BUT EVENTUALLY THIS WILL LOOOP THROUGH ALL USER'S
 dataPulledDate = "2018-09-28"
+dataPulledDF = pd.DataFrame(pd.to_datetime(dataPulledDate), columns=["day"], index=[0])
+dataPulledDF["day"] = dataPulledDF["day"].dt.date
 phiDate = "PHI-" + dataPulledDate
 donorPath = os.path.join("..", "bigdata-processing-pipeline", "data", phiDate + "-donor-data")
 
@@ -484,7 +565,7 @@ allMetadata = donors[['hashID', 'diagnosisType']].copy()
 # %% MAKE THIS A FUNCTION SO THAT IT CAN BE RUN PER EACH INDIVIDUAL
 
 # this is where the loop will go:
-for dIndex in range(0, len(donors)):
+for dIndex in [0]:  #range(0, len(donors)):
 
     # clear output dataframes
     isf, cir, correctionTarget = pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
@@ -640,18 +721,33 @@ for dIndex in range(0, len(donors)):
                         removeDuplicates(pumpSettings, "deviceTime")
                         metadata["nPumpSettingsDuplicatesRemoved"] = nPumpSettingsDuplicatesRemoved
 
+                        pumpSettings.sort_values("utcTime", ascending=True, inplace=True)
+                        pumpSettings.reset_index(drop=True, inplace=True)
+
                         # ISF
 #                        isfColHeadings = commonColumnHeadings.copy()
-                        isfColHeadings = ["localTime", "isf", "isf_mmolL_U"]
+                        isfColHeadings = ["isf.localTime", "isf", "isf_mmolL_U"]
 
                         if "insulinSensitivity.amount" in list(pumpSettings):
                             isfColHead = "insulinSensitivity"
                             pumpSettings["isf_mmolL_U"] = pumpSettings[isfColHead + ".amount"]
                             pumpSettings["isf"] = mmolL_to_mgdL(pumpSettings["isf_mmolL_U"])
-                            pumpSettings["localTime"] = pd.to_datetime(pumpSettings["day"]) + \
+                            pumpSettings["isf.localTime"] = pd.to_datetime(pumpSettings["day"]) + \
                                 pd.to_timedelta(pumpSettings[isfColHead + ".start"], unit="ms")
 
                             isf = pumpSettings.loc[pumpSettings["isf"].notnull(), isfColHeadings]
+
+                            # add a day summary
+                            isfDaySummary = isf.copy()
+                            isfDaySummary["day"] = isfDaySummary["isf.localTime"].dt.date
+                            isfDaySummary.drop(columns=["isf.localTime"], inplace=True)
+                            isfDaySummary["isf.min"] = isfDaySummary["isf"]
+                            isfDaySummary["isf.weightedMean"] = isfDaySummary["isf"]
+                            isfDaySummary["isf.max"] = isfDaySummary["isf"]
+                            isfDaySummary = pd.concat([isfDaySummary, dataPulledDF], sort=False)
+                            isfDaySummary.reset_index(inplace=True, drop=True)
+                            isfDaySummary.fillna(method='ffill', inplace=True)
+
                         else:
                             isfColHead = "insulinSensitivities"
                             isf = pd.DataFrame(columns=isfColHeadings)
@@ -673,6 +769,7 @@ for dIndex in range(0, len(donors)):
                                 tempDF["isf_mmolL_U"] = tempDF["amount"]
                                 tempDF["isf"] = mmolL_to_mgdL(tempDF["isf_mmolL_U"])
                                 isf = pd.concat([isf, tempDF[isfColHeadings]], ignore_index=True)
+                                pdb.set_trace()
 
                         # CIR
 #                        cirColHeadings = commonColumnHeadings.copy()
@@ -1035,27 +1132,31 @@ for dIndex in range(0, len(donors)):
                         cgmLite = cgmLite[colOrder]
 
 
-                        # %% SAVE RESULTS
-                        outputString = "age-%s-%s-ylw-%s-%s-lp-%s-670g-%s-id-%s"
-                        outputFormat = (f"{minAge:02d}",
-                                        f"{maxAge:02d}",
-                                        f"{minYLW:02d}",
-                                        f"{maxYLW:02d}",
-                                        f"{nDaysClosedLoop:03d}",
-                                        f"{n670gDays:03d}",
-                                        hashID[0:4])
-                        outputFolderName = outputString % outputFormat
-                        outputFolderName_Path = os.path.join(outputPath,"data", outputFolderName)
-                        if not os.path.exists(outputFolderName_Path):
-                            os.makedirs(outputFolderName_Path)
+                        # %% day level stats
 
-                        # save data for this person
-                        fName = outputFolderName + "-allSettings.csv"
-                        allSettings.to_csv(os.path.join(outputFolderName_Path, fName))
-                        fName = outputFolderName + "-pumpEvents.csv"
-                        pumpEvents.to_csv(os.path.join(outputFolderName_Path, fName))
-                        fName = outputFolderName + "-cgmLite.csv"
-                        cgmLite.to_csv(os.path.join(outputFolderName_Path, fName))
+
+
+                        # %% SAVE RESULTS
+#                        outputString = "age-%s-%s-ylw-%s-%s-lp-%s-670g-%s-id-%s"
+#                        outputFormat = (f"{minAge:02d}",
+#                                        f"{maxAge:02d}",
+#                                        f"{minYLW:02d}",
+#                                        f"{maxYLW:02d}",
+#                                        f"{nDaysClosedLoop:03d}",
+#                                        f"{n670gDays:03d}",
+#                                        hashID[0:4])
+#                        outputFolderName = outputString % outputFormat
+#                        outputFolderName_Path = os.path.join(outputPath,"data", outputFolderName)
+#                        if not os.path.exists(outputFolderName_Path):
+#                            os.makedirs(outputFolderName_Path)
+#
+#                        # save data for this person
+#                        fName = outputFolderName + "-allSettings.csv"
+#                        allSettings.to_csv(os.path.join(outputFolderName_Path, fName))
+#                        fName = outputFolderName + "-pumpEvents.csv"
+#                        pumpEvents.to_csv(os.path.join(outputFolderName_Path, fName))
+#                        fName = outputFolderName + "-cgmLite.csv"
+#                        cgmLite.to_csv(os.path.join(outputFolderName_Path, fName))
 
 
 
@@ -1075,7 +1176,7 @@ for dIndex in range(0, len(donors)):
         else:
             metadata["flags"] = "file does not exist"
     else:
-        metadata["flags"] = "fmissing bDay/dDay"
+        metadata["flags"] = "missing bDay/dDay"
 
     # write metaData to allMetadata
     allMetadata = pd.merge(allMetadata, metadata, how="left", on="hashID")
@@ -1087,6 +1188,7 @@ for dIndex in range(0, len(donors)):
 # %% V2 DATA TO GRAB
 # ADD ROUNDEDLOCAL TIME TO THE END RESULTS
 # GET RID OF ROUNDING TIME AT THE BEGINNING
+# DEFINE A DAY BETWEEN 6AM AND 6AM
 # EXPAND THE CORRECTION TIME VALUES TO BE UNIFORM ACROSS ALL USERS AND DEVICES
 # FIX DAYLIGHT SAVINGS TIME TIMES
 # FIGURE OUT WHY TEMP BASAL COUNTS ARE DIFFERENT BETWEEN THE TWO DIFFERENT METHODS
