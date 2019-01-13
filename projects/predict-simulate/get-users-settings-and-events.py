@@ -738,12 +738,11 @@ for dIndex in [0]:  #range(0, len(donors)):
                             isf = pumpSettings.loc[pumpSettings["isf"].notnull(), isfColHeadings]
 
                             # add a day summary
-                            isfDaySummary = isf.copy()
-                            isfDaySummary["day"] = isfDaySummary["isf.localTime"].dt.date
-                            isfDaySummary.drop(columns=["isf.localTime"], inplace=True)
-                            isfDaySummary["isf.min"] = isfDaySummary["isf"]
-                            isfDaySummary["isf.weightedMean"] = isfDaySummary["isf"]
-                            isfDaySummary["isf.max"] = isfDaySummary["isf"]
+                            isfDaySummary = pd.DataFrame()
+                            isfDaySummary["day"] = isf["isf.localTime"].dt.date
+                            isfDaySummary["isf.min"] = isf["isf"]
+                            isfDaySummary["isf.weightedMean"] = isf["isf"]
+                            isfDaySummary["isf.max"] = isf["isf"]
                             isfDaySummary = pd.concat([isfDaySummary, dataPulledDF], sort=False)
                             isfDaySummary.reset_index(inplace=True, drop=True)
                             isfDaySummary.fillna(method='ffill', inplace=True)
@@ -781,12 +780,11 @@ for dIndex in [0]:  #range(0, len(donors)):
                             cir = pumpSettings.loc[pumpSettings["carbRatio.amount"].notnull(), cirColHeadings]
 
                             # add a day summary
-                            cirDaySummary = cir.copy()
-                            cirDaySummary["day"] = cirDaySummary["cir.localTime"].dt.date
-                            cirDaySummary.drop(columns=["cir.localTime"], inplace=True)
-                            cirDaySummary["cir.min"] = cirDaySummary["cir"]
-                            cirDaySummary["cir.weightedMean"] = cirDaySummary["cir"]
-                            cirDaySummary["cir.max"] = cirDaySummary["cir"]
+                            cirDaySummary = pd.DataFrame()
+                            cirDaySummary["day"] = cir["cir.localTime"].dt.date
+                            cirDaySummary["cir.min"] = cir["cir"]
+                            cirDaySummary["cir.weightedMean"] = cir["cir"]
+                            cirDaySummary["cir.max"] = cir["cir"]
                             cirDaySummary = pd.concat([cirDaySummary, dataPulledDF], sort=False)
                             cirDaySummary.reset_index(inplace=True, drop=True)
                             cirDaySummary.fillna(method='ffill', inplace=True)
@@ -838,9 +836,6 @@ for dIndex in [0]:  #range(0, len(donors)):
                             ctDaySummary = correctionTarget.copy()
                             ctDaySummary["day"] = ctDaySummary["ct.localTime"].dt.date
                             ctDaySummary.drop(columns=["ct.localTime"], inplace=True)
-#                            ctDaySummary["ct.min"] = ctDaySummary["ct.target"]
-#                            ctDaySummary["ct.weightedMean"] = ctDaySummary["ct"]
-#                            ctDaySummary["ct.max"] = ctDaySummary["ct"]
                             ctDaySummary = pd.concat([ctDaySummary, dataPulledDF], sort=False)
                             ctDaySummary.reset_index(inplace=True, drop=True)
                             ctDaySummary.fillna(method='ffill', inplace=True)
@@ -1062,7 +1057,8 @@ for dIndex in [0]:  #range(0, len(donors)):
                         dayData["date"] = pd.to_datetime(dayData["day"])
                         dayData["tzo"] = dayData[['date', 'timezone']].apply(lambda x: getTimezoneOffset(*x), axis=1)
 
-
+                        # add settings to the dayData
+                        dayData = pd.merge(dayData, isfDaySummary, on="day", how="left")
 
 
 
