@@ -442,7 +442,7 @@ def getTzoForDateTime(utcTime, currentTimezone):
 def getTimezoneOffset(currentDate, currentTimezone):
 
     # edge case for 'US/Pacific-New'
-    if currentTimezone in 'US/Pacific-New':
+    if currentTimezone == 'US/Pacific-New':
         currentTimezone = 'US/Pacific'
 
     tz = timezone(currentTimezone)
@@ -457,6 +457,8 @@ def getTimezoneOffset(currentDate, currentTimezone):
 
 
 def isDSTChangeDay(currentDate, currentTimezone):
+    if currentTimezone == 'US/Pacific-New':
+        currentTimezone = 'US/Pacific'
     tzoCurrentDay = getTimezoneOffset(pd.to_datetime(currentDate),
                                       currentTimezone)
     tzoPreviousDay = getTimezoneOffset(pd.to_datetime(currentDate) +
@@ -543,8 +545,6 @@ def processBasalSchedule(df, col):
     return dailySchedule, dailySummary
 
 
-
-
 # %% LOAD IN ONE FILE, BUT EVENTUALLY THIS WILL LOOOP THROUGH ALL USER'S
 dataPulledDate = "2018-09-28"
 dataPulledDF = pd.DataFrame(pd.to_datetime(dataPulledDate), columns=["day"], index=[0])
@@ -564,12 +564,17 @@ if not os.path.exists(phiOutputPath):
 donorList = phiDate + "-uniqueDonorList.csv"
 donors = load_csv(os.path.join(donorPath, donorList))
 
-allMetadata = donors[['hashID', 'diagnosisType']].copy()
+allMetadata = pd.DataFrame()
+allAgeSummaries = pd.DataFrame()
+allYlwSummaries = pd.DataFrame()
+
 
 # %% MAKE THIS A FUNCTION SO THAT IT CAN BE RUN PER EACH INDIVIDUAL
 
 # this is where the loop will go:
-for dIndex in range(0, len(donors)):
+startIndex = 0
+endIndex = len(donors)
+for dIndex in range(startIndex, endIndex):
 
     # clear output dataframes
     isf, cir, correctionTarget = pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
@@ -1088,7 +1093,6 @@ for dIndex in range(0, len(donors)):
                         dataPerDay["ylw"] = catDF.ylw.mean()
                         dataPerDay["timezone"] = catDF.timezone.describe()["top"]
 
-
                         # calculate all of the data start and end range
                         # this can be used for looking at settings
                         dayBeginDate = min(cgmBeginDate, bolusBeginDate, basalBeginDate)
@@ -1104,6 +1108,9 @@ for dIndex in range(0, len(donors)):
 
                         dayData["validPumpData"] = dayData["numberOfNormalBoluses"] > 3
                         dayData["validCGMData"] = dayData["cgm.count"] > (288*.75)
+
+                        dayData["timezone"].fillna(method='ffill', inplace=True)
+                        dayData["timezone"].fillna(method='bfill', inplace=True)
 
                         dayData["isDSTChangeDay"] = dayData[['day', 'timezone']].apply(lambda x: isDSTChangeDay(*x), axis=1)
                         dayData["date"] = pd.to_datetime(dayData["day"])
@@ -1315,10 +1322,73 @@ for dIndex in range(0, len(donors)):
                         cgmLite = cgmLite[colOrder]
 
 
-                        # %% age and ylw stats
-
-
                         # %% SAVE RESULTS
+
+                        # age and ylw stats
+                        pumpEvents["rateTimesDurationHours"] = pumpEvents["rate"] * pumpEvents["durationHours"]
+                        pumpEvents.rename(columns={"rate":"basalRate"}, inplace=True)
+                        catDF = pumpEvents.groupby("age")
+
+                        # actual basal rates
+                        agePump = pd.DataFrame(catDF["basalRate"].count()).add_suffix(".count")
+                        agePump["basalRate.min"] = catDF["basalRate"].min()
+                        agePump["basalRate.weightedMean"] = catDF["rateTimesDurationHours"].sum() / catDF["durationHours"].sum()
+                        agePump["basalRate.max"] = catDF["basalRate"].max()
+
+                        # insulin events
+                        insulinEvents = catDF["unitsInsulin"].describe().add_prefix("insulin.")
+                        agePump = pd.concat([agePump, insulinEvents], axis=1)
+
+                        # carbs entered in bolus calculator
+                        carbEvents = catDF["carbInput"].describe().add_prefix("carb.")
+                        agePump = pd.concat([agePump, carbEvents], axis=1)
+
+                        # very low level cgm stats per age
+                        catDF = cgmLite.groupby("age")
+                        cgmStats = catDF["mg_dL"].describe().add_prefix("cgm.")
+                        agePumpCgm = pd.concat([agePump, cgmStats], axis=1)
+
+                        agePumpCgm.reset_index(inplace=True)
+
+                        ageSummary = pd.merge(ageSummary, agePumpCgm, on="age", how="left")
+                        ageSummary["hashID"] = hashID
+                        allAgeSummaries = pd.concat([allAgeSummaries, ageSummary], ignore_index=True)
+
+                        allAgeSummaries.to_csv(os.path.join(outputPath,
+                            "allAgeSummaries-dIndex-" + str(startIndex) + "-" + str(dIndex) + ".csv"))
+
+                        # repoeat for years living with
+                        catDF = pumpEvents.groupby("ylw")
+                        # actual basal rates
+                        ylwPump = pd.DataFrame(catDF["basalRate"].count()).add_suffix(".count")
+                        ylwPump["basalRate.min"] = catDF["basalRate"].min()
+                        ylwPump["basalRate.weightedMean"] = catDF["rateTimesDurationHours"].sum() / catDF["durationHours"].sum()
+                        ylwPump["basalRate.max"] = catDF["basalRate"].max()
+
+                        # insulin events
+                        insulinEvents = catDF["unitsInsulin"].describe().add_prefix("insulin.")
+                        ylwPump = pd.concat([ylwPump, insulinEvents], axis=1)
+
+                        # carbs entered in bolus calculator
+                        carbEvents = catDF["carbInput"].describe().add_prefix("carb.")
+                        ylwPump = pd.concat([ylwPump, carbEvents], axis=1)
+
+                        # very low level cgm stats per age
+                        catDF = cgmLite.groupby("ylw")
+                        cgmStats = catDF["mg_dL"].describe().add_prefix("cgm.")
+                        ylwPumpCgm = pd.concat([ylwPump, cgmStats], axis=1)
+
+                        ylwPumpCgm.reset_index(inplace=True)
+
+                        ylwSummary = pd.merge(ylwSummary, ylwPumpCgm, on="ylw", how="left")
+
+                        ylwSummary["hashID"] = hashID
+                        allYlwSummaries = pd.concat([allYlwSummaries, ylwSummary], ignore_index=True)
+
+                        allYlwSummaries.to_csv(os.path.join(outputPath,
+                            "allYlwSummaries-dIndex-" + str(startIndex) + "-" + str(dIndex) + ".csv"))
+
+                         # %% save data for this person
 #                        outputString = "age-%s-%s-ylw-%s-%s-lp-%s-670g-%s-id-%s"
 #                        outputFormat = (f"{minAge:02d}",
 #                                        f"{maxAge:02d}",
@@ -1332,7 +1402,6 @@ for dIndex in range(0, len(donors)):
 #                        if not os.path.exists(outputFolderName_Path):
 #                            os.makedirs(outputFolderName_Path)
 #
-#                        # save data for this person
 #                        fName = outputFolderName + "-allSettings.csv"
 #                        allSettings.to_csv(os.path.join(outputFolderName_Path, fName))
 #                        fName = outputFolderName + "-pumpEvents.csv"
@@ -1361,13 +1430,15 @@ for dIndex in range(0, len(donors)):
         metadata["flags"] = "missing bDay/dDay"
 
     # write metaData to allMetadata
-    allMetadata = pd.merge(allMetadata, metadata, how="left", on="hashID")
-    allMetadata.to_csv(os.path.join(outputPath, "allMetadata.csv"))
+    allMetadata = pd.concat([allMetadata, metadata], axis=0, sort=True)
+    allMetadata.to_csv(os.path.join(outputPath,
+        "allMetadata-dIndex-" + str(startIndex) + "-" + str(dIndex) + ".csv"))
 
     print("done with", dIndex)
 
 
 # %% V2 DATA TO GRAB
+# THERE IS AN ISSUE WITH COUNTING 670G SETTINGS
 # ADD ROUNDEDLOCAL TIME TO THE END RESULTS
 # CALCULATE MMOL SUMMARIES
 # GET RID OF ROUNDING TIME AT THE BEGINNING
