@@ -18,15 +18,51 @@ from pytz import timezone
 from datetime import timedelta
 import datetime as dt
 import os
+import argparse
 import pdb
 
 
 # %% USER INPUTS (ADD THIS IN LATER)
-#codeDescription = "Get user's settings and events"
-#parser = argparse.ArgumentParser(description=codeDescription)
+codeDescription = "Get user's settings and events"
+parser = argparse.ArgumentParser(description=codeDescription)
+
+parser.add_argument("-d",
+                    "--date-stamp",
+                    dest="dateStamp",
+                    default="2019-01-10",
+                    help="date in '%Y-%m-%d' format of unique donor list" +
+                    "(e.g., PHI-2018-03-02-uniqueDonorList)")
+
+parser.add_argument("-s",
+                    "--start-index",
+                    dest="startIndex",
+                    default=0,
+                    help="donor index (integer) to start at")
+
+parser.add_argument("-e",
+                    "--end-index",
+                    dest="endIndex",
+                    default=-1,
+                    help="donor index (integer) to end at," +
+                    "-1 will result in 1 file if startIndex != 0," +
+                    "and will default to number of unique donors" +
+                    "if startIndex = 0, or endIndex = -2")
 
 
+args = parser.parse_args()
 # %% FUNCTIONS
+def defineStartAndEndIndex(args, nDonors):
+    startIndex = int(args.startIndex)
+    endIndex = int(args.endIndex)
+    if endIndex == -1:
+        if startIndex == 0:
+            endIndex = nDonors
+        else:
+            endIndex = startIndex + 1
+    if endIndex == -2:
+        endIndex = nDonors
+    return startIndex, endIndex
+
 
 # CLEAN DATA FUNCTIONS
 def removeNegativeDurations(df):
@@ -412,6 +448,8 @@ def getListOfDexcomCGMDays(df):
         totalCgms = len(df.deviceId.notnull())
         df["dexcomCGM"] = df.deviceId.str.contains("|".join(searchfor))
         percentDexcomCGM = df.dexcomCGM.sum() / totalCgms * 100
+    else:
+        percentDexcomCGM = np.nan
     return df, percentDexcomCGM
 
 
@@ -505,48 +543,14 @@ def getPumpSettingsStats(df, col, pumpCol):
     return df, df2
 
 
-def processBasalSchedule(df, col):
-    colHeadings = [col + ".localTime", col, col + ".durationHours", col + ".type",
-                   col + ".min", col + ".weightedMean", col + ".max"]
-    summaryColHeadings = ["day", col + ".min", col + ".weightedMean", col + ".max"]
-    dropCols = ["rate", "start", col + ".localTime", col, col + ".durationHours", col + ".type"]
 
-    dailySchedule = pd.DataFrame(columns=colHeadings)
-    dailySummary = pd.DataFrame(columns=summaryColHeadings)
-
-    for p, actSched in zip(df.index, df["activeSchedule"]):
-        # edge case where actSchedule is float
-        if isinstance(actSched, float):
-            actSched = str(int(actSched))
-        if 'Auto Mode' not in actSched:
-            tempDF = pd.DataFrame(df.loc[p, "basalSchedules." + actSched])
-            tempDF["day"] = df.loc[p, "day"]
-            tempDF[col + ".type"] = np.nan
-            tempDF[col + ".localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
-            endOfDay = pd.DataFrame(pd.to_datetime(df.loc[p, "day"] + pd.Timedelta(1, "D")), columns=[col + ".localTime"], index=[0])
-            tempDF = get_setting_durations(tempDF, col, endOfDay)
-            tempDF = tempDF[:-1]
-            tempDF = get_settingStats(tempDF, col, "rate")
-            dailySchedule = pd.concat([dailySchedule, tempDF[colHeadings]], ignore_index=True, sort=False)
-            tempSummary = tempDF.drop(columns=dropCols)
-            tempSummary["day"] = df.loc[p, "day"]
-            tempSummary = tempSummary[0:1]
-            dailySummary = pd.concat([dailySummary, tempSummary], ignore_index=True, sort=False)
-
-        else:
-            pdb.set_trace()
-            tempDF = pd.DataFrame(index=[0])
-            tempDF[col + ".type"] = "AutoMode"
-            dailySchedule = pd.concat([dailySchedule, tempDF], ignore_index=True, sort=False)
-            tempSummary["day"] = df.loc[p, "day"]
-            tempSummary = tempSummary[0:1]
-            dailySummary = pd.concat([dailySummary, tempSummary], ignore_index=True, sort=False)
-
-    return dailySchedule, dailySummary
 
 
 # %% LOAD IN ONE FILE, BUT EVENTUALLY THIS WILL LOOOP THROUGH ALL USER'S
-dataPulledDate = "2018-09-28"
+
+
+
+dataPulledDate = args.dateStamp
 dataPulledDF = pd.DataFrame(pd.to_datetime(dataPulledDate), columns=["day"], index=[0])
 dataPulledDF["day"] = dataPulledDF["day"].dt.date
 phiDate = "PHI-" + dataPulledDate
@@ -571,9 +575,11 @@ allYlwSummaries = pd.DataFrame()
 
 # %% MAKE THIS A FUNCTION SO THAT IT CAN BE RUN PER EACH INDIVIDUAL
 
-# this is where the loop will go:
-startIndex = 0
-endIndex = len(donors)
+nUniqueDonors = len(donors)
+
+# define start and end index
+startIndex, endIndex = defineStartAndEndIndex(args, nUniqueDonors)
+
 for dIndex in range(startIndex, endIndex):
 
     # clear output dataframes
@@ -678,12 +684,12 @@ for dIndex in range(startIndex, endIndex):
                         # get a summary of boluses per day
                         bolusDaySummary = get_bolusDaySummary(bolus)
 
-                        # isf and cir associated with bolus event
-                        if "insulinSensitivities" in list(bolus):
-                            pdb.set_trace()
-
-                        if "carbRatios" in list(bolus):
-                            pdb.set_trace()
+#                        # isf and cir associated with bolus event
+#                        if "insulinSensitivities" in list(bolus):
+#                            pdb.set_trace()
+#
+#                        if "carbRatios" in list(bolus):
+#                            pdb.set_trace()
 
                         bolus["isf_mmolL_U"] = bolus["insulinSensitivity"]
                         bolus["isf"] = mmolL_to_mgdL(bolus["isf_mmolL_U"])
@@ -974,13 +980,13 @@ for dIndex in range(startIndex, endIndex):
                         sbrDaySummary.reset_index(inplace=True, drop=True)
                         sbrDaySummary.fillna(method='ffill', inplace=True)
 
-                        # max basal rate, max bolus amount, and insulin duration
-                        if "rateMaximum" in list(data):
-                            pdb.set_trace()
-                        if "amountMaximum" in list(data):
-                            pdb.set_trace()
-                        if "bolus.calculator" in list(data):
-                            pdb.set_trace()
+#                        # max basal rate, max bolus amount, and insulin duration
+#                        if "rateMaximum" in list(data):
+#                            pdb.set_trace()
+#                        if "amountMaximum" in list(data):
+#                            pdb.set_trace()
+#                        if "bolus.calculator" in list(data):
+#                            pdb.set_trace()
 
 
                         # %% ACTUAL BASAL RATES (TIME, VALUE, DURATION, TYPE (SCHEDULED, TEMP, SUSPEND))
