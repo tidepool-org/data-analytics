@@ -29,7 +29,7 @@ parser = argparse.ArgumentParser(description=codeDescription)
 parser.add_argument("-d",
                     "--date-stamp",
                     dest="dateStamp",
-                    default="2019-01-10",
+                    default="2018-09-28",
                     help="date in '%Y-%m-%d' format of unique donor list" +
                     "(e.g., PHI-2018-03-02-uniqueDonorList)")
 
@@ -574,866 +574,866 @@ allYlwSummaries = pd.DataFrame()
 
 
 # %% MAKE THIS A FUNCTION SO THAT IT CAN BE RUN PER EACH INDIVIDUAL
-
 nUniqueDonors = len(donors)
 
 # define start and end index
 startIndex, endIndex = defineStartAndEndIndex(args, nUniqueDonors)
 
 for dIndex in range(startIndex, endIndex):
-
-    # clear output dataframes
-    isf, cir, correctionTarget = pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
-
-    # %% ID, HASHID, AGE, & YLW
+    # % ID, HASHID, AGE, & YLW
     userID = donors.userID[dIndex]
     hashID = donors.hashID[dIndex]
     metadata = pd.DataFrame(index=[dIndex])
     metadata["hashID"] = hashID
 
-    # make folder to save data
-    processedDataPath = os.path.join(phiOutputPath, "PHI-" + userID)
-    if not os.path.exists(processedDataPath):
-        os.makedirs(processedDataPath)
-
-
-    # round all birthdays and diagnosis dates to the first day of the month (to protect identities)
-    if (pd.isnull(donors.bDay[dIndex]) + pd.isnull(donors.dDay[dIndex])) == 0:
-
-        bDate = pd.to_datetime(donors.bDay[dIndex][0:7])
-        dDate = pd.to_datetime(donors.dDay[dIndex][0:7])
-
-
-        # %% LOAD IN DONOR JSON DATA
-
-        jsonDataPath = os.path.join(donorPath, phiDate + "-donorJsonData")
-        jsonFileName = os.path.join(jsonDataPath, "PHI-" + userID + ".json")
-
-        if os.path.exists(jsonFileName):
-            fileSize = os.stat(jsonFileName).st_size
-            metadata["fileSizeKB"] = fileSize / 1000
-            if fileSize > 1000:
-                data = load_json(jsonFileName)
-
-                # sort the data by time
-                data.sort_values("time", inplace=True)
-
-                # flatten the embedded json
-                data = flattenJson(data)
-
-
-                # %% CLEAN DATA
-                # remove negative durations
-                data, nNegativeDurations = removeNegativeDurations(data)
-                metadata["nNegativeDurations"] = nNegativeDurations
-
-                # get rid of cgm values too low/high (< 38 & > 402 mg/dL)
-                data, nInvalidCgmValues = removeInvalidCgmValues(data)
-                metadata["nInvalidCgmValues"] = nInvalidCgmValues
-
-                # Tslim calibration bug fix
-                data, nTandemAndPayloadCalReadings = tslimCalibrationFix(data)
-                metadata["nTandemAndPayloadCalReadings"] = nTandemAndPayloadCalReadings
-
-
-                # %% ADD UPLOAD DATE
-                # attach upload time to each record, for resolving duplicates
-                if (("upload" in data.type.unique()) &
-                    ("basal" in data.type.unique()) &
-                    ("bolus" in data.type.unique()) &
-                    ("cbg" in data.type.unique()) &
-                    ("pumpSettings" in data.type.unique())):
-                    data = addUploadDate(data)
-
-
-                    # %% TIME (UTC, TIMEZONE, DAY AND EVENTUALLY LOCAL TIME)
-                    data["utcTime"] = pd.to_datetime(data["time"])
-                    data["timezone"].fillna(method='ffill', inplace=True)
-                    data["timezone"].fillna(method='bfill', inplace=True)
-                    data["day"] = pd.DatetimeIndex(data["utcTime"]).date
-
-                    # round to the nearest 5 minutes
-                    # TODO: once roundTime is pushed to tidals repository then this line can be replaced
-                    # with td.clean.round_time
-                    data = round_time(data, timeIntervalMinutes=5, timeField="time",
-                                      roundedTimeFieldName="roundedTime", startWithFirstRecord=True,
-                                      verbose=False)
-                    data.sort_values("uploadTime", ascending=False, inplace=True)
-
-
-                    # %% ID, HASHID, AGE, & YLW
-                    data["userID"] = userID
-                    data["hashID"] = hashID
-                    data["age"] = np.floor((data["utcTime"] - bDate).dt.days/365.25).astype(int)
-                    data["ylw"] = np.floor((data["utcTime"] - dDate).dt.days/365.25).astype(int)
-
-#                    commonColumnHeadings = ["hashID",
-#                                            "age",
-#                                            "ylw"]
-
-
-                    # %% BOLUS EVENTS (CORRECTION, AND MEAL INCLUING: CARBS, EXTENDED, DUAL)
-                    bolus = mergeWizardWithBolus(data)
-                    if len(bolus) > 0:
-                        # get rid of duplicates that have the same ["time", "normal"]
-                        bolus.sort_values("uploadTime", ascending=False, inplace=True)
-                        bolus, nBolusDuplicatesRemoved = \
-                            removeDuplicates(bolus, ["deviceTime", "normal"])
-                        metadata["nBolusDuplicatesRemoved"] = nBolusDuplicatesRemoved
-
-                        # get a summary of boluses per day
-                        bolusDaySummary = get_bolusDaySummary(bolus)
-
-#                        # isf and cir associated with bolus event
-#                        if "insulinSensitivities" in list(bolus):
-#                            pdb.set_trace()
-#
-#                        if "carbRatios" in list(bolus):
-#                            pdb.set_trace()
-
-                        bolus["isf_mmolL_U"] = bolus["insulinSensitivity"]
-                        bolus["isf"] = mmolL_to_mgdL(bolus["isf_mmolL_U"])
-
-#                        bolusCH = commonColumnHeadings.copy()
-                        bolusCH = ["utcTime", "timezone", "roundedTime", "normal", "carbInput", "subType",
-                                        "insulinOnBoard", "bgInput",
-                                        "isf", "isf_mmolL_U", "insulinCarbRatio"]
-                        bolusEvents = bolus.loc[bolus["normal"].notnull(), bolusCH]
-                        bolusEvents.loc[bolusEvents["bgInput"] == 0, "bgInput"] = np.nan
-                        bolusEvents = bolusEvents.rename(columns={"normal": "unitsInsulin",
-                                                                  "bgInput": "bg_mmolL"})
-                        bolusEvents["bg_mgdL"] = mmolL_to_mgdL(bolusEvents["bg_mmolL"])
-                        bolusEvents["eventType"] = "correction"
-                        bolusEvents.loc[bolusEvents["carbInput"] > 0, "eventType"] = "meal"
-
-                        if "duration" in list(bolus):
-                            bolus["duration"].replace(0, np.nan, inplace=True)
-                            bolus["durationHours"] = bolus["duration"] / 1000.0 / 3600.0
-                            bolus["rate"] = bolus["extended"] / bolus["durationHours"]
-#                            bolusExtendedCH = commonColumnHeadings.copy()
-                            bolusExtendedCH = ["utcTime", "timezone", "roundedTime", "durationHours", "rate",  "type"]
-                            bolusExtendedEvents = bolus.loc[
-                                    ((bolus["extended"].notnull()) &
-                                     (bolus["duration"] > 0)), bolusExtendedCH]
-
-                        if "extended" not in bolus:
-                            bolus["extended"] = np.nan
-                            bolus["duration"] = np.nan
-
-
-                        # get start and end times
-                        bolusBeginDate, bolusEndDate = getStartAndEndTimes(bolus, "day")
-                        metadata["bolus.beginDate"] = bolusBeginDate
-                        metadata["bolus.endDate"] = bolusEndDate
-
-
-                        # %% PUMP SETTINGS
-
-                        pumpSettings = data[data.type == "pumpSettings"].copy().dropna(axis=1, how="all")
-                        pumpSettings.sort_values("uploadTime", ascending=False, inplace=True)
-
-                        pumpSettings, nPumpSettingsDuplicatesRemoved = \
-                        removeDuplicates(pumpSettings, "deviceTime")
-                        metadata["nPumpSettingsDuplicatesRemoved"] = nPumpSettingsDuplicatesRemoved
-
-                        pumpSettings.sort_values("utcTime", ascending=True, inplace=True)
-                        pumpSettings.reset_index(drop=True, inplace=True)
-
-                        # ISF
-                        isfColHeadings = ["isf.localTime", "isf", "isf_mmolL_U"]
-
-                        if "insulinSensitivity.amount" in list(pumpSettings):
-                            isfColHead = "insulinSensitivity"
-                            pumpSettings["isf_mmolL_U"] = pumpSettings[isfColHead + ".amount"]
-                            pumpSettings["isf"] = mmolL_to_mgdL(pumpSettings["isf_mmolL_U"])
-                            pumpSettings["isf.localTime"] = pd.to_datetime(pumpSettings["day"]) + \
-                                pd.to_timedelta(pumpSettings[isfColHead + ".start"], unit="ms")
-
-                            isf = pumpSettings.loc[pumpSettings["isf"].notnull(), isfColHeadings]
-
-                            # add a day summary
-                            isfDaySummary = pd.DataFrame()
-                            isfDaySummary["day"] = isf["isf.localTime"].dt.date
-                            isfDaySummary["isf.min"] = isf["isf"]
-                            isfDaySummary["isf.weightedMean"] = isf["isf"]
-                            isfDaySummary["isf.max"] = isf["isf"]
-                            isfDaySummary = pd.concat([isfDaySummary, dataPulledDF], sort=False)
-                            isfDaySummary.reset_index(inplace=True, drop=True)
-                            isfDaySummary.fillna(method='ffill', inplace=True)
-
-                        else:
-                            isfColHead = "insulinSensitivities"
-                            isf = pd.DataFrame(columns=isfColHeadings)
-                            isfDayColHeadings = ['day', 'isf.min', 'isf.weightedMean', 'isf.max']
-                            isfDaySummary = pd.DataFrame(columns=isfDayColHeadings)
-                            for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
-                                # edge case where actSchedule is float
-                                if isinstance(actSched, float):
-                                    actSched = str(int(actSched))
-
-                                tempDF = pd.DataFrame(pumpSettings.loc[p, isfColHead + "." + actSched])
-                                tempDF["day"] = pumpSettings.loc[p, "day"]
-                                tempDF["isf.localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
-                                tempDF["isf_mmolL_U"] = tempDF["amount"]
-                                tempDF["isf"] = mmolL_to_mgdL(tempDF["isf_mmolL_U"])
-                                endOfDay = pd.DataFrame(pd.to_datetime(pumpSettings.loc[p, "day"] + pd.Timedelta(1, "D")), columns=["isf.localTime"], index=[0])
-                                tempDF = get_setting_durations(tempDF, "isf", endOfDay)
-                                tempDF = tempDF[:-1]
-
-                                tempDaySummary = pd.DataFrame(index=[0])
-                                tempDaySummary["day"] = tempDF["isf.localTime"].dt.date
-                                tempDaySummary["isf.min"] = tempDF["isf"].min()
-                                tempDaySummary["isf.weightedMean"] = \
-                                    np.sum(tempDF["isf"] * tempDF["isf.durationHours"]) / tempDF["isf.durationHours"].sum()
-                                tempDaySummary["isf.max"] = tempDF["isf"].max()
-
-                                isf = pd.concat([isf, tempDF[isfColHeadings]], ignore_index=True)
-                                isfDaySummary = pd.concat([isfDaySummary, tempDaySummary], ignore_index=True)
-
-                            isfDaySummary = pd.concat([isfDaySummary, dataPulledDF], sort=False)
-                            isfDaySummary.reset_index(inplace=True, drop=True)
-                            isfDaySummary.fillna(method='ffill', inplace=True)
-
-                        # CIR
-                        cirColHeadings = ["cir.localTime", "cir"]
-
-                        if "carbRatio.amount" in list(pumpSettings):
-                            cirColHead = "carbRatio"
-                            pumpSettings["cir"] = pumpSettings[cirColHead + ".amount"]
-                            pumpSettings["cir.localTime"] = pd.to_datetime(pumpSettings["day"]) + \
-                                pd.to_timedelta(pumpSettings[cirColHead + ".start"], unit="ms")
-
-                            cir = pumpSettings.loc[pumpSettings["carbRatio.amount"].notnull(), cirColHeadings]
-
-                            # add a day summary
-                            cirDaySummary = pd.DataFrame()
-                            cirDaySummary["day"] = cir["cir.localTime"].dt.date
-                            cirDaySummary["cir.min"] = cir["cir"]
-                            cirDaySummary["cir.weightedMean"] = cir["cir"]
-                            cirDaySummary["cir.max"] = cir["cir"]
-                            cirDaySummary = pd.concat([cirDaySummary, dataPulledDF], sort=False)
-                            cirDaySummary.reset_index(inplace=True, drop=True)
-                            cirDaySummary.fillna(method='ffill', inplace=True)
-
-                        else:
-
-                            cirColHead = "carbRatios"
-                            cir = pd.DataFrame(columns=cirColHeadings)
-                            cirDayColHeadings = ['day', 'cir.min', 'cir.weightedMean', 'cir.max']
-                            cirDaySummary = pd.DataFrame(columns=cirDayColHeadings)
-                            for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
-                                # edge case where actSchedule is float
-                                if isinstance(actSched, float):
-                                    actSched = str(int(actSched))
-
-                                tempDF = pd.DataFrame(pumpSettings.loc[p, cirColHead + "." + actSched])
-                                tempDF["day"] = pumpSettings.loc[p, "day"]
-                                tempDF["cir.localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
-                                tempDF["cir"] = tempDF["amount"]
-                                endOfDay = pd.DataFrame(pd.to_datetime(pumpSettings.loc[p, "day"] + pd.Timedelta(1, "D")), columns=["cir.localTime"], index=[0])
-                                tempDF = get_setting_durations(tempDF, "cir", endOfDay)
-                                tempDF = tempDF[:-1]
-
-                                tempDaySummary = pd.DataFrame(index=[0])
-                                tempDaySummary["day"] = tempDF["cir.localTime"].dt.date
-                                tempDaySummary["cir.min"] = tempDF["cir"].min()
-                                tempDaySummary["cir.weightedMean"] = \
-                                    np.sum(tempDF["cir"] * tempDF["cir.durationHours"]) / tempDF["cir.durationHours"].sum()
-                                tempDaySummary["cir.max"] = tempDF["cir"].max()
-
-                                cir = pd.concat([cir, tempDF[cirColHeadings]], ignore_index=True)
-                                cirDaySummary = pd.concat([cirDaySummary, tempDaySummary], ignore_index=True)
-
-                            cirDaySummary = pd.concat([cirDaySummary, dataPulledDF], sort=False)
-                            cirDaySummary.reset_index(inplace=True, drop=True)
-                            cirDaySummary.fillna(method='ffill', inplace=True)
-
-
-                        # CORRECTION TARGET
-                        ctColHeadings = ["ct.localTime", "ct.low", "ct.high", "ct.target", "ct.range"]
-                        ctDayColHeadings = ['day',
-                                            "ct.low.min", "ct.low.weightedMean", "ct.low.max",
-                                            "ct.high.min", "ct.high.weightedMean", "ct.high.max",
-                                            "ct.target.min", "ct.target.weightedMean", "ct.target.max",
-                                            "ct.range.min", "ct.range.weightedMean", "ct.range.max"]
-
-                        if "bgTarget.start" in list(pumpSettings):
-                            ctColHead = "bgTarget."
-
-                            for targetType in ["low", "high", "target", "range"]:
-                                if ctColHead + targetType in list(pumpSettings):
-                                    pumpSettings["ct." + targetType + "_mmolL"] = \
-                                        pumpSettings[ctColHead + targetType]
-
-                                    pumpSettings["ct." + targetType] = \
-                                        mmolL_to_mgdL(pumpSettings["ct." + targetType + "_mmolL"])
-                                else:
-                                    pumpSettings["ct." + targetType + "_mmolL"] = np.nan
-                                    pumpSettings["ct." + targetType]  = np.nan
-
-                            pumpSettings["ct.localTime"] = pd.to_datetime(pumpSettings["day"]) + \
-                                pd.to_timedelta(pumpSettings[ctColHead + "start"], unit="ms")
-
-                            correctionTarget = pumpSettings.loc[pumpSettings["bgTarget.start"].notnull(), ctColHeadings]
-
-                            # add a day summary
-                            ctDaySummary = pd.DataFrame(columns=ctDayColHeadings)
-                            ctDaySummary["day"] = correctionTarget["ct.localTime"].dt.date
-                            # add min, weightedMean, and max
-                            for targetType in ["ct.low", "ct.high", "ct.target", "ct.range"]:
-                                for stat in [".min", ".weightedMean", ".max"]:
-                                    ctDaySummary[targetType + stat] = correctionTarget[targetType]
-
-
-                            ctDaySummary = pd.concat([ctDaySummary, dataPulledDF], sort=False)
-                            ctDaySummary.reset_index(inplace=True, drop=True)
-                            ctDaySummary.fillna(method='ffill', inplace=True)
-
-                        else:
-                            ctColHead = "bgTargets"
-                            correctionTarget = pd.DataFrame(columns=ctColHeadings)
-
-                            ctDaySummary = pd.DataFrame(columns=ctDayColHeadings)
-                            for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
-                                # edge case where actSchedule is float
-                                if isinstance(actSched, float):
-                                    actSched = str(int(actSched))
-
-                                tempDF = pd.DataFrame(pumpSettings.loc[p, ctColHead + "." + actSched])
-                                targetTypes = list(set(list(tempDF)) - set(["start"]))
-                                tempDF["day"] = pumpSettings.loc[p, "day"]
-                                tempDF["ct.localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
-                                endOfDay = pd.DataFrame(pd.to_datetime(pumpSettings.loc[p, "day"] + pd.Timedelta(1, "D")), columns=["ct.localTime"], index=[0])
-                                tempDF = get_setting_durations(tempDF, "ct", endOfDay)
-                                tempDF = tempDF[:-1]
-
-                                tempDaySummary = pd.DataFrame(columns=ctDayColHeadings, index=[0])
-                                tempDaySummary["day"] = tempDF["ct.localTime"].dt.date
-
-                                for targetType in targetTypes:
-                                    tempDF["ct." + targetType] = mmolL_to_mgdL(tempDF[targetType])
-
-                                    tempDaySummary["ct." + targetType + ".min"] = tempDF["ct." + targetType].min()
-                                    tempDaySummary["ct." + targetType + ".weightedMean"] = \
-                                        np.sum(tempDF["ct." + targetType] * tempDF["ct.durationHours"]) / tempDF["ct.durationHours"].sum()
-                                    tempDaySummary["ct." + targetType + ".max"] = tempDF["ct." + targetType].max()
-
-                                correctionTarget = \
-                                    pd.concat([correctionTarget,
-                                               tempDF.drop(columns=['start',
-                                                                    'target',
-                                                                    'day',
-                                                                    'ct.durationHours'])],
-                                               ignore_index=True, sort=False)
-                                ctDaySummary = pd.concat([ctDaySummary, tempDaySummary],
-                                                         ignore_index=True, sort=False)
-
-                            ctDaySummary = pd.concat([ctDaySummary, dataPulledDF], sort=False)
-                            ctDaySummary.fillna(method='ffill', inplace=True)
-                            ctDaySummary.drop_duplicates(inplace=True)
-                            ctDaySummary.reset_index(inplace=True, drop=True)
-
-                        # SCHEDULED BASAL RATES
-                        sbrColHeadings = ["sbr.localTime", "rate", "sbr.type"]
-                        sbr = pd.DataFrame(columns=sbrColHeadings)
-                        sbrDayColHeadings = ['day', 'sbr.min', 'sbr.weightedMean', 'sbr.max', 'sbr.type']
-                        sbrDaySummary = pd.DataFrame(columns=sbrDayColHeadings)
-                        for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
-                            # edge case where actSchedule is float
-                            if isinstance(actSched, float):
-                                actSched = str(int(actSched))
-                            if 'Auto Mode' not in actSched:
-                                tempDF = pd.DataFrame(pumpSettings.loc[p, "basalSchedules." + actSched])
-                                tempDF["day"] = pumpSettings.loc[p, "day"]
-                                tempDF["sbr.type"] = np.nan
-                                tempDF["sbr.localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
-                                endOfDay = pd.DataFrame(pd.to_datetime(pumpSettings.loc[p, "day"] + pd.Timedelta(1, "D")), columns=["sbr.localTime"], index=[0])
-                                tempDF = get_setting_durations(tempDF, "sbr", endOfDay)
-                                tempDF = tempDF[:-1]
-
-                                tempDaySummary = pd.DataFrame(index=[0])
-                                tempDaySummary["day"] = tempDF["sbr.localTime"].dt.date
-                                tempDaySummary["sbr.min"] = tempDF["rate"].min()
-                                tempDaySummary["sbr.weightedMean"] = \
-                                    np.sum(tempDF["rate"] * tempDF["sbr.durationHours"]) / tempDF["sbr.durationHours"].sum()
-                                tempDaySummary["sbr.max"] = tempDF["rate"].max()
-                                tempDaySummary["sbr.type"] = np.nan
+    try:
+        # make folder to save data
+        processedDataPath = os.path.join(phiOutputPath, "PHI-" + userID)
+        if not os.path.exists(processedDataPath):
+            os.makedirs(processedDataPath)
+
+        # round all birthdays and diagnosis dates to the first day of the month (to protect identities)
+        if (pd.isnull(donors.bDay[dIndex]) + pd.isnull(donors.dDay[dIndex])) == 0:
+
+            bDate = pd.to_datetime(donors.bDay[dIndex][0:7])
+            dDate = pd.to_datetime(donors.dDay[dIndex][0:7])
+
+
+            # %% LOAD IN DONOR JSON DATA
+
+            jsonDataPath = os.path.join(donorPath, phiDate + "-donorJsonData")
+            jsonFileName = os.path.join(jsonDataPath, "PHI-" + userID + ".json")
+
+            if os.path.exists(jsonFileName):
+                fileSize = os.stat(jsonFileName).st_size
+                metadata["fileSizeKB"] = fileSize / 1000
+                if fileSize > 1000:
+                    data = load_json(jsonFileName)
+
+                    # sort the data by time
+                    data.sort_values("time", inplace=True)
+
+                    # flatten the embedded json
+                    data = flattenJson(data)
+
+
+                    # %% CLEAN DATA
+                    # remove negative durations
+                    data, nNegativeDurations = removeNegativeDurations(data)
+                    metadata["nNegativeDurations"] = nNegativeDurations
+
+                    # get rid of cgm values too low/high (< 38 & > 402 mg/dL)
+                    data, nInvalidCgmValues = removeInvalidCgmValues(data)
+                    metadata["nInvalidCgmValues"] = nInvalidCgmValues
+
+                    # Tslim calibration bug fix
+                    data, nTandemAndPayloadCalReadings = tslimCalibrationFix(data)
+                    metadata["nTandemAndPayloadCalReadings"] = nTandemAndPayloadCalReadings
+
+
+                    # %% ADD UPLOAD DATE
+                    # attach upload time to each record, for resolving duplicates
+                    if (("upload" in data.type.unique()) &
+                        ("basal" in data.type.unique()) &
+                        ("bolus" in data.type.unique()) &
+                        ("cbg" in data.type.unique()) &
+                        ("pumpSettings" in data.type.unique())):
+                        data = addUploadDate(data)
+
+
+                        # %% TIME (UTC, TIMEZONE, DAY AND EVENTUALLY LOCAL TIME)
+                        data["utcTime"] = pd.to_datetime(data["time"])
+                        data["timezone"].fillna(method='ffill', inplace=True)
+                        data["timezone"].fillna(method='bfill', inplace=True)
+                        data["day"] = pd.DatetimeIndex(data["utcTime"]).date
+
+                        # round to the nearest 5 minutes
+                        # TODO: once roundTime is pushed to tidals repository then this line can be replaced
+                        # with td.clean.round_time
+                        data = round_time(data, timeIntervalMinutes=5, timeField="time",
+                                          roundedTimeFieldName="roundedTime", startWithFirstRecord=True,
+                                          verbose=False)
+                        data.sort_values("uploadTime", ascending=False, inplace=True)
+
+
+                        # %% ID, HASHID, AGE, & YLW
+                        data["userID"] = userID
+                        data["hashID"] = hashID
+                        data["age"] = np.floor((data["utcTime"] - bDate).dt.days/365.25).astype(int)
+                        data["ylw"] = np.floor((data["utcTime"] - dDate).dt.days/365.25).astype(int)
+
+    #                    commonColumnHeadings = ["hashID",
+    #                                            "age",
+    #                                            "ylw"]
+
+
+                        # %% BOLUS EVENTS (CORRECTION, AND MEAL INCLUING: CARBS, EXTENDED, DUAL)
+                        bolus = mergeWizardWithBolus(data)
+                        if len(bolus) > 0:
+                            # get rid of duplicates that have the same ["time", "normal"]
+                            bolus.sort_values("uploadTime", ascending=False, inplace=True)
+                            bolus, nBolusDuplicatesRemoved = \
+                                removeDuplicates(bolus, ["deviceTime", "normal"])
+                            metadata["nBolusDuplicatesRemoved"] = nBolusDuplicatesRemoved
+
+                            # get a summary of boluses per day
+                            bolusDaySummary = get_bolusDaySummary(bolus)
+
+    #                        # isf and cir associated with bolus event
+    #                        if "insulinSensitivities" in list(bolus):
+    #                            pdb.set_trace()
+    #
+    #                        if "carbRatios" in list(bolus):
+    #                            pdb.set_trace()
+
+                            bolus["isf_mmolL_U"] = bolus["insulinSensitivity"]
+                            bolus["isf"] = mmolL_to_mgdL(bolus["isf_mmolL_U"])
+
+    #                        bolusCH = commonColumnHeadings.copy()
+                            bolusCH = ["utcTime", "timezone", "roundedTime", "normal", "carbInput", "subType",
+                                            "insulinOnBoard", "bgInput",
+                                            "isf", "isf_mmolL_U", "insulinCarbRatio"]
+                            bolusEvents = bolus.loc[bolus["normal"].notnull(), bolusCH]
+                            bolusEvents.loc[bolusEvents["bgInput"] == 0, "bgInput"] = np.nan
+                            bolusEvents = bolusEvents.rename(columns={"normal": "unitsInsulin",
+                                                                      "bgInput": "bg_mmolL"})
+                            bolusEvents["bg_mgdL"] = mmolL_to_mgdL(bolusEvents["bg_mmolL"])
+                            bolusEvents["eventType"] = "correction"
+                            bolusEvents.loc[bolusEvents["carbInput"] > 0, "eventType"] = "meal"
+
+                            if "duration" in list(bolus):
+                                bolus["duration"].replace(0, np.nan, inplace=True)
+                                bolus["durationHours"] = bolus["duration"] / 1000.0 / 3600.0
+                                bolus["rate"] = bolus["extended"] / bolus["durationHours"]
+    #                            bolusExtendedCH = commonColumnHeadings.copy()
+                                bolusExtendedCH = ["utcTime", "timezone", "roundedTime", "durationHours", "rate",  "type"]
+                                bolusExtendedEvents = bolus.loc[
+                                        ((bolus["extended"].notnull()) &
+                                         (bolus["duration"] > 0)), bolusExtendedCH]
+
+                            if "extended" not in bolus:
+                                bolus["extended"] = np.nan
+                                bolus["duration"] = np.nan
+
+
+                            # get start and end times
+                            bolusBeginDate, bolusEndDate = getStartAndEndTimes(bolus, "day")
+                            metadata["bolus.beginDate"] = bolusBeginDate
+                            metadata["bolus.endDate"] = bolusEndDate
+
+
+                            # %% PUMP SETTINGS
+
+                            pumpSettings = data[data.type == "pumpSettings"].copy().dropna(axis=1, how="all")
+                            pumpSettings.sort_values("uploadTime", ascending=False, inplace=True)
+
+                            pumpSettings, nPumpSettingsDuplicatesRemoved = \
+                            removeDuplicates(pumpSettings, "deviceTime")
+                            metadata["nPumpSettingsDuplicatesRemoved"] = nPumpSettingsDuplicatesRemoved
+
+                            pumpSettings.sort_values("utcTime", ascending=True, inplace=True)
+                            pumpSettings.reset_index(drop=True, inplace=True)
+
+                            # ISF
+                            isfColHeadings = ["isf.localTime", "isf", "isf_mmolL_U"]
+
+                            if "insulinSensitivity.amount" in list(pumpSettings):
+                                isfColHead = "insulinSensitivity"
+                                pumpSettings["isf_mmolL_U"] = pumpSettings[isfColHead + ".amount"]
+                                pumpSettings["isf"] = mmolL_to_mgdL(pumpSettings["isf_mmolL_U"])
+                                pumpSettings["isf.localTime"] = pd.to_datetime(pumpSettings["day"]) + \
+                                    pd.to_timedelta(pumpSettings[isfColHead + ".start"], unit="ms")
+
+                                isf = pumpSettings.loc[pumpSettings["isf"].notnull(), isfColHeadings]
+
+                                # add a day summary
+                                isfDaySummary = pd.DataFrame()
+                                isfDaySummary["day"] = isf["isf.localTime"].dt.date
+                                isfDaySummary["isf.min"] = isf["isf"]
+                                isfDaySummary["isf.weightedMean"] = isf["isf"]
+                                isfDaySummary["isf.max"] = isf["isf"]
+                                isfDaySummary = pd.concat([isfDaySummary, dataPulledDF], sort=False)
+                                isfDaySummary.reset_index(inplace=True, drop=True)
+                                isfDaySummary.fillna(method='ffill', inplace=True)
 
                             else:
-                                tempDF = pd.DataFrame(index=[0])
-                                tempDF["day"] = pumpSettings.loc[p, "day"]
-                                tempDF["sbr.localTime"] = pd.to_datetime(tempDF["day"])
-                                tempDF["rate"] = np.nan
-                                tempDF["sbr.type"] = "AutoMode"
+                                isfColHead = "insulinSensitivities"
+                                isf = pd.DataFrame(columns=isfColHeadings)
+                                isfDayColHeadings = ['day', 'isf.min', 'isf.weightedMean', 'isf.max']
+                                isfDaySummary = pd.DataFrame(columns=isfDayColHeadings)
+                                for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
+                                    # edge case where actSchedule is float
+                                    if isinstance(actSched, float):
+                                        actSched = str(int(actSched))
 
-                                tempDaySummary = pd.DataFrame(index=[0])
-                                tempDaySummary["day"] = tempDF["sbr.localTime"].dt.date
-                                tempDaySummary["sbr.min"] = np.nan
-                                tempDaySummary["sbr.weightedMean"] = np.nan
-                                tempDaySummary["sbr.max"] = np.nan
-                                tempDaySummary["sbr.type"] = "AutoMode"
+                                    tempDF = pd.DataFrame(pumpSettings.loc[p, isfColHead + "." + actSched])
+                                    tempDF["day"] = pumpSettings.loc[p, "day"]
+                                    tempDF["isf.localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
+                                    tempDF["isf_mmolL_U"] = tempDF["amount"]
+                                    tempDF["isf"] = mmolL_to_mgdL(tempDF["isf_mmolL_U"])
+                                    endOfDay = pd.DataFrame(pd.to_datetime(pumpSettings.loc[p, "day"] + pd.Timedelta(1, "D")), columns=["isf.localTime"], index=[0])
+                                    tempDF = get_setting_durations(tempDF, "isf", endOfDay)
+                                    tempDF = tempDF[:-1]
 
-                            sbr = pd.concat([sbr, tempDF[sbrColHeadings]], ignore_index=True)
-                            sbrDaySummary = pd.concat([sbrDaySummary, tempDaySummary], ignore_index=True)
+                                    tempDaySummary = pd.DataFrame(index=[0])
+                                    tempDaySummary["day"] = tempDF["isf.localTime"].dt.date
+                                    tempDaySummary["isf.min"] = tempDF["isf"].min()
+                                    tempDaySummary["isf.weightedMean"] = \
+                                        np.sum(tempDF["isf"] * tempDF["isf.durationHours"]) / tempDF["isf.durationHours"].sum()
+                                    tempDaySummary["isf.max"] = tempDF["isf"].max()
 
-                        sbrDaySummary = pd.concat([sbrDaySummary, dataPulledDF], sort=False)
-                        sbrDaySummary.reset_index(inplace=True, drop=True)
-                        sbrDaySummary.fillna(method='ffill', inplace=True)
+                                    isf = pd.concat([isf, tempDF[isfColHeadings]], ignore_index=True)
+                                    isfDaySummary = pd.concat([isfDaySummary, tempDaySummary], ignore_index=True)
 
-#                        # max basal rate, max bolus amount, and insulin duration
-#                        if "rateMaximum" in list(data):
-#                            pdb.set_trace()
-#                        if "amountMaximum" in list(data):
-#                            pdb.set_trace()
-#                        if "bolus.calculator" in list(data):
-#                            pdb.set_trace()
+                                isfDaySummary = pd.concat([isfDaySummary, dataPulledDF], sort=False)
+                                isfDaySummary.reset_index(inplace=True, drop=True)
+                                isfDaySummary.fillna(method='ffill', inplace=True)
 
+                            # CIR
+                            cirColHeadings = ["cir.localTime", "cir"]
 
-                        # %% ACTUAL BASAL RATES (TIME, VALUE, DURATION, TYPE (SCHEDULED, TEMP, SUSPEND))
-                        basal = data[data.type == "basal"].copy().dropna(axis=1, how="all")
-                        basal.sort_values("uploadTime", ascending=False, inplace=True)
+                            if "carbRatio.amount" in list(pumpSettings):
+                                cirColHead = "carbRatio"
+                                pumpSettings["cir"] = pumpSettings[cirColHead + ".amount"]
+                                pumpSettings["cir.localTime"] = pd.to_datetime(pumpSettings["day"]) + \
+                                    pd.to_timedelta(pumpSettings[cirColHead + ".start"], unit="ms")
 
-                        basalBeginDate, basalEndDate = getStartAndEndTimes(basal, "day")
-                        metadata["basal.beginDate"] = basalBeginDate
-                        metadata["basal.endDate"] = basalEndDate
+                                cir = pumpSettings.loc[pumpSettings["carbRatio.amount"].notnull(), cirColHeadings]
 
-                        basal, nBasalDuplicatesRemoved = \
-                            removeDuplicates(basal, ["deliveryType", "deviceTime", "duration", "rate"])
-                        metadata["basal.nBasalDuplicatesRemoved"] = nBasalDuplicatesRemoved
+                                # add a day summary
+                                cirDaySummary = pd.DataFrame()
+                                cirDaySummary["day"] = cir["cir.localTime"].dt.date
+                                cirDaySummary["cir.min"] = cir["cir"]
+                                cirDaySummary["cir.weightedMean"] = cir["cir"]
+                                cirDaySummary["cir.max"] = cir["cir"]
+                                cirDaySummary = pd.concat([cirDaySummary, dataPulledDF], sort=False)
+                                cirDaySummary.reset_index(inplace=True, drop=True)
+                                cirDaySummary.fillna(method='ffill', inplace=True)
 
-                        # fill NaNs with 0, as it indicates a suspend (temp basal of 0)
-                        basal.rate.fillna(0, inplace=True)
+                            else:
 
-                        # get rid of basals that have durations of 0
-                        nBasalDuration0 = sum(basal.duration > 0)
-                        basal = basal[basal.duration > 0]
-                        metadata["basal.nBasalDuration0"] = nBasalDuration0
+                                cirColHead = "carbRatios"
+                                cir = pd.DataFrame(columns=cirColHeadings)
+                                cirDayColHeadings = ['day', 'cir.min', 'cir.weightedMean', 'cir.max']
+                                cirDaySummary = pd.DataFrame(columns=cirDayColHeadings)
+                                for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
+                                    # edge case where actSchedule is float
+                                    if isinstance(actSched, float):
+                                        actSched = str(int(actSched))
 
-                        # get rid of basal durations that are unrealistic
-                        nUnrealisticBasalDuration = ((basal.duration < 0) | (basal.duration > 86400000))
-                        metadata["nUnrealisticBasalDuration"] = sum(nUnrealisticBasalDuration)
-                        basal.loc[nUnrealisticBasalDuration, "duration"] = np.nan
+                                    tempDF = pd.DataFrame(pumpSettings.loc[p, cirColHead + "." + actSched])
+                                    tempDF["day"] = pumpSettings.loc[p, "day"]
+                                    tempDF["cir.localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
+                                    tempDF["cir"] = tempDF["amount"]
+                                    endOfDay = pd.DataFrame(pd.to_datetime(pumpSettings.loc[p, "day"] + pd.Timedelta(1, "D")), columns=["cir.localTime"], index=[0])
+                                    tempDF = get_setting_durations(tempDF, "cir", endOfDay)
+                                    tempDF = tempDF[:-1]
 
-                        # calculate the total amount of insulin delivered (duration * rate)
-                        basal["durationHours"] = basal["duration"] / 1000.0 / 3600.0
-                        basal["totalAmountOfBasalInsulin"] = basal["durationHours"] * basal["rate"]
+                                    tempDaySummary = pd.DataFrame(index=[0])
+                                    tempDaySummary["day"] = tempDF["cir.localTime"].dt.date
+                                    tempDaySummary["cir.min"] = tempDF["cir"].min()
+                                    tempDaySummary["cir.weightedMean"] = \
+                                        np.sum(tempDF["cir"] * tempDF["cir.durationHours"]) / tempDF["cir.durationHours"].sum()
+                                    tempDaySummary["cir.max"] = tempDF["cir"].max()
 
-                        # actual basal delivered
-#                        abrColHeadings = commonColumnHeadings.copy()
-                        abrColHeadings = ["utcTime", "timezone", "roundedTime", "durationHours", "rate", "type"]
-                        abr = basal[abrColHeadings]
-                        if "duration" in list(bolus):
-                            abr = pd.concat([abr, bolusExtendedEvents], ignore_index=True)
-                            abr.sort_values("utcTime", inplace=True)
+                                    cir = pd.concat([cir, tempDF[cirColHeadings]], ignore_index=True)
+                                    cirDaySummary = pd.concat([cirDaySummary, tempDaySummary], ignore_index=True)
 
-                        abr["timezone"].fillna(method='ffill', inplace=True)
-                        abr["timezone"].fillna(method='bfill', inplace=True)
-
-                        # get a summary of basals per day
-                        basalDaySummary = get_basalDaySummary(basal)
-
-
-                        # %% GET CLOSED LOOP DAYS WITH TEMP BASAL DATA
-                        # group data by type
-                        groupedData = data.groupby(by="type")
-
-                        isClosedLoopDay, is670g, metadata = \
-                            getClosedLoopDays(groupedData, 30, metadata)
-
-                        # %% CGM DATA
-                        # filter by cgm and sort by uploadTime
-                        cgmData = groupedData.get_group("cbg").dropna(axis=1, how="all")
-
-                        # get rid of duplicates that have the same ["deviceTime", "value"]
-                        cgmData, nCgmDuplicatesRemovedDeviceTime = removeCgmDuplicates(cgmData, "deviceTime")
-                        metadata["nCgmDuplicatesRemovedDeviceTime"] = nCgmDuplicatesRemovedDeviceTime
-
-                        # get rid of duplicates that have the same ["time", "value"]
-                        cgmData, nCgmDuplicatesRemovedUtcTime = removeCgmDuplicates(cgmData, "time")
-                        metadata["cnCgmDuplicatesRemovedUtcTime"] = nCgmDuplicatesRemovedUtcTime
-
-                        # get rid of duplicates that have the same "roundedTime"
-                        cgmData, nCgmDuplicatesRemovedRoundedTime = removeDuplicates(cgmData, "roundedTime")
-                        metadata["nCgmDuplicatesRemovedRoundedTime"] = nCgmDuplicatesRemovedRoundedTime
-
-                        # get start and end times
-                        cgmBeginDate, cgmEndDate = getStartAndEndTimes(cgmData, "day")
-                        metadata["cgm.beginDate"] = cgmBeginDate
-                        metadata["cgm.endDate"] = cgmEndDate
-
-                        # get a list of dexcom cgms
-                        cgmData, percentDexcom = getListOfDexcomCGMDays(cgmData)
-                        metadata["cgm.percentDexcomCGM"] = percentDexcom
-
-                        # group by date (day) and get stats
-                        catDF = cgmData.groupby(cgmData["day"])
-                        cgmRecordsPerDay = \
-                            pd.DataFrame(catDF.value.count()). \
-                            rename(columns={"value": "cgm.count"})
-                        dayDate = catDF.day.describe()["top"]
-                        dexcomCGM = catDF.dexcomCGM.describe()["top"]
-                        nTypesCGM = catDF.dexcomCGM.describe()["unique"]
-                        cgmRecordsPerDay["cgm.dexcomOnly"] = \
-                            (dexcomCGM & (nTypesCGM == 1))
-                        cgmRecordsPerDay["date"] = cgmRecordsPerDay.index
-
-                        # filter the cgm data
-#                        cgmColHeadings = commonColumnHeadings.copy()
-                        cgmColHeadings = ["utcTime", "timezone", "roundedTime", "value"]
-
-                        # get data in mg/dL units
-                        cgm = cgmData[cgmColHeadings]
-                        cgm = cgm.rename(columns={'value': 'mmol_L'})
-                        cgm["mg_dL"] = mmolL_to_mgdL(cgm["mmol_L"]).astype(int)
+                                cirDaySummary = pd.concat([cirDaySummary, dataPulledDF], sort=False)
+                                cirDaySummary.reset_index(inplace=True, drop=True)
+                                cirDaySummary.fillna(method='ffill', inplace=True)
 
 
-                        # %% NUMBER OF DAYS OF PUMP AND CGM DATA, OVERALL AND PER EACH AGE & YLW
+                            # CORRECTION TARGET
+                            ctColHeadings = ["ct.localTime", "ct.low", "ct.high", "ct.target", "ct.range"]
+                            ctDayColHeadings = ['day',
+                                                "ct.low.min", "ct.low.weightedMean", "ct.low.max",
+                                                "ct.high.min", "ct.high.weightedMean", "ct.high.max",
+                                                "ct.target.min", "ct.target.weightedMean", "ct.target.max",
+                                                "ct.range.min", "ct.range.weightedMean", "ct.range.max"]
 
-                        # COMBINE DAY SUMMARIES
-                        # group by date (day) and get stats
-                        catDF = data.groupby(data["day"])
-                        dataPerDay = \
-                            pd.DataFrame(catDF.hashID.describe()["top"]). \
-                            rename(columns={"top": "hashID"})
-                        dataPerDay["age"] = catDF.age.mean()
-                        dataPerDay["ylw"] = catDF.ylw.mean()
-                        dataPerDay["timezone"] = catDF.timezone.describe()["top"]
+                            if "bgTarget.start" in list(pumpSettings):
+                                ctColHead = "bgTarget."
 
-                        # calculate all of the data start and end range
-                        # this can be used for looking at settings
-                        dayBeginDate = min(cgmBeginDate, bolusBeginDate, basalBeginDate)
-                        dayEndDate = max(cgmEndDate, bolusEndDate, basalEndDate)
-                        metadata["day.beginDate"] = dayBeginDate
-                        metadata["day.endDate"] = dayEndDate
-                        rng = pd.date_range(dayBeginDate, dayEndDate).date
-                        dayData = pd.DataFrame(rng, columns=["day"])
-                        for dfType in [dataPerDay, basalDaySummary, bolusDaySummary, cgmRecordsPerDay]:
-                            dayData = pd.merge(dayData, dfType.reset_index(), on="day", how="left")
-                        for dfType in [isClosedLoopDay, is670g]:
-                            dayData = pd.merge(dayData, dfType, on="day", how="left")
+                                for targetType in ["low", "high", "target", "range"]:
+                                    if ctColHead + targetType in list(pumpSettings):
+                                        pumpSettings["ct." + targetType + "_mmolL"] = \
+                                            pumpSettings[ctColHead + targetType]
 
-                        dayData["validPumpData"] = dayData["numberOfNormalBoluses"] > 3
-                        dayData["validCGMData"] = dayData["cgm.count"] > (288*.75)
+                                        pumpSettings["ct." + targetType] = \
+                                            mmolL_to_mgdL(pumpSettings["ct." + targetType + "_mmolL"])
+                                    else:
+                                        pumpSettings["ct." + targetType + "_mmolL"] = np.nan
+                                        pumpSettings["ct." + targetType]  = np.nan
 
-                        dayData["timezone"].fillna(method='ffill', inplace=True)
-                        dayData["timezone"].fillna(method='bfill', inplace=True)
+                                pumpSettings["ct.localTime"] = pd.to_datetime(pumpSettings["day"]) + \
+                                    pd.to_timedelta(pumpSettings[ctColHead + "start"], unit="ms")
 
-                        dayData["isDSTChangeDay"] = dayData[['day', 'timezone']].apply(lambda x: isDSTChangeDay(*x), axis=1)
-                        dayData["date"] = pd.to_datetime(dayData["day"])
-                        dayData["tzo"] = dayData[['date', 'timezone']].apply(lambda x: getTimezoneOffset(*x), axis=1)
+                                correctionTarget = pumpSettings.loc[pumpSettings["bgTarget.start"].notnull(), ctColHeadings]
 
-                        # add settings to the dayData
-                        dayData = pd.merge(dayData, isfDaySummary, on="day", how="left")
-                        dayData = pd.merge(dayData, cirDaySummary, on="day", how="left")
-                        dayData = pd.merge(dayData, ctDaySummary, on="day", how="left")
-                        dayData = pd.merge(dayData, sbrDaySummary, on="day", how="left")
-
-                        # fill data forward
-                        fillList = ['isf.min',
-                                    'isf.weightedMean',
-                                    'isf.max',
-                                    'cir.min',
-                                    'cir.weightedMean',
-                                    'cir.max',
-                                    'ct.low.min', 'ct.low.weightedMean', 'ct.low.max',
-                                    'ct.high.min', 'ct.high.weightedMean', 'ct.high.max',
-                                    'ct.target.min', 'ct.target.weightedMean', 'ct.target.max',
-                                    'ct.range.min', 'ct.range.weightedMean', 'ct.range.max',
-                                    'sbr.min',
-                                    'sbr.weightedMean',
-                                    'sbr.max',
-                                    'sbr.type']
-                        for fl in fillList:
-                            dayData[fl].fillna(method='ffill', inplace=True)
-
-                        # calculate the start and end of contiguous data
-                        # these dates can be used when simulating and predicting, where
-                        # you need both pump and cgm data
-                        contiguousBeginDate = max(cgmBeginDate, bolusBeginDate, basalBeginDate)
-                        contiguousEndDate = min(cgmEndDate, bolusEndDate, basalEndDate)
-                        metadata["contiguous.beginDate"] = contiguousBeginDate
-                        metadata["contiguous.endDate"] = contiguousEndDate
-
-                        # get a summary by age, and ylw
-                        catDF = dayData.groupby("age")
-                        ageSummary = pd.DataFrame(catDF.validPumpData.sum())
-                        ageSummary.rename(columns={"validPumpData": "nDaysValidPump"}, inplace=True)
-                        ageSummary["nDaysValidCgm"] = pd.DataFrame(catDF.validCGMData.sum())
-                        ageSummary["nDaysClosedLoop"] = pd.DataFrame(catDF["basal.closedLoopDays"].sum())
-                        ageSummary["n670gDays"] = pd.DataFrame(catDF["670g"].sum())
-
-                        # add in isf stats
-                        ageSummary["isf.nDays"] = catDF["isf.min"].count()
-                        ageSummary["isf.min"] = catDF["isf.min"].min()
-                        ageSummary["isf.weightedMean"] = catDF["isf.weightedMean"].sum() / catDF["isf.weightedMean"].count()
-                        ageSummary["isf.max"] = catDF["isf.max"].max()
-
-                        # add cir stats
-                        ageSummary["cir.nDays"] = catDF["cir.min"].count()
-                        ageSummary["cir.min"] = catDF["cir.min"].min()
-                        ageSummary["cir.weightedMean"] = catDF["cir.weightedMean"].sum() / catDF["cir.weightedMean"].count()
-                        ageSummary["cir.max"] = catDF["cir.max"].max()
-
-                        # add sbr stats
-                        ageSummary["sbr.nDays"] = catDF["sbr.min"].count()
-                        ageSummary["sbr.min"] = catDF["sbr.min"].min()
-                        ageSummary["sbr.weightedMean"] = catDF["sbr.weightedMean"].sum() / catDF["sbr.weightedMean"].count()
-                        ageSummary["sbr.max"] = catDF["sbr.max"].max()
-                        ageSummary["sbr.nAutoMode"] = catDF["sbr.type"].count()
-
-                        # correctionTarget stats
-                        for targetType in ["ct.low", "ct.high", "ct.target", "ct.range"]:
-                            for stat in [".min", ".weightedMean", ".max"]:
-                                ch = targetType + stat
-                                ageSummary[ch + ".nDays"] = catDF[ch].count()
-                                ageSummary[ch + ".min"] = catDF[ch].min()
-                                ageSummary[ch + ".weightedMean"] = catDF[ch].sum() / catDF[ch].count()
-                                ageSummary[ch + ".max"] = catDF[ch].max()
-
-                        ageSummary.reset_index(inplace=True)
-
-                        analysisCriterion = ageSummary[((ageSummary["nDaysValidPump"]> 28) &
-                                                        (ageSummary["nDaysValidCgm"]> 28))]
-                        minAge = analysisCriterion["age"].min()
-                        maxAge = analysisCriterion["age"].max()
-                        nDaysClosedLoop = analysisCriterion["nDaysClosedLoop"].sum()
-                        n670gDays = analysisCriterion["n670gDays"].sum()
-                        metadata["minAge"] = minAge
-                        metadata["maxAge"] = maxAge
-                        metadata["nDaysClosedLoop"] = nDaysClosedLoop
-                        metadata["n670gDays"] = n670gDays
-
-                        catDF = dayData.groupby("ylw")
-                        ylwSummary = pd.DataFrame(catDF.validPumpData.sum())
-                        ylwSummary.rename(columns={"validPumpData": "nDaysValidPump"}, inplace=True)
-                        ylwSummary["nDaysValidCgm"] = pd.DataFrame(catDF.validCGMData.sum())
-                        ylwSummary["nDaysClosedLoop"] = pd.DataFrame(catDF["basal.closedLoopDays"].sum())
-                        ylwSummary["n670gDays"] = pd.DataFrame(catDF["670g"].sum())
-
-                        ylwSummary["isf.nDays"] = catDF["isf.min"].count()
-                        ylwSummary["isf.min"] = catDF["isf.min"].min()
-                        ylwSummary["isf.weightedMean"] = catDF["isf.weightedMean"].sum() / catDF["isf.weightedMean"].count()
-                        ylwSummary["isf.max"] = catDF["isf.max"].max()
-
-                        # add cir stats
-                        ylwSummary["cir.nDays"] = catDF["cir.min"].count()
-                        ylwSummary["cir.min"] = catDF["cir.min"].min()
-                        ylwSummary["cir.weightedMean"] = catDF["cir.weightedMean"].sum() / catDF["cir.weightedMean"].count()
-                        ylwSummary["cir.max"] = catDF["cir.max"].max()
-
-                        # add sbr stats
-                        ylwSummary["sbr.nDays"] = catDF["sbr.min"].count()
-                        ylwSummary["sbr.min"] = catDF["sbr.min"].min()
-                        ylwSummary["sbr.weightedMean"] = catDF["sbr.weightedMean"].sum() / catDF["sbr.weightedMean"].count()
-                        ylwSummary["sbr.max"] = catDF["sbr.max"].max()
-                        ylwSummary["sbr.nAutoMode"] = catDF["sbr.type"].count()
-
-                        # correctionTarget stats
-                        for targetType in ["ct.low", "ct.high", "ct.target", "ct.range"]:
-                            for stat in [".min", ".weightedMean", ".max"]:
-                                ch = targetType + stat
-                                ylwSummary[ch + ".nDays"] = catDF[ch].count()
-                                ylwSummary[ch + ".min"] = catDF[ch].min()
-                                ylwSummary[ch + ".weightedMean"] = catDF[ch].sum() / catDF[ch].count()
-                                ylwSummary[ch + ".max"] = catDF[ch].max()
-
-                        ylwSummary.reset_index(inplace=True)
-
-                        analysisCriterion = ylwSummary[((ylwSummary["nDaysValidPump"]> 28) &
-                                                        (ylwSummary["nDaysValidCgm"]> 28))]
-                        minYLW = analysisCriterion["ylw"].min()
-                        maxYLW = analysisCriterion["ylw"].max()
-                        metadata["minYLW"] = minYLW
-                        metadata["maxYLW"] = maxYLW
+                                # add a day summary
+                                ctDaySummary = pd.DataFrame(columns=ctDayColHeadings)
+                                ctDaySummary["day"] = correctionTarget["ct.localTime"].dt.date
+                                # add min, weightedMean, and max
+                                for targetType in ["ct.low", "ct.high", "ct.target", "ct.range"]:
+                                    for stat in [".min", ".weightedMean", ".max"]:
+                                        ctDaySummary[targetType + stat] = correctionTarget[targetType]
 
 
-                        # %% calculate local time
-                        abr["date"] = pd.to_datetime(abr["utcTime"].dt.date)
-                        abr = pd.merge(abr, dayData[["date", "tzo", "isDSTChangeDay"]], how="left", on="date")
-                        abr["localTime"] = abr["utcTime"] + pd.to_timedelta(abr["tzo"], unit="m")
+                                ctDaySummary = pd.concat([ctDaySummary, dataPulledDF], sort=False)
+                                ctDaySummary.reset_index(inplace=True, drop=True)
+                                ctDaySummary.fillna(method='ffill', inplace=True)
 
-                        cgm["date"] = pd.to_datetime(cgm["utcTime"].dt.date)
-                        cgm = pd.merge(cgm, dayData[["date", "tzo", "isDSTChangeDay"]], how="left", on="date")
-                        cgm["localTime"] = cgm["utcTime"] + pd.to_timedelta(cgm["tzo"], unit="m")
+                            else:
+                                ctColHead = "bgTargets"
+                                correctionTarget = pd.DataFrame(columns=ctColHeadings)
 
-                        bolusEvents["date"] = pd.to_datetime(bolusEvents["utcTime"].dt.date)
-                        bolusEvents = pd.merge(bolusEvents, dayData[["date", "tzo", "isDSTChangeDay"]], how="left", on="date")
-                        bolusEvents["localTime"] = bolusEvents["utcTime"] + pd.to_timedelta(bolusEvents["tzo"], unit="m")
+                                ctDaySummary = pd.DataFrame(columns=ctDayColHeadings)
+                                for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
+                                    # edge case where actSchedule is float
+                                    if isinstance(actSched, float):
+                                        actSched = str(int(actSched))
+
+                                    tempDF = pd.DataFrame(pumpSettings.loc[p, ctColHead + "." + actSched])
+                                    targetTypes = list(set(list(tempDF)) - set(["start"]))
+                                    tempDF["day"] = pumpSettings.loc[p, "day"]
+                                    tempDF["ct.localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
+                                    endOfDay = pd.DataFrame(pd.to_datetime(pumpSettings.loc[p, "day"] + pd.Timedelta(1, "D")), columns=["ct.localTime"], index=[0])
+                                    tempDF = get_setting_durations(tempDF, "ct", endOfDay)
+                                    tempDF = tempDF[:-1]
+
+                                    tempDaySummary = pd.DataFrame(columns=ctDayColHeadings, index=[0])
+                                    tempDaySummary["day"] = tempDF["ct.localTime"].dt.date
+
+                                    for targetType in targetTypes:
+                                        tempDF["ct." + targetType] = mmolL_to_mgdL(tempDF[targetType])
+
+                                        tempDaySummary["ct." + targetType + ".min"] = tempDF["ct." + targetType].min()
+                                        tempDaySummary["ct." + targetType + ".weightedMean"] = \
+                                            np.sum(tempDF["ct." + targetType] * tempDF["ct.durationHours"]) / tempDF["ct.durationHours"].sum()
+                                        tempDaySummary["ct." + targetType + ".max"] = tempDF["ct." + targetType].max()
+
+                                    correctionTarget = \
+                                        pd.concat([correctionTarget,
+                                                   tempDF.drop(columns=['start',
+                                                                        'target',
+                                                                        'day',
+                                                                        'ct.durationHours'])],
+                                                   ignore_index=True, sort=False)
+                                    ctDaySummary = pd.concat([ctDaySummary, tempDaySummary],
+                                                             ignore_index=True, sort=False)
+
+                                ctDaySummary = pd.concat([ctDaySummary, dataPulledDF], sort=False)
+                                ctDaySummary.fillna(method='ffill', inplace=True)
+                                ctDaySummary.drop_duplicates(inplace=True)
+                                ctDaySummary.reset_index(inplace=True, drop=True)
+
+                            # SCHEDULED BASAL RATES
+                            sbrColHeadings = ["sbr.localTime", "rate", "sbr.type"]
+                            sbr = pd.DataFrame(columns=sbrColHeadings)
+                            sbrDayColHeadings = ['day', 'sbr.min', 'sbr.weightedMean', 'sbr.max', 'sbr.type']
+                            sbrDaySummary = pd.DataFrame(columns=sbrDayColHeadings)
+                            for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
+                                # edge case where actSchedule is float
+                                if isinstance(actSched, float):
+                                    actSched = str(int(actSched))
+                                if 'Auto Mode' not in actSched:
+                                    tempDF = pd.DataFrame(pumpSettings.loc[p, "basalSchedules." + actSched])
+                                    tempDF["day"] = pumpSettings.loc[p, "day"]
+                                    tempDF["sbr.type"] = np.nan
+                                    tempDF["sbr.localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
+                                    endOfDay = pd.DataFrame(pd.to_datetime(pumpSettings.loc[p, "day"] + pd.Timedelta(1, "D")), columns=["sbr.localTime"], index=[0])
+                                    tempDF = get_setting_durations(tempDF, "sbr", endOfDay)
+                                    tempDF = tempDF[:-1]
+
+                                    tempDaySummary = pd.DataFrame(index=[0])
+                                    tempDaySummary["day"] = tempDF["sbr.localTime"].dt.date
+                                    tempDaySummary["sbr.min"] = tempDF["rate"].min()
+                                    tempDaySummary["sbr.weightedMean"] = \
+                                        np.sum(tempDF["rate"] * tempDF["sbr.durationHours"]) / tempDF["sbr.durationHours"].sum()
+                                    tempDaySummary["sbr.max"] = tempDF["rate"].max()
+                                    tempDaySummary["sbr.type"] = np.nan
+
+                                else:
+                                    tempDF = pd.DataFrame(index=[0])
+                                    tempDF["day"] = pumpSettings.loc[p, "day"]
+                                    tempDF["sbr.localTime"] = pd.to_datetime(tempDF["day"])
+                                    tempDF["rate"] = np.nan
+                                    tempDF["sbr.type"] = "AutoMode"
+
+                                    tempDaySummary = pd.DataFrame(index=[0])
+                                    tempDaySummary["day"] = tempDF["sbr.localTime"].dt.date
+                                    tempDaySummary["sbr.min"] = np.nan
+                                    tempDaySummary["sbr.weightedMean"] = np.nan
+                                    tempDaySummary["sbr.max"] = np.nan
+                                    tempDaySummary["sbr.type"] = "AutoMode"
+
+                                sbr = pd.concat([sbr, tempDF[sbrColHeadings]], ignore_index=True)
+                                sbrDaySummary = pd.concat([sbrDaySummary, tempDaySummary], ignore_index=True)
+
+                            sbrDaySummary = pd.concat([sbrDaySummary, dataPulledDF], sort=False)
+                            sbrDaySummary.reset_index(inplace=True, drop=True)
+                            sbrDaySummary.fillna(method='ffill', inplace=True)
+
+    #                        # max basal rate, max bolus amount, and insulin duration
+    #                        if "rateMaximum" in list(data):
+    #                            pdb.set_trace()
+    #                        if "amountMaximum" in list(data):
+    #                            pdb.set_trace()
+    #                        if "bolus.calculator" in list(data):
+    #                            pdb.set_trace()
 
 
-                        # %% STATS PER EACH TYPE, OVERALL AND PER EACH AGE & YLW (MIN, PERCENTILES, MAX, MEAN, SD, IQR, COV)
-                        # all settings
+                            # %% ACTUAL BASAL RATES (TIME, VALUE, DURATION, TYPE (SCHEDULED, TEMP, SUSPEND))
+                            basal = data[data.type == "basal"].copy().dropna(axis=1, how="all")
+                            basal.sort_values("uploadTime", ascending=False, inplace=True)
 
-                        allSettings = pd.merge(isf.rename(columns={"isf.localTime": "localTime"}),
-                                               cir.rename(columns={"cir.localTime": "localTime"}),
-                                               how="outer", on="localTime")
-                        allSettings = pd.merge(allSettings,
-                                               sbr.rename(columns={"rate": "sbr",
-                                                                   "type": "sbr.type",
-                                                                   "sbr.localTime": "localTime"}),
-                                               how="outer", on="localTime")
-                        allSettings = pd.merge(allSettings,
-                                               correctionTarget.rename(columns={"ct.localTime": "localTime"}),
-                                               how="outer", on="localTime")
-                        allSettings["hashID"] = hashID
-                        allSettings["age"] = np.floor((allSettings["localTime"] - bDate).dt.days/365.25).astype(int)
-                        allSettings["ylw"] = np.floor((allSettings["localTime"] - dDate).dt.days/365.25).astype(int)
-                        allSettings = round_time(allSettings, timeIntervalMinutes=5,
+                            basalBeginDate, basalEndDate = getStartAndEndTimes(basal, "day")
+                            metadata["basal.beginDate"] = basalBeginDate
+                            metadata["basal.endDate"] = basalEndDate
+
+                            basal, nBasalDuplicatesRemoved = \
+                                removeDuplicates(basal, ["deliveryType", "deviceTime", "duration", "rate"])
+                            metadata["basal.nBasalDuplicatesRemoved"] = nBasalDuplicatesRemoved
+
+                            # fill NaNs with 0, as it indicates a suspend (temp basal of 0)
+                            basal.rate.fillna(0, inplace=True)
+
+                            # get rid of basals that have durations of 0
+                            nBasalDuration0 = sum(basal.duration > 0)
+                            basal = basal[basal.duration > 0]
+                            metadata["basal.nBasalDuration0"] = nBasalDuration0
+
+                            # get rid of basal durations that are unrealistic
+                            nUnrealisticBasalDuration = ((basal.duration < 0) | (basal.duration > 86400000))
+                            metadata["nUnrealisticBasalDuration"] = sum(nUnrealisticBasalDuration)
+                            basal.loc[nUnrealisticBasalDuration, "duration"] = np.nan
+
+                            # calculate the total amount of insulin delivered (duration * rate)
+                            basal["durationHours"] = basal["duration"] / 1000.0 / 3600.0
+                            basal["totalAmountOfBasalInsulin"] = basal["durationHours"] * basal["rate"]
+
+                            # actual basal delivered
+    #                        abrColHeadings = commonColumnHeadings.copy()
+                            abrColHeadings = ["utcTime", "timezone", "roundedTime", "durationHours", "rate", "type"]
+                            abr = basal[abrColHeadings]
+                            if "duration" in list(bolus):
+                                abr = pd.concat([abr, bolusExtendedEvents], ignore_index=True)
+                                abr.sort_values("utcTime", inplace=True)
+
+                            abr["timezone"].fillna(method='ffill', inplace=True)
+                            abr["timezone"].fillna(method='bfill', inplace=True)
+
+                            # get a summary of basals per day
+                            basalDaySummary = get_basalDaySummary(basal)
+
+
+                            # %% GET CLOSED LOOP DAYS WITH TEMP BASAL DATA
+                            # group data by type
+                            groupedData = data.groupby(by="type")
+
+                            isClosedLoopDay, is670g, metadata = \
+                                getClosedLoopDays(groupedData, 30, metadata)
+
+                            # %% CGM DATA
+                            # filter by cgm and sort by uploadTime
+                            cgmData = groupedData.get_group("cbg").dropna(axis=1, how="all")
+
+                            # get rid of duplicates that have the same ["deviceTime", "value"]
+                            cgmData, nCgmDuplicatesRemovedDeviceTime = removeCgmDuplicates(cgmData, "deviceTime")
+                            metadata["nCgmDuplicatesRemovedDeviceTime"] = nCgmDuplicatesRemovedDeviceTime
+
+                            # get rid of duplicates that have the same ["time", "value"]
+                            cgmData, nCgmDuplicatesRemovedUtcTime = removeCgmDuplicates(cgmData, "time")
+                            metadata["cnCgmDuplicatesRemovedUtcTime"] = nCgmDuplicatesRemovedUtcTime
+
+                            # get rid of duplicates that have the same "roundedTime"
+                            cgmData, nCgmDuplicatesRemovedRoundedTime = removeDuplicates(cgmData, "roundedTime")
+                            metadata["nCgmDuplicatesRemovedRoundedTime"] = nCgmDuplicatesRemovedRoundedTime
+
+                            # get start and end times
+                            cgmBeginDate, cgmEndDate = getStartAndEndTimes(cgmData, "day")
+                            metadata["cgm.beginDate"] = cgmBeginDate
+                            metadata["cgm.endDate"] = cgmEndDate
+
+                            # get a list of dexcom cgms
+                            cgmData, percentDexcom = getListOfDexcomCGMDays(cgmData)
+                            metadata["cgm.percentDexcomCGM"] = percentDexcom
+
+                            # group by date (day) and get stats
+                            catDF = cgmData.groupby(cgmData["day"])
+                            cgmRecordsPerDay = \
+                                pd.DataFrame(catDF.value.count()). \
+                                rename(columns={"value": "cgm.count"})
+                            dayDate = catDF.day.describe()["top"]
+                            dexcomCGM = catDF.dexcomCGM.describe()["top"]
+                            nTypesCGM = catDF.dexcomCGM.describe()["unique"]
+                            cgmRecordsPerDay["cgm.dexcomOnly"] = \
+                                (dexcomCGM & (nTypesCGM == 1))
+                            cgmRecordsPerDay["date"] = cgmRecordsPerDay.index
+
+                            # filter the cgm data
+    #                        cgmColHeadings = commonColumnHeadings.copy()
+                            cgmColHeadings = ["utcTime", "timezone", "roundedTime", "value"]
+
+                            # get data in mg/dL units
+                            cgm = cgmData[cgmColHeadings]
+                            cgm = cgm.rename(columns={'value': 'mmol_L'})
+                            cgm["mg_dL"] = mmolL_to_mgdL(cgm["mmol_L"]).astype(int)
+
+
+                            # %% NUMBER OF DAYS OF PUMP AND CGM DATA, OVERALL AND PER EACH AGE & YLW
+
+                            # COMBINE DAY SUMMARIES
+                            # group by date (day) and get stats
+                            catDF = data.groupby(data["day"])
+                            dataPerDay = \
+                                pd.DataFrame(catDF.hashID.describe()["top"]). \
+                                rename(columns={"top": "hashID"})
+                            dataPerDay["age"] = catDF.age.mean()
+                            dataPerDay["ylw"] = catDF.ylw.mean()
+                            dataPerDay["timezone"] = catDF.timezone.describe()["top"]
+
+                            # calculate all of the data start and end range
+                            # this can be used for looking at settings
+                            dayBeginDate = min(cgmBeginDate, bolusBeginDate, basalBeginDate)
+                            dayEndDate = max(cgmEndDate, bolusEndDate, basalEndDate)
+                            metadata["day.beginDate"] = dayBeginDate
+                            metadata["day.endDate"] = dayEndDate
+                            rng = pd.date_range(dayBeginDate, dayEndDate).date
+                            dayData = pd.DataFrame(rng, columns=["day"])
+                            for dfType in [dataPerDay, basalDaySummary, bolusDaySummary, cgmRecordsPerDay]:
+                                dayData = pd.merge(dayData, dfType.reset_index(), on="day", how="left")
+                            for dfType in [isClosedLoopDay, is670g]:
+                                dayData = pd.merge(dayData, dfType, on="day", how="left")
+
+                            dayData["validPumpData"] = dayData["numberOfNormalBoluses"] > 3
+                            dayData["validCGMData"] = dayData["cgm.count"] > (288*.75)
+
+                            dayData["timezone"].fillna(method='ffill', inplace=True)
+                            dayData["timezone"].fillna(method='bfill', inplace=True)
+
+                            dayData["isDSTChangeDay"] = dayData[['day', 'timezone']].apply(lambda x: isDSTChangeDay(*x), axis=1)
+                            dayData["date"] = pd.to_datetime(dayData["day"])
+                            dayData["tzo"] = dayData[['date', 'timezone']].apply(lambda x: getTimezoneOffset(*x), axis=1)
+
+                            # add settings to the dayData
+                            dayData = pd.merge(dayData, isfDaySummary, on="day", how="left")
+                            dayData = pd.merge(dayData, cirDaySummary, on="day", how="left")
+                            dayData = pd.merge(dayData, ctDaySummary, on="day", how="left")
+                            dayData = pd.merge(dayData, sbrDaySummary, on="day", how="left")
+
+                            # fill data forward
+                            fillList = ['isf.min',
+                                        'isf.weightedMean',
+                                        'isf.max',
+                                        'cir.min',
+                                        'cir.weightedMean',
+                                        'cir.max',
+                                        'ct.low.min', 'ct.low.weightedMean', 'ct.low.max',
+                                        'ct.high.min', 'ct.high.weightedMean', 'ct.high.max',
+                                        'ct.target.min', 'ct.target.weightedMean', 'ct.target.max',
+                                        'ct.range.min', 'ct.range.weightedMean', 'ct.range.max',
+                                        'sbr.min',
+                                        'sbr.weightedMean',
+                                        'sbr.max',
+                                        'sbr.type']
+                            for fl in fillList:
+                                dayData[fl].fillna(method='ffill', inplace=True)
+
+                            # calculate the start and end of contiguous data
+                            # these dates can be used when simulating and predicting, where
+                            # you need both pump and cgm data
+                            contiguousBeginDate = max(cgmBeginDate, bolusBeginDate, basalBeginDate)
+                            contiguousEndDate = min(cgmEndDate, bolusEndDate, basalEndDate)
+                            metadata["contiguous.beginDate"] = contiguousBeginDate
+                            metadata["contiguous.endDate"] = contiguousEndDate
+
+                            # get a summary by age, and ylw
+                            catDF = dayData.groupby("age")
+                            ageSummary = pd.DataFrame(catDF.validPumpData.sum())
+                            ageSummary.rename(columns={"validPumpData": "nDaysValidPump"}, inplace=True)
+                            ageSummary["nDaysValidCgm"] = pd.DataFrame(catDF.validCGMData.sum())
+                            ageSummary["nDaysClosedLoop"] = pd.DataFrame(catDF["basal.closedLoopDays"].sum())
+                            ageSummary["n670gDays"] = pd.DataFrame(catDF["670g"].sum())
+
+                            # add in isf stats
+                            ageSummary["isf.nDays"] = catDF["isf.min"].count()
+                            ageSummary["isf.min"] = catDF["isf.min"].min()
+                            ageSummary["isf.weightedMean"] = catDF["isf.weightedMean"].sum() / catDF["isf.weightedMean"].count()
+                            ageSummary["isf.max"] = catDF["isf.max"].max()
+
+                            # add cir stats
+                            ageSummary["cir.nDays"] = catDF["cir.min"].count()
+                            ageSummary["cir.min"] = catDF["cir.min"].min()
+                            ageSummary["cir.weightedMean"] = catDF["cir.weightedMean"].sum() / catDF["cir.weightedMean"].count()
+                            ageSummary["cir.max"] = catDF["cir.max"].max()
+
+                            # add sbr stats
+                            ageSummary["sbr.nDays"] = catDF["sbr.min"].count()
+                            ageSummary["sbr.min"] = catDF["sbr.min"].min()
+                            ageSummary["sbr.weightedMean"] = catDF["sbr.weightedMean"].sum() / catDF["sbr.weightedMean"].count()
+                            ageSummary["sbr.max"] = catDF["sbr.max"].max()
+                            ageSummary["sbr.nAutoMode"] = catDF["sbr.type"].count()
+
+                            # correctionTarget stats
+                            for targetType in ["ct.low", "ct.high", "ct.target", "ct.range"]:
+                                for stat in [".min", ".weightedMean", ".max"]:
+                                    ch = targetType + stat
+                                    ageSummary[ch + ".nDays"] = catDF[ch].count()
+                                    ageSummary[ch + ".min"] = catDF[ch].min()
+                                    ageSummary[ch + ".weightedMean"] = catDF[ch].sum() / catDF[ch].count()
+                                    ageSummary[ch + ".max"] = catDF[ch].max()
+
+                            ageSummary.reset_index(inplace=True)
+
+                            analysisCriterion = ageSummary[((ageSummary["nDaysValidPump"]> 28) &
+                                                            (ageSummary["nDaysValidCgm"]> 28))]
+                            minAge = analysisCriterion["age"].min()
+                            maxAge = analysisCriterion["age"].max()
+                            nDaysClosedLoop = analysisCriterion["nDaysClosedLoop"].sum()
+                            n670gDays = analysisCriterion["n670gDays"].sum()
+                            metadata["minAge"] = minAge
+                            metadata["maxAge"] = maxAge
+                            metadata["nDaysClosedLoop"] = nDaysClosedLoop
+                            metadata["n670gDays"] = n670gDays
+
+                            catDF = dayData.groupby("ylw")
+                            ylwSummary = pd.DataFrame(catDF.validPumpData.sum())
+                            ylwSummary.rename(columns={"validPumpData": "nDaysValidPump"}, inplace=True)
+                            ylwSummary["nDaysValidCgm"] = pd.DataFrame(catDF.validCGMData.sum())
+                            ylwSummary["nDaysClosedLoop"] = pd.DataFrame(catDF["basal.closedLoopDays"].sum())
+                            ylwSummary["n670gDays"] = pd.DataFrame(catDF["670g"].sum())
+
+                            ylwSummary["isf.nDays"] = catDF["isf.min"].count()
+                            ylwSummary["isf.min"] = catDF["isf.min"].min()
+                            ylwSummary["isf.weightedMean"] = catDF["isf.weightedMean"].sum() / catDF["isf.weightedMean"].count()
+                            ylwSummary["isf.max"] = catDF["isf.max"].max()
+
+                            # add cir stats
+                            ylwSummary["cir.nDays"] = catDF["cir.min"].count()
+                            ylwSummary["cir.min"] = catDF["cir.min"].min()
+                            ylwSummary["cir.weightedMean"] = catDF["cir.weightedMean"].sum() / catDF["cir.weightedMean"].count()
+                            ylwSummary["cir.max"] = catDF["cir.max"].max()
+
+                            # add sbr stats
+                            ylwSummary["sbr.nDays"] = catDF["sbr.min"].count()
+                            ylwSummary["sbr.min"] = catDF["sbr.min"].min()
+                            ylwSummary["sbr.weightedMean"] = catDF["sbr.weightedMean"].sum() / catDF["sbr.weightedMean"].count()
+                            ylwSummary["sbr.max"] = catDF["sbr.max"].max()
+                            ylwSummary["sbr.nAutoMode"] = catDF["sbr.type"].count()
+
+                            # correctionTarget stats
+                            for targetType in ["ct.low", "ct.high", "ct.target", "ct.range"]:
+                                for stat in [".min", ".weightedMean", ".max"]:
+                                    ch = targetType + stat
+                                    ylwSummary[ch + ".nDays"] = catDF[ch].count()
+                                    ylwSummary[ch + ".min"] = catDF[ch].min()
+                                    ylwSummary[ch + ".weightedMean"] = catDF[ch].sum() / catDF[ch].count()
+                                    ylwSummary[ch + ".max"] = catDF[ch].max()
+
+                            ylwSummary.reset_index(inplace=True)
+
+                            analysisCriterion = ylwSummary[((ylwSummary["nDaysValidPump"]> 28) &
+                                                            (ylwSummary["nDaysValidCgm"]> 28))]
+                            minYLW = analysisCriterion["ylw"].min()
+                            maxYLW = analysisCriterion["ylw"].max()
+                            metadata["minYLW"] = minYLW
+                            metadata["maxYLW"] = maxYLW
+
+
+                            # %% calculate local time
+                            abr["date"] = pd.to_datetime(abr["utcTime"].dt.date)
+                            abr = pd.merge(abr, dayData[["date", "tzo", "isDSTChangeDay"]], how="left", on="date")
+                            abr["localTime"] = abr["utcTime"] + pd.to_timedelta(abr["tzo"], unit="m")
+
+                            cgm["date"] = pd.to_datetime(cgm["utcTime"].dt.date)
+                            cgm = pd.merge(cgm, dayData[["date", "tzo", "isDSTChangeDay"]], how="left", on="date")
+                            cgm["localTime"] = cgm["utcTime"] + pd.to_timedelta(cgm["tzo"], unit="m")
+
+                            bolusEvents["date"] = pd.to_datetime(bolusEvents["utcTime"].dt.date)
+                            bolusEvents = pd.merge(bolusEvents, dayData[["date", "tzo", "isDSTChangeDay"]], how="left", on="date")
+                            bolusEvents["localTime"] = bolusEvents["utcTime"] + pd.to_timedelta(bolusEvents["tzo"], unit="m")
+
+
+                            # %% STATS PER EACH TYPE, OVERALL AND PER EACH AGE & YLW (MIN, PERCENTILES, MAX, MEAN, SD, IQR, COV)
+                            # all settings
+
+                            allSettings = pd.merge(isf.rename(columns={"isf.localTime": "localTime"}),
+                                                   cir.rename(columns={"cir.localTime": "localTime"}),
+                                                   how="outer", on="localTime")
+                            allSettings = pd.merge(allSettings,
+                                                   sbr.rename(columns={"rate": "sbr",
+                                                                       "type": "sbr.type",
+                                                                       "sbr.localTime": "localTime"}),
+                                                   how="outer", on="localTime")
+                            allSettings = pd.merge(allSettings,
+                                                   correctionTarget.rename(columns={"ct.localTime": "localTime"}),
+                                                   how="outer", on="localTime")
+                            allSettings["hashID"] = hashID
+                            allSettings["age"] = np.floor((allSettings["localTime"] - bDate).dt.days/365.25).astype(int)
+                            allSettings["ylw"] = np.floor((allSettings["localTime"] - dDate).dt.days/365.25).astype(int)
+                            allSettings = round_time(allSettings, timeIntervalMinutes=5,
+                                                     timeField="localTime",
+                                                     roundedTimeFieldName="localRoundedTime",
+                                                     startWithFirstRecord=True, verbose=False)
+
+                            colOrder = ["hashID", "age", "ylw", "localTime", "localRoundedTime",
+                                        "isf", "cir", "sbr",
+                                        "ct.low", "ct.high", "ct.target", "ct.range",
+                                        "sbr.type", "isf_mmolL_U"]
+                            allSettings = allSettings[colOrder]
+
+
+                            fieldsToDrop = ["utcTime", "timezone", "roundedTime", "date", "tzo", "isDSTChangeDay"]
+                            pumpEvents = pd.merge(abr.drop(columns=fieldsToDrop),
+                                                  bolusEvents.drop(columns=fieldsToDrop),
+                                                  how="outer", on="localTime")
+                            pumpEvents["type"].fillna("bolus", inplace=True)
+                            pumpEvents["eventType"].fillna("basal", inplace=True)
+                            pumpEvents["hashID"] = hashID
+                            pumpEvents["age"] = np.floor((pumpEvents["localTime"] - bDate).dt.days/365.25).astype(int)
+                            pumpEvents["ylw"] = np.floor((pumpEvents["localTime"] - dDate).dt.days/365.25).astype(int)
+                            pumpEvents = round_time(pumpEvents, timeIntervalMinutes=5,
+                                                    timeField="localTime",
+                                                    roundedTimeFieldName="localRoundedTime",
+                                                    startWithFirstRecord=True, verbose=False)
+
+
+                            colOrder = ["hashID", "age", "ylw", "localTime", "localRoundedTime",
+                                        "rate", "durationHours",
+                                        "unitsInsulin", "carbInput", "type", "eventType", "subType",
+                                        "isf", "isf_mmolL_U", "insulinCarbRatio", "insulinOnBoard",
+                                        "bg_mgdL", "bg_mmolL"]
+
+                            pumpEvents = pumpEvents[colOrder]
+
+                            cgmLite = cgm.drop(columns=fieldsToDrop)
+                            cgmLite["hashID"] = hashID
+                            cgmLite["age"] = np.floor((cgmLite["localTime"] - bDate).dt.days/365.25).astype(int)
+                            cgmLite["ylw"] = np.floor((cgmLite["localTime"] - dDate).dt.days/365.25).astype(int)
+                            cgmLite = round_time(cgmLite, timeIntervalMinutes=5,
                                                  timeField="localTime",
                                                  roundedTimeFieldName="localRoundedTime",
                                                  startWithFirstRecord=True, verbose=False)
 
-                        colOrder = ["hashID", "age", "ylw", "localTime", "localRoundedTime",
-                                    "isf", "cir", "sbr",
-                                    "ct.low", "ct.high", "ct.target", "ct.range",
-                                    "sbr.type", "isf_mmolL_U"]
-                        allSettings = allSettings[colOrder]
+                            colOrder = ["hashID", "age", "ylw", "localTime", "localRoundedTime",
+                                        "mg_dL", "mmol_L"]
+
+                            cgmLite = cgmLite[colOrder]
 
 
-                        fieldsToDrop = ["utcTime", "timezone", "roundedTime", "date", "tzo", "isDSTChangeDay"]
-                        pumpEvents = pd.merge(abr.drop(columns=fieldsToDrop),
-                                              bolusEvents.drop(columns=fieldsToDrop),
-                                              how="outer", on="localTime")
-                        pumpEvents["type"].fillna("bolus", inplace=True)
-                        pumpEvents["eventType"].fillna("basal", inplace=True)
-                        pumpEvents["hashID"] = hashID
-                        pumpEvents["age"] = np.floor((pumpEvents["localTime"] - bDate).dt.days/365.25).astype(int)
-                        pumpEvents["ylw"] = np.floor((pumpEvents["localTime"] - dDate).dt.days/365.25).astype(int)
-                        pumpEvents = round_time(pumpEvents, timeIntervalMinutes=5,
-                                                timeField="localTime",
-                                                roundedTimeFieldName="localRoundedTime",
-                                                startWithFirstRecord=True, verbose=False)
+                            # %% SAVE RESULTS
 
+                            # age and ylw stats
+                            pumpEvents["rateTimesDurationHours"] = pumpEvents["rate"] * pumpEvents["durationHours"]
+                            pumpEvents.rename(columns={"rate":"basalRate"}, inplace=True)
+                            catDF = pumpEvents.groupby("age")
 
-                        colOrder = ["hashID", "age", "ylw", "localTime", "localRoundedTime",
-                                    "rate", "durationHours",
-                                    "unitsInsulin", "carbInput", "type", "eventType", "subType",
-                                    "isf", "isf_mmolL_U", "insulinCarbRatio", "insulinOnBoard",
-                                    "bg_mgdL", "bg_mmolL"]
+                            # actual basal rates
+                            agePump = pd.DataFrame(catDF["basalRate"].count()).add_suffix(".count")
+                            agePump["basalRate.min"] = catDF["basalRate"].min()
+                            agePump["basalRate.weightedMean"] = catDF["rateTimesDurationHours"].sum() / catDF["durationHours"].sum()
+                            agePump["basalRate.max"] = catDF["basalRate"].max()
 
-                        pumpEvents = pumpEvents[colOrder]
+                            # insulin events
+                            insulinEvents = catDF["unitsInsulin"].describe().add_prefix("insulin.")
+                            agePump = pd.concat([agePump, insulinEvents], axis=1)
 
-                        cgmLite = cgm.drop(columns=fieldsToDrop)
-                        cgmLite["hashID"] = hashID
-                        cgmLite["age"] = np.floor((cgmLite["localTime"] - bDate).dt.days/365.25).astype(int)
-                        cgmLite["ylw"] = np.floor((cgmLite["localTime"] - dDate).dt.days/365.25).astype(int)
-                        cgmLite = round_time(cgmLite, timeIntervalMinutes=5,
-                                             timeField="localTime",
-                                             roundedTimeFieldName="localRoundedTime",
-                                             startWithFirstRecord=True, verbose=False)
+                            # carbs entered in bolus calculator
+                            carbEvents = catDF["carbInput"].describe().add_prefix("carb.")
+                            agePump = pd.concat([agePump, carbEvents], axis=1)
 
-                        colOrder = ["hashID", "age", "ylw", "localTime", "localRoundedTime",
-                                    "mg_dL", "mmol_L"]
+                            # very low level cgm stats per age
+                            catDF = cgmLite.groupby("age")
+                            cgmStats = catDF["mg_dL"].describe().add_prefix("cgm.")
+                            agePumpCgm = pd.concat([agePump, cgmStats], axis=1)
 
-                        cgmLite = cgmLite[colOrder]
+                            agePumpCgm.reset_index(inplace=True)
 
+                            ageSummary = pd.merge(ageSummary, agePumpCgm, on="age", how="left")
+                            ageSummary["hashID"] = hashID
+                            allAgeSummaries = pd.concat([allAgeSummaries, ageSummary], ignore_index=True)
 
-                        # %% SAVE RESULTS
+                            allAgeSummaries.to_csv(os.path.join(outputPath,
+                                "allAgeSummaries-dIndex-" + str(startIndex) + "-" + str(dIndex) + ".csv"))
 
-                        # age and ylw stats
-                        pumpEvents["rateTimesDurationHours"] = pumpEvents["rate"] * pumpEvents["durationHours"]
-                        pumpEvents.rename(columns={"rate":"basalRate"}, inplace=True)
-                        catDF = pumpEvents.groupby("age")
+                            # repoeat for years living with
+                            catDF = pumpEvents.groupby("ylw")
+                            # actual basal rates
+                            ylwPump = pd.DataFrame(catDF["basalRate"].count()).add_suffix(".count")
+                            ylwPump["basalRate.min"] = catDF["basalRate"].min()
+                            ylwPump["basalRate.weightedMean"] = catDF["rateTimesDurationHours"].sum() / catDF["durationHours"].sum()
+                            ylwPump["basalRate.max"] = catDF["basalRate"].max()
 
-                        # actual basal rates
-                        agePump = pd.DataFrame(catDF["basalRate"].count()).add_suffix(".count")
-                        agePump["basalRate.min"] = catDF["basalRate"].min()
-                        agePump["basalRate.weightedMean"] = catDF["rateTimesDurationHours"].sum() / catDF["durationHours"].sum()
-                        agePump["basalRate.max"] = catDF["basalRate"].max()
+                            # insulin events
+                            insulinEvents = catDF["unitsInsulin"].describe().add_prefix("insulin.")
+                            ylwPump = pd.concat([ylwPump, insulinEvents], axis=1)
 
-                        # insulin events
-                        insulinEvents = catDF["unitsInsulin"].describe().add_prefix("insulin.")
-                        agePump = pd.concat([agePump, insulinEvents], axis=1)
+                            # carbs entered in bolus calculator
+                            carbEvents = catDF["carbInput"].describe().add_prefix("carb.")
+                            ylwPump = pd.concat([ylwPump, carbEvents], axis=1)
 
-                        # carbs entered in bolus calculator
-                        carbEvents = catDF["carbInput"].describe().add_prefix("carb.")
-                        agePump = pd.concat([agePump, carbEvents], axis=1)
+                            # very low level cgm stats per age
+                            catDF = cgmLite.groupby("ylw")
+                            cgmStats = catDF["mg_dL"].describe().add_prefix("cgm.")
+                            ylwPumpCgm = pd.concat([ylwPump, cgmStats], axis=1)
 
-                        # very low level cgm stats per age
-                        catDF = cgmLite.groupby("age")
-                        cgmStats = catDF["mg_dL"].describe().add_prefix("cgm.")
-                        agePumpCgm = pd.concat([agePump, cgmStats], axis=1)
+                            ylwPumpCgm.reset_index(inplace=True)
 
-                        agePumpCgm.reset_index(inplace=True)
+                            ylwSummary = pd.merge(ylwSummary, ylwPumpCgm, on="ylw", how="left")
 
-                        ageSummary = pd.merge(ageSummary, agePumpCgm, on="age", how="left")
-                        ageSummary["hashID"] = hashID
-                        allAgeSummaries = pd.concat([allAgeSummaries, ageSummary], ignore_index=True)
+                            ylwSummary["hashID"] = hashID
+                            allYlwSummaries = pd.concat([allYlwSummaries, ylwSummary], ignore_index=True)
 
-                        allAgeSummaries.to_csv(os.path.join(outputPath,
-                            "allAgeSummaries-dIndex-" + str(startIndex) + "-" + str(dIndex) + ".csv"))
+                            allYlwSummaries.to_csv(os.path.join(outputPath,
+                                "allYlwSummaries-dIndex-" + str(startIndex) + "-" + str(dIndex) + ".csv"))
 
-                        # repoeat for years living with
-                        catDF = pumpEvents.groupby("ylw")
-                        # actual basal rates
-                        ylwPump = pd.DataFrame(catDF["basalRate"].count()).add_suffix(".count")
-                        ylwPump["basalRate.min"] = catDF["basalRate"].min()
-                        ylwPump["basalRate.weightedMean"] = catDF["rateTimesDurationHours"].sum() / catDF["durationHours"].sum()
-                        ylwPump["basalRate.max"] = catDF["basalRate"].max()
-
-                        # insulin events
-                        insulinEvents = catDF["unitsInsulin"].describe().add_prefix("insulin.")
-                        ylwPump = pd.concat([ylwPump, insulinEvents], axis=1)
-
-                        # carbs entered in bolus calculator
-                        carbEvents = catDF["carbInput"].describe().add_prefix("carb.")
-                        ylwPump = pd.concat([ylwPump, carbEvents], axis=1)
-
-                        # very low level cgm stats per age
-                        catDF = cgmLite.groupby("ylw")
-                        cgmStats = catDF["mg_dL"].describe().add_prefix("cgm.")
-                        ylwPumpCgm = pd.concat([ylwPump, cgmStats], axis=1)
-
-                        ylwPumpCgm.reset_index(inplace=True)
-
-                        ylwSummary = pd.merge(ylwSummary, ylwPumpCgm, on="ylw", how="left")
-
-                        ylwSummary["hashID"] = hashID
-                        allYlwSummaries = pd.concat([allYlwSummaries, ylwSummary], ignore_index=True)
-
-                        allYlwSummaries.to_csv(os.path.join(outputPath,
-                            "allYlwSummaries-dIndex-" + str(startIndex) + "-" + str(dIndex) + ".csv"))
-
-                         # %% save data for this person
-#                        outputString = "age-%s-%s-ylw-%s-%s-lp-%s-670g-%s-id-%s"
-#                        outputFormat = (f"{minAge:02d}",
-#                                        f"{maxAge:02d}",
-#                                        f"{minYLW:02d}",
-#                                        f"{maxYLW:02d}",
-#                                        f"{nDaysClosedLoop:03d}",
-#                                        f"{n670gDays:03d}",
-#                                        hashID[0:4])
-#                        outputFolderName = outputString % outputFormat
-#                        outputFolderName_Path = os.path.join(outputPath,"data", outputFolderName)
-#                        if not os.path.exists(outputFolderName_Path):
-#                            os.makedirs(outputFolderName_Path)
-#
-#                        fName = outputFolderName + "-allSettings.csv"
-#                        allSettings.to_csv(os.path.join(outputFolderName_Path, fName))
-#                        fName = outputFolderName + "-pumpEvents.csv"
-#                        pumpEvents.to_csv(os.path.join(outputFolderName_Path, fName))
-#                        fName = outputFolderName + "-cgmLite.csv"
-#                        cgmLite.to_csv(os.path.join(outputFolderName_Path, fName))
+                             # %% save data for this person
+    #                        outputString = "age-%s-%s-ylw-%s-%s-lp-%s-670g-%s-id-%s"
+    #                        outputFormat = (f"{minAge:02d}",
+    #                                        f"{maxAge:02d}",
+    #                                        f"{minYLW:02d}",
+    #                                        f"{maxYLW:02d}",
+    #                                        f"{nDaysClosedLoop:03d}",
+    #                                        f"{n670gDays:03d}",
+    #                                        hashID[0:4])
+    #                        outputFolderName = outputString % outputFormat
+    #                        outputFolderName_Path = os.path.join(outputPath,"data", outputFolderName)
+    #                        if not os.path.exists(outputFolderName_Path):
+    #                            os.makedirs(outputFolderName_Path)
+    #
+    #                        fName = outputFolderName + "-allSettings.csv"
+    #                        allSettings.to_csv(os.path.join(outputFolderName_Path, fName))
+    #                        fName = outputFolderName + "-pumpEvents.csv"
+    #                        pumpEvents.to_csv(os.path.join(outputFolderName_Path, fName))
+    #                        fName = outputFolderName + "-cgmLite.csv"
+    #                        cgmLite.to_csv(os.path.join(outputFolderName_Path, fName))
 
 
 
-                        # %% save the processed data (saving this data will take up a lot of space and time)
-                        #data.to_csv(os.path.join(processedDataPath, "allDataCleaned-PHI-" + userID + ".csv"))
-                        #basal.to_csv(os.path.join(processedDataPath, "basal-PHI-" + userID + ".csv"))
-                        #bolus.to_csv(os.path.join(processedDataPath, "bolus-PHI-" + userID + ".csv"))
-                        #cgmData.to_csv(os.path.join(processedDataPath, "cgm-PHI-" + userID + ".csv"))
-                        #pumpSettings.to_csv(os.path.join(processedDataPath, "pumpSettings-PHI-" + userID + ".csv"))
+                            # %% save the processed data (saving this data will take up a lot of space and time)
+                            #data.to_csv(os.path.join(processedDataPath, "allDataCleaned-PHI-" + userID + ".csv"))
+                            #basal.to_csv(os.path.join(processedDataPath, "basal-PHI-" + userID + ".csv"))
+                            #bolus.to_csv(os.path.join(processedDataPath, "bolus-PHI-" + userID + ".csv"))
+                            #cgmData.to_csv(os.path.join(processedDataPath, "cgm-PHI-" + userID + ".csv"))
+                            #pumpSettings.to_csv(os.path.join(processedDataPath, "pumpSettings-PHI-" + userID + ".csv"))
 
+                        else:
+                            metadata["flags"] = "no bolus wizard data"
                     else:
-                        metadata["flags"] = "no bolus wizard data"
+                        metadata["flags"] = "missing either pump or cgm  data"
                 else:
-                    metadata["flags"] = "missing either pump or cgm  data"
+                    metadata["flags"] = "file contains no data"
             else:
-                metadata["flags"] = "file contains no data"
+                metadata["flags"] = "file does not exist"
         else:
-            metadata["flags"] = "file does not exist"
-    else:
-        metadata["flags"] = "missing bDay/dDay"
+            metadata["flags"] = "missing bDay/dDay"
+
+    except:
+        print("something is broke dIndex=", dIndex)
+        metadata["flags"] = "something is broke"
+
 
     # write metaData to allMetadata
     allMetadata = pd.concat([allMetadata, metadata], axis=0, sort=True)
