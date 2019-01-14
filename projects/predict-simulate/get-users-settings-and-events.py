@@ -441,6 +441,10 @@ def getTzoForDateTime(utcTime, currentTimezone):
 
 def getTimezoneOffset(currentDate, currentTimezone):
 
+    # edge case for 'US/Pacific-New'
+    if currentTimezone in 'US/Pacific-New':
+        currentTimezone = 'US/Pacific'
+
     tz = timezone(currentTimezone)
     # here we add 1 day to the current date to account for changes to/from DST
     tzoNum = int(tz.localize(currentDate + timedelta(days=1)).strftime("%z"))
