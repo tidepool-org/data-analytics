@@ -729,7 +729,6 @@ for dIndex in range(0, len(donors)):
                         pumpSettings.reset_index(drop=True, inplace=True)
 
                         # ISF
-#                        isfColHeadings = commonColumnHeadings.copy()
                         isfColHeadings = ["isf.localTime", "isf", "isf_mmolL_U"]
 
                         if "insulinSensitivity.amount" in list(pumpSettings):
@@ -785,7 +784,6 @@ for dIndex in range(0, len(donors)):
                             isfDaySummary.fillna(method='ffill', inplace=True)
 
                         # CIR
-#                        cirColHeadings = commonColumnHeadings.copy()
                         cirColHeadings = ["cir.localTime", "cir"]
 
                         if "carbRatio.amount" in list(pumpSettings):
@@ -841,8 +839,12 @@ for dIndex in range(0, len(donors)):
 
 
                         # CORRECTION TARGET
-#                        ctColHeadings = commonColumnHeadings.copy()
                         ctColHeadings = ["ct.localTime", "ct.low", "ct.high", "ct.target", "ct.range"]
+                        ctDayColHeadings = ['day',
+                                            "ct.low.min", "ct.low.weightedMean", "ct.low.max",
+                                            "ct.high.min", "ct.high.weightedMean", "ct.high.max",
+                                            "ct.target.min", "ct.target.weightedMean", "ct.target.max",
+                                            "ct.range.min", "ct.range.weightedMean", "ct.range.max"]
 
                         if "bgTarget.start" in list(pumpSettings):
                             ctColHead = "bgTarget."
@@ -864,43 +866,63 @@ for dIndex in range(0, len(donors)):
                             correctionTarget = pumpSettings.loc[pumpSettings["bgTarget.start"].notnull(), ctColHeadings]
 
                             # add a day summary
-                            ctDaySummary = correctionTarget.copy()
-                            ctDaySummary["day"] = ctDaySummary["ct.localTime"].dt.date
-                            ctDaySummary.drop(columns=["ct.localTime"], inplace=True)
+                            ctDaySummary = pd.DataFrame(columns=ctDayColHeadings)
+                            ctDaySummary["day"] = correctionTarget["ct.localTime"].dt.date
+                            # add min, weightedMean, and max
+                            for targetType in ["ct.low", "ct.high", "ct.target", "ct.range"]:
+                                for stat in [".min", ".weightedMean", ".max"]:
+                                    ctDaySummary[targetType + stat] = correctionTarget[targetType]
+
+
                             ctDaySummary = pd.concat([ctDaySummary, dataPulledDF], sort=False)
                             ctDaySummary.reset_index(inplace=True, drop=True)
                             ctDaySummary.fillna(method='ffill', inplace=True)
 
                         else:
-
                             ctColHead = "bgTargets"
                             correctionTarget = pd.DataFrame(columns=ctColHeadings)
+
+                            ctDaySummary = pd.DataFrame(columns=ctDayColHeadings)
                             for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
                                 # edge case where actSchedule is float
                                 if isinstance(actSched, float):
                                     actSched = str(int(actSched))
+
                                 tempDF = pd.DataFrame(pumpSettings.loc[p, ctColHead + "." + actSched])
+                                targetTypes = list(set(list(tempDF)) - set(["start"]))
                                 tempDF["day"] = pumpSettings.loc[p, "day"]
                                 tempDF["ct.localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
-                                tempDF["hashID"] = pumpSettings.loc[p, "hashID"]
-                                tempDF["age"] = pumpSettings.loc[p, "age"]
-                                tempDF["ylw"] = pumpSettings.loc[p, "ylw"]
-                                for targetType in ["low", "high", "target", "range"]:
-                                    if targetType in list(tempDF):
-                                        tempDF["ct." + targetType + "_mmolL"] = \
-                                            tempDF[targetType]
+                                endOfDay = pd.DataFrame(pd.to_datetime(pumpSettings.loc[p, "day"] + pd.Timedelta(1, "D")), columns=["ct.localTime"], index=[0])
+                                tempDF = get_setting_durations(tempDF, "ct", endOfDay)
+                                tempDF = tempDF[:-1]
 
-                                        tempDF["ct." + targetType] = \
-                                            mmolL_to_mgdL(tempDF["ct." + targetType + "_mmolL"])
-                                    else:
-                                        tempDF["ct." + targetType + "_mmolL"] = np.nan
-                                        tempDF["ct." + targetType]  = np.nan
+                                tempDaySummary = pd.DataFrame(columns=ctDayColHeadings, index=[0])
+                                tempDaySummary["day"] = tempDF["ct.localTime"].dt.date
 
-                                correctionTarget = pd.concat([correctionTarget, tempDF[ctColHeadings]], ignore_index=True)
-                                pdb.set_trace()
+                                for targetType in targetTypes:
+                                    tempDF["ct." + targetType] = mmolL_to_mgdL(tempDF[targetType])
+
+                                    tempDaySummary["ct." + targetType + ".min"] = tempDF["ct." + targetType].min()
+                                    tempDaySummary["ct." + targetType + ".weightedMean"] = \
+                                        np.sum(tempDF["ct." + targetType] * tempDF["ct.durationHours"]) / tempDF["ct.durationHours"].sum()
+                                    tempDaySummary["ct." + targetType + ".max"] = tempDF["ct." + targetType].max()
+
+                                correctionTarget = \
+                                    pd.concat([correctionTarget,
+                                               tempDF.drop(columns=['start',
+                                                                    'target',
+                                                                    'day',
+                                                                    'ct.durationHours'])],
+                                               ignore_index=True, sort=False)
+                                ctDaySummary = pd.concat([ctDaySummary, tempDaySummary],
+                                                         ignore_index=True, sort=False)
+
+                            ctDaySummary = pd.concat([ctDaySummary, dataPulledDF], sort=False)
+                            ctDaySummary.fillna(method='ffill', inplace=True)
+                            ctDaySummary.drop_duplicates(inplace=True)
+                            ctDaySummary.reset_index(inplace=True, drop=True)
 
                         # SCHEDULED BASAL RATES
-#                        sbrColHeadings = commonColumnHeadings.copy()
                         sbrColHeadings = ["sbr.localTime", "rate", "sbr.type"]
                         sbr = pd.DataFrame(columns=sbrColHeadings)
                         sbrDayColHeadings = ['day', 'sbr.min', 'sbr.weightedMean', 'sbr.max', 'sbr.type']
@@ -1100,10 +1122,10 @@ for dIndex in range(0, len(donors)):
                                     'cir.min',
                                     'cir.weightedMean',
                                     'cir.max',
-                                    'ct.low',
-                                    'ct.high',
-                                    'ct.target',
-                                    'ct.range',
+                                    'ct.low.min', 'ct.low.weightedMean', 'ct.low.max',
+                                    'ct.high.min', 'ct.high.weightedMean', 'ct.high.max',
+                                    'ct.target.min', 'ct.target.weightedMean', 'ct.target.max',
+                                    'ct.range.min', 'ct.range.weightedMean', 'ct.range.max',
                                     'sbr.min',
                                     'sbr.weightedMean',
                                     'sbr.max',
@@ -1139,19 +1161,21 @@ for dIndex in range(0, len(donors)):
                         ageSummary["cir.weightedMean"] = catDF["cir.weightedMean"].sum() / catDF["cir.weightedMean"].count()
                         ageSummary["cir.max"] = catDF["cir.max"].max()
 
-                        # correctionTarget stats
-                        for ch in ['ct.low','ct.high','ct.target', 'ct.range']:
-                            ageSummary[ch + ".nDays"] = catDF[ch].count()
-                            ageSummary[ch + ".min"] = catDF[ch].min()
-                            ageSummary[ch + ".weightedMean"] = catDF[ch].sum() / catDF[ch].count()
-                            ageSummary[ch + ".max"] = catDF[ch].max()
-
                         # add sbr stats
                         ageSummary["sbr.nDays"] = catDF["sbr.min"].count()
                         ageSummary["sbr.min"] = catDF["sbr.min"].min()
                         ageSummary["sbr.weightedMean"] = catDF["sbr.weightedMean"].sum() / catDF["sbr.weightedMean"].count()
                         ageSummary["sbr.max"] = catDF["sbr.max"].max()
                         ageSummary["sbr.nAutoMode"] = catDF["sbr.type"].count()
+
+                        # correctionTarget stats
+                        for targetType in ["ct.low", "ct.high", "ct.target", "ct.range"]:
+                            for stat in [".min", ".weightedMean", ".max"]:
+                                ch = targetType + stat
+                                ageSummary[ch + ".nDays"] = catDF[ch].count()
+                                ageSummary[ch + ".min"] = catDF[ch].min()
+                                ageSummary[ch + ".weightedMean"] = catDF[ch].sum() / catDF[ch].count()
+                                ageSummary[ch + ".max"] = catDF[ch].max()
 
                         ageSummary.reset_index(inplace=True)
 
@@ -1184,19 +1208,21 @@ for dIndex in range(0, len(donors)):
                         ylwSummary["cir.weightedMean"] = catDF["cir.weightedMean"].sum() / catDF["cir.weightedMean"].count()
                         ylwSummary["cir.max"] = catDF["cir.max"].max()
 
-                        # correctionTarget stats
-                        for ch in ['ct.low','ct.high','ct.target', 'ct.range']:
-                            ylwSummary[ch + ".nDays"] = catDF[ch].count()
-                            ylwSummary[ch + ".min"] = catDF[ch].min()
-                            ylwSummary[ch + ".weightedMean"] = catDF[ch].sum() / catDF[ch].count()
-                            ylwSummary[ch + ".max"] = catDF[ch].max()
-
                         # add sbr stats
                         ylwSummary["sbr.nDays"] = catDF["sbr.min"].count()
                         ylwSummary["sbr.min"] = catDF["sbr.min"].min()
                         ylwSummary["sbr.weightedMean"] = catDF["sbr.weightedMean"].sum() / catDF["sbr.weightedMean"].count()
                         ylwSummary["sbr.max"] = catDF["sbr.max"].max()
                         ylwSummary["sbr.nAutoMode"] = catDF["sbr.type"].count()
+
+                        # correctionTarget stats
+                        for targetType in ["ct.low", "ct.high", "ct.target", "ct.range"]:
+                            for stat in [".min", ".weightedMean", ".max"]:
+                                ch = targetType + stat
+                                ylwSummary[ch + ".nDays"] = catDF[ch].count()
+                                ylwSummary[ch + ".min"] = catDF[ch].min()
+                                ylwSummary[ch + ".weightedMean"] = catDF[ch].sum() / catDF[ch].count()
+                                ylwSummary[ch + ".max"] = catDF[ch].max()
 
                         ylwSummary.reset_index(inplace=True)
 
@@ -1343,6 +1369,7 @@ for dIndex in range(0, len(donors)):
 
 # %% V2 DATA TO GRAB
 # ADD ROUNDEDLOCAL TIME TO THE END RESULTS
+# CALCULATE MMOL SUMMARIES
 # GET RID OF ROUNDING TIME AT THE BEGINNING
 # DEFINE A DAY BETWEEN 6AM AND 6AM
 # EXPAND THE CORRECTION TIME VALUES TO BE UNIFORM ACROSS ALL USERS AND DEVICES
