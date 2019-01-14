@@ -754,7 +754,8 @@ for dIndex in range(0, len(donors)):
                         else:
                             isfColHead = "insulinSensitivities"
                             isf = pd.DataFrame(columns=isfColHeadings)
-
+                            isfDayColHeadings = ['day', 'isf.min', 'isf.weightedMean', 'isf.max']
+                            isfDaySummary = pd.DataFrame(columns=isfDayColHeadings)
                             for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
                                 # edge case where actSchedule is float
                                 if isinstance(actSched, float):
@@ -763,13 +764,25 @@ for dIndex in range(0, len(donors)):
                                 tempDF = pd.DataFrame(pumpSettings.loc[p, isfColHead + "." + actSched])
                                 tempDF["day"] = pumpSettings.loc[p, "day"]
                                 tempDF["isf.localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
-                                tempDF["hashID"] = pumpSettings.loc[p, "hashID"]
-                                tempDF["age"] = pumpSettings.loc[p, "age"]
-                                tempDF["ylw"] = pumpSettings.loc[p, "ylw"]
                                 tempDF["isf_mmolL_U"] = tempDF["amount"]
                                 tempDF["isf"] = mmolL_to_mgdL(tempDF["isf_mmolL_U"])
+                                endOfDay = pd.DataFrame(pd.to_datetime(pumpSettings.loc[p, "day"] + pd.Timedelta(1, "D")), columns=["isf.localTime"], index=[0])
+                                tempDF = get_setting_durations(tempDF, "isf", endOfDay)
+                                tempDF = tempDF[:-1]
+
+                                tempDaySummary = pd.DataFrame(index=[0])
+                                tempDaySummary["day"] = tempDF["isf.localTime"].dt.date
+                                tempDaySummary["isf.min"] = tempDF["isf"].min()
+                                tempDaySummary["isf.weightedMean"] = \
+                                    np.sum(tempDF["isf"] * tempDF["isf.durationHours"]) / tempDF["isf.durationHours"].sum()
+                                tempDaySummary["isf.max"] = tempDF["isf"].max()
+
                                 isf = pd.concat([isf, tempDF[isfColHeadings]], ignore_index=True)
-                                pdb.set_trace()
+                                isfDaySummary = pd.concat([isfDaySummary, tempDaySummary], ignore_index=True)
+
+                            isfDaySummary = pd.concat([isfDaySummary, dataPulledDF], sort=False)
+                            isfDaySummary.reset_index(inplace=True, drop=True)
+                            isfDaySummary.fillna(method='ffill', inplace=True)
 
                         # CIR
 #                        cirColHeadings = commonColumnHeadings.copy()
@@ -797,19 +810,34 @@ for dIndex in range(0, len(donors)):
 
                             cirColHead = "carbRatios"
                             cir = pd.DataFrame(columns=cirColHeadings)
+                            cirDayColHeadings = ['day', 'cir.min', 'cir.weightedMean', 'cir.max']
+                            cirDaySummary = pd.DataFrame(columns=cirDayColHeadings)
                             for p, actSched in zip(pumpSettings.index, pumpSettings["activeSchedule"]):
                                 # edge case where actSchedule is float
                                 if isinstance(actSched, float):
                                     actSched = str(int(actSched))
+
                                 tempDF = pd.DataFrame(pumpSettings.loc[p, cirColHead + "." + actSched])
                                 tempDF["day"] = pumpSettings.loc[p, "day"]
                                 tempDF["cir.localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
-                                tempDF["hashID"] = pumpSettings.loc[p, "hashID"]
-                                tempDF["age"] = pumpSettings.loc[p, "age"]
-                                tempDF["ylw"] = pumpSettings.loc[p, "ylw"]
-                                tempDF["cir"] = tempDF["amount"].astype(float)
+                                tempDF["cir"] = tempDF["amount"]
+                                endOfDay = pd.DataFrame(pd.to_datetime(pumpSettings.loc[p, "day"] + pd.Timedelta(1, "D")), columns=["cir.localTime"], index=[0])
+                                tempDF = get_setting_durations(tempDF, "cir", endOfDay)
+                                tempDF = tempDF[:-1]
+
+                                tempDaySummary = pd.DataFrame(index=[0])
+                                tempDaySummary["day"] = tempDF["cir.localTime"].dt.date
+                                tempDaySummary["cir.min"] = tempDF["cir"].min()
+                                tempDaySummary["cir.weightedMean"] = \
+                                    np.sum(tempDF["cir"] * tempDF["cir.durationHours"]) / tempDF["cir.durationHours"].sum()
+                                tempDaySummary["cir.max"] = tempDF["cir"].max()
+
                                 cir = pd.concat([cir, tempDF[cirColHeadings]], ignore_index=True)
-                                pdb.set_trace()
+                                cirDaySummary = pd.concat([cirDaySummary, tempDaySummary], ignore_index=True)
+
+                            cirDaySummary = pd.concat([cirDaySummary, dataPulledDF], sort=False)
+                            cirDaySummary.reset_index(inplace=True, drop=True)
+                            cirDaySummary.fillna(method='ffill', inplace=True)
 
 
                         # CORRECTION TARGET
