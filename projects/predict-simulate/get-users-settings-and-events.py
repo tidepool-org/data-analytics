@@ -116,10 +116,8 @@ def tslimCalibrationFix(df):
 
 
 # OTHER
-def tempRemoveFields(df):
-    removeFields = ["suppressed",
-                    "recommended",
-                    "payload"]
+def tempRemoveFields(df, removeFields):
+
 
     tempRemoveFields = list(set(df) & set(removeFields))
     tempDf = df[tempRemoveFields]
@@ -128,10 +126,9 @@ def tempRemoveFields(df):
     return df, tempDf
 
 
-def flattenJson(df):
-
+def flattenJson(df, doNotFlattenList):
     # remove fields that we don't want to flatten
-    df, holdData = tempRemoveFields(df)
+    df, holdData = tempRemoveFields(df, doNotFlattenList)
 
     # get a list of data types of column headings
     columnHeadings = list(df)
