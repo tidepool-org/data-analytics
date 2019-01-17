@@ -611,7 +611,10 @@ for dIndex in range(startIndex, endIndex):
                     data.sort_values("time", inplace=True)
 
                     # flatten the embedded json
-                    data = flattenJson(data)
+                    doNotFlattenList = ["suppressed", "recommended", "payload"]
+                    data = flattenJson(data, doNotFlattenList)
+
+                    pdb.set_trace()
 
 
                     # %% CLEAN DATA
