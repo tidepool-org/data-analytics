@@ -835,11 +835,8 @@ for dIndex in range(startIndex, endIndex):
 
                             # CORRECTION TARGET
                             ctColHeadings = ['deviceId', "ct.localTime", "ct.low", "ct.high", "ct.target", "ct.range"]
-                            ctDayColHeadings = ['day', 'deviceId',
-                                                "ct.low.min", "ct.low.weightedMean", "ct.low.max",
-                                                "ct.high.min", "ct.high.weightedMean", "ct.high.max",
-                                                "ct.target.min", "ct.target.weightedMean", "ct.target.max",
-                                                "ct.range.min", "ct.range.weightedMean", "ct.range.max"]
+                            ctDayColHeadings = ['day', 'deviceId', "ct.low", "ct.high", "ct.target", "ct.range",
+                                                "ct.target.min", "ct.target.weightedMean", "ct.target.max"]
 
                             if "bgTarget.start" in list(pumpSettings):
                                 ctColHead = "bgTarget."
@@ -864,13 +861,26 @@ for dIndex in range(startIndex, endIndex):
                                 ctDaySummary = pd.DataFrame(columns=ctDayColHeadings)
                                 ctDaySummary["day"] = correctionTarget["ct.localTime"].dt.date
                                 ctDaySummary["deviceId"] = correctionTarget["deviceId"]
-                                # add min, weightedMean, and max
+
+                                # medtronic pumps use the target high as the correction target
+                                if sum(correctionTarget.deviceId.str.contains("ed")) > 0:
+                                    correctionTarget.loc[correctionTarget.deviceId.str.contains("ed"), "ct.target"] = \
+                                        correctionTarget.loc[correctionTarget.deviceId.str.contains("ed"), 'ct.high']
+
+                                if sum(correctionTarget.deviceId.str.contains("MMT")) > 0:
+                                    correctionTarget.loc[correctionTarget.deviceId.str.contains("MMT"), "ct.target"] = \
+                                        correctionTarget.loc[correctionTarget.deviceId.str.contains("MMT"), 'ct.high']
+
                                 for targetType in ["ct.low", "ct.high", "ct.target", "ct.range"]:
-                                    for stat in [".min", ".weightedMean", ".max"]:
-                                        ctDaySummary[targetType + stat] = correctionTarget[targetType]
+                                    ctDaySummary[targetType] = correctionTarget[targetType]
+
+                                ctDaySummary["ct.target.min"] = correctionTarget["ct.target"]
+                                ctDaySummary["ct.target.weightedMean"] = correctionTarget["ct.target"]
+                                ctDaySummary["ct.target.max"] = correctionTarget["ct.target"]
 
 
                             else:
+
                                 ctColHead = "bgTargets"
                                 correctionTarget = pd.DataFrame(columns=ctColHeadings)
 
@@ -884,32 +894,46 @@ for dIndex in range(startIndex, endIndex):
                                     targetTypes = list(set(list(tempDF)) - set(["start"]))
                                     tempDF["day"] = pumpSettings.loc[p, "day"]
                                     tempDF["deviceId"] = pumpSettings.loc[p, "deviceId"]
+
+                                    for targetType in ["low", "high", "target", "range"]:
+                                        if targetType in list(tempDF):
+                                            tempDF["ct." + targetType + "_mmolL"] = \
+                                                tempDF[targetType]
+
+                                            tempDF["ct." + targetType] = \
+                                                mmolL_to_mgdL(tempDF["ct." + targetType + "_mmolL"])
+                                        else:
+                                            tempDF["ct." + targetType + "_mmolL"] = np.nan
+                                            tempDF["ct." + targetType]  = np.nan
+
                                     tempDF["ct.localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
                                     endOfDay = pd.DataFrame(pd.to_datetime(pumpSettings.loc[p, "day"] + pd.Timedelta(1, "D")), columns=["ct.localTime"], index=[0])
                                     tempDF = get_setting_durations(tempDF, "ct", endOfDay)
                                     tempDF = tempDF[:-1]
 
-                                    tempDaySummary = pd.DataFrame(columns=ctDayColHeadings, index=[0])
+                                    # medtronic pumps use the target high as the correction target
+                                    if sum(tempDF.deviceId.str.contains("ed")) > 0:
+                                        tempDF.loc[tempDF.deviceId.str.contains("ed"), "ct.target"] = \
+                                            tempDF.loc[tempDF.deviceId.str.contains("ed"), 'ct.high']
+
+                                    if sum(tempDF.deviceId.str.contains("MMT")) > 0:
+                                        tempDF.loc[tempDF.deviceId.str.contains("MMT"), "ct.target"] = \
+                                            tempDF.loc[tempDF.deviceId.str.contains("MMT"), 'ct.high']
+
+                                    tempDaySummary = pd.DataFrame(index=[0], columns=ctDayColHeadings)
                                     tempDaySummary["day"] = tempDF["ct.localTime"].dt.date
                                     tempDaySummary["deviceId"] = tempDF["deviceId"]
+                                    tempDaySummary["ct.target.min"] = tempDF["ct.target"].min()
+                                    tempDaySummary["ct.target.weightedMean"] = \
+                                        np.sum(tempDF["ct.target"] * tempDF["ct.durationHours"]) / tempDF["ct.durationHours"].sum()
+                                    tempDaySummary["ct.target.max"] = tempDF["ct.target"].max()
 
-                                    for targetType in targetTypes:
-                                        tempDF["ct." + targetType] = mmolL_to_mgdL(tempDF[targetType])
+                                    for targetType in ["ct.low", "ct.high", "ct.target", "ct.range"]:
+                                        tempDaySummary[targetType] = tempDF[targetType]
 
-                                        tempDaySummary["ct." + targetType + ".min"] = tempDF["ct." + targetType].min()
-                                        tempDaySummary["ct." + targetType + ".weightedMean"] = \
-                                            np.sum(tempDF["ct." + targetType] * tempDF["ct.durationHours"]) / tempDF["ct.durationHours"].sum()
-                                        tempDaySummary["ct." + targetType + ".max"] = tempDF["ct." + targetType].max()
 
-                                    correctionTarget = \
-                                        pd.concat([correctionTarget,
-                                                   tempDF.drop(columns=['start',
-                                                                        'target',
-                                                                        'day',
-                                                                        'ct.durationHours'])],
-                                                   ignore_index=True, sort=False)
-                                    ctDaySummary = pd.concat([ctDaySummary, tempDaySummary],
-                                                             ignore_index=True, sort=False)
+                                    correctionTarget = pd.concat([correctionTarget, tempDF[ctColHeadings]], ignore_index=True)
+                                    ctDaySummary = pd.concat([ctDaySummary, tempDaySummary[ctDayColHeadings]], ignore_index=True)
 
                             ctDaySummary = pd.concat([ctDaySummary, dataPulledDF], sort=False)
                             ctDaySummary.fillna(method='ffill', inplace=True)
@@ -918,6 +942,10 @@ for dIndex in range(startIndex, endIndex):
                             # for that day.
                             ctDaySummary.drop_duplicates(subset="day", keep="last", inplace=True)
                             ctDaySummary.reset_index(inplace=True, drop=True)
+
+
+                            print(correctionTarget)
+                            print(ctDaySummary)
 
                             # SCHEDULED BASAL RATES
                             sbrColHeadings = ["sbr.localTime", "rate", "sbr.type"]
@@ -1125,10 +1153,13 @@ for dIndex in range(startIndex, endIndex):
                                         'cir.min',
                                         'cir.weightedMean',
                                         'cir.max',
-                                        'ct.low.min', 'ct.low.weightedMean', 'ct.low.max',
-                                        'ct.high.min', 'ct.high.weightedMean', 'ct.high.max',
-                                        'ct.target.min', 'ct.target.weightedMean', 'ct.target.max',
-                                        'ct.range.min', 'ct.range.weightedMean', 'ct.range.max',
+                                        'ct.low',
+                                        'ct.high',
+                                        'ct.target',
+                                        'ct.range',
+                                        'ct.target.min',
+                                        'ct.target.weightedMean',
+                                        'ct.target.max',
                                         'sbr.min',
                                         'sbr.weightedMean',
                                         'sbr.max',
@@ -1172,15 +1203,10 @@ for dIndex in range(startIndex, endIndex):
                             ageSummary["sbr.nAutoMode"] = catDF["sbr.type"].count()
 
                             # correctionTarget stats
-                            for targetType in ["ct.low", "ct.high", "ct.target", "ct.range"]:
-                                for stat in [".min", ".weightedMean", ".max"]:
-                                    ch = targetType + stat
-                                    ageSummary[ch + ".nDays"] = catDF[ch].count()
-                                    ageSummary[ch + ".min"] = catDF[ch].min()
-                                    ageSummary[ch + ".weightedMean"] = catDF[ch].sum() / catDF[ch].count()
-                                    ageSummary[ch + ".max"] = catDF[ch].max()
-
-
+                            ageSummary["ct.nDays"] = catDF["ct.target.min"].count()
+                            ageSummary["ct.target.min"] = catDF["ct.target.min"].min()
+                            ageSummary["ct.target.weightedMean"] = catDF["ct.target.weightedMean"].sum() / catDF["ct.target.weightedMean"].count()
+                            ageSummary["ct.target.max"] = catDF["ct.target.max"].max()
 
                             ageSummary.reset_index(inplace=True)
 
@@ -1221,13 +1247,10 @@ for dIndex in range(startIndex, endIndex):
                             ylwSummary["sbr.nAutoMode"] = catDF["sbr.type"].count()
 
                             # correctionTarget stats
-                            for targetType in ["ct.low", "ct.high", "ct.target", "ct.range"]:
-                                for stat in [".min", ".weightedMean", ".max"]:
-                                    ch = targetType + stat
-                                    ylwSummary[ch + ".nDays"] = catDF[ch].count()
-                                    ylwSummary[ch + ".min"] = catDF[ch].min()
-                                    ylwSummary[ch + ".weightedMean"] = catDF[ch].sum() / catDF[ch].count()
-                                    ylwSummary[ch + ".max"] = catDF[ch].max()
+                            ylwSummary["ct.nDays"] = catDF["ct.target.min"].count()
+                            ylwSummary["ct.target.min"] = catDF["ct.target.min"].min()
+                            ylwSummary["ct.target.weightedMean"] = catDF["ct.target.weightedMean"].sum() / catDF["ct.target.weightedMean"].count()
+                            ylwSummary["ct.target.max"] = catDF["ct.target.max"].max()
 
                             ylwSummary.reset_index(inplace=True)
 
