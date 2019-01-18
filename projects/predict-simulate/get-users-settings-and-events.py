@@ -1148,7 +1148,6 @@ for dIndex in range(startIndex, endIndex):
                             ageSummary["nDaysValidCgm"] = pd.DataFrame(catDF.validCGMData.sum())
                             ageSummary["nDaysClosedLoop"] = pd.DataFrame(catDF["basal.closedLoopDays"].sum())
                             ageSummary["n670gDays"] = pd.DataFrame(catDF["670g"].sum())
-                            pdb.set_trace()
 
                             # add in isf stats
                             ageSummary["isf.nDays"] = catDF["isf.min"].count()
