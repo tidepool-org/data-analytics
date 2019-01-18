@@ -90,11 +90,15 @@ def removeInvalidCgmValues(df):
 
 
 def tslimCalibrationFix(df):
-    searchfor = ['tan']
-    tandemDataIndex = ((df.deviceId.str.contains('|'.join(searchfor))) &
-                       (df.type == "deviceEvent"))
+
 
     if "payload.calibration_reading" in list(df):
+
+        searchfor = ['tan']
+        tandemDataIndex = ((df.deviceId.str.contains('|'.join(searchfor))) &
+                           (df.type == "deviceEvent"))
+
+
         payloadCalReadingIndex = df["payload.calibration_reading"].notnull()
 
         nTandemAndPayloadCalReadings = sum(tandemDataIndex &
