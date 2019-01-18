@@ -540,13 +540,7 @@ def getPumpSettingsStats(df, col, pumpCol):
     return df, df2
 
 
-
-
-
-# %% LOAD IN ONE FILE, BUT EVENTUALLY THIS WILL LOOOP THROUGH ALL USER'S
-
-
-
+# %% START OF CODE
 dataPulledDate = args.dateStamp
 dataPulledDF = pd.DataFrame(pd.to_datetime(dataPulledDate), columns=["day"], index=[0])
 dataPulledDF["day"] = dataPulledDF["day"].dt.date
@@ -555,7 +549,6 @@ donorPath = os.path.join("..", "bigdata-processing-pipeline", "data", phiDate + 
 
 phiOutputPath = os.path.join(donorPath, "PHI-settings-and-events")
 outputPath = os.path.join(donorPath, "settings-and-events")
-
 
 # create anonExportDataPath folders
 if not os.path.exists(phiOutputPath):
@@ -614,8 +607,6 @@ for dIndex in range(startIndex, endIndex):
                     doNotFlattenList = ["suppressed", "recommended", "payload"]
                     data = flattenJson(data, doNotFlattenList)
 
-                    pdb.set_trace()
-
 
                     # %% CLEAN DATA
                     # remove negative durations
@@ -662,10 +653,6 @@ for dIndex in range(startIndex, endIndex):
                         data["age"] = np.floor((data["utcTime"] - bDate).dt.days/365.25).astype(int)
                         data["ylw"] = np.floor((data["utcTime"] - dDate).dt.days/365.25).astype(int)
 
-    #                    commonColumnHeadings = ["hashID",
-    #                                            "age",
-    #                                            "ylw"]
-
 
                         # %% BOLUS EVENTS (CORRECTION, AND MEAL INCLUING: CARBS, EXTENDED, DUAL)
                         bolus = mergeWizardWithBolus(data)
@@ -689,7 +676,6 @@ for dIndex in range(startIndex, endIndex):
                             bolus["isf_mmolL_U"] = bolus["insulinSensitivity"]
                             bolus["isf"] = mmolL_to_mgdL(bolus["isf_mmolL_U"])
 
-    #                        bolusCH = commonColumnHeadings.copy()
                             bolusCH = ["utcTime", "timezone", "roundedTime", "normal", "carbInput", "subType",
                                             "insulinOnBoard", "bgInput",
                                             "isf", "isf_mmolL_U", "insulinCarbRatio"]
@@ -752,9 +738,6 @@ for dIndex in range(startIndex, endIndex):
                                 isfDaySummary["isf.min"] = isf["isf"]
                                 isfDaySummary["isf.weightedMean"] = isf["isf"]
                                 isfDaySummary["isf.max"] = isf["isf"]
-                                isfDaySummary = pd.concat([isfDaySummary, dataPulledDF], sort=False)
-                                isfDaySummary.reset_index(inplace=True, drop=True)
-                                isfDaySummary.fillna(method='ffill', inplace=True)
 
                             else:
                                 isfColHead = "insulinSensitivities"
@@ -785,9 +768,14 @@ for dIndex in range(startIndex, endIndex):
                                     isf = pd.concat([isf, tempDF[isfColHeadings]], ignore_index=True)
                                     isfDaySummary = pd.concat([isfDaySummary, tempDaySummary], ignore_index=True)
 
-                                isfDaySummary = pd.concat([isfDaySummary, dataPulledDF], sort=False)
-                                isfDaySummary.reset_index(inplace=True, drop=True)
-                                isfDaySummary.fillna(method='ffill', inplace=True)
+                            isfDaySummary = pd.concat([isfDaySummary, dataPulledDF], sort=False)
+                            isfDaySummary.reset_index(inplace=True, drop=True)
+                            isfDaySummary.fillna(method='ffill', inplace=True)
+                            # it is possible for someone to someone to change their schedule
+                            # in the middle of the day, take the latest change as the schedule
+                            # for that day.
+                            isfDaySummary.drop_duplicates(subset="day", keep="last", inplace=True)
+                            isfDaySummary.reset_index(inplace=True, drop=True)
 
                             # CIR
                             cirColHeadings = ["cir.localTime", "cir"]
@@ -806,9 +794,6 @@ for dIndex in range(startIndex, endIndex):
                                 cirDaySummary["cir.min"] = cir["cir"]
                                 cirDaySummary["cir.weightedMean"] = cir["cir"]
                                 cirDaySummary["cir.max"] = cir["cir"]
-                                cirDaySummary = pd.concat([cirDaySummary, dataPulledDF], sort=False)
-                                cirDaySummary.reset_index(inplace=True, drop=True)
-                                cirDaySummary.fillna(method='ffill', inplace=True)
 
                             else:
 
@@ -839,9 +824,13 @@ for dIndex in range(startIndex, endIndex):
                                     cir = pd.concat([cir, tempDF[cirColHeadings]], ignore_index=True)
                                     cirDaySummary = pd.concat([cirDaySummary, tempDaySummary], ignore_index=True)
 
-                                cirDaySummary = pd.concat([cirDaySummary, dataPulledDF], sort=False)
-                                cirDaySummary.reset_index(inplace=True, drop=True)
-                                cirDaySummary.fillna(method='ffill', inplace=True)
+                            cirDaySummary = pd.concat([cirDaySummary, dataPulledDF], sort=False)
+                            cirDaySummary.fillna(method='ffill', inplace=True)
+                            # it is possible for someone to someone to change their schedule
+                            # in the middle of the day, take the latest change as the schedule
+                            # for that day.
+                            cirDaySummary.drop_duplicates(subset="day", keep="last", inplace=True)
+                            cirDaySummary.reset_index(inplace=True, drop=True)
 
 
                             # CORRECTION TARGET
@@ -879,10 +868,6 @@ for dIndex in range(startIndex, endIndex):
                                     for stat in [".min", ".weightedMean", ".max"]:
                                         ctDaySummary[targetType + stat] = correctionTarget[targetType]
 
-
-                                ctDaySummary = pd.concat([ctDaySummary, dataPulledDF], sort=False)
-                                ctDaySummary.reset_index(inplace=True, drop=True)
-                                ctDaySummary.fillna(method='ffill', inplace=True)
 
                             else:
                                 ctColHead = "bgTargets"
@@ -923,10 +908,13 @@ for dIndex in range(startIndex, endIndex):
                                     ctDaySummary = pd.concat([ctDaySummary, tempDaySummary],
                                                              ignore_index=True, sort=False)
 
-                                ctDaySummary = pd.concat([ctDaySummary, dataPulledDF], sort=False)
-                                ctDaySummary.fillna(method='ffill', inplace=True)
-                                ctDaySummary.drop_duplicates(inplace=True)
-                                ctDaySummary.reset_index(inplace=True, drop=True)
+                            ctDaySummary = pd.concat([ctDaySummary, dataPulledDF], sort=False)
+                            ctDaySummary.fillna(method='ffill', inplace=True)
+                            # it is possible for someone to someone to change their schedule
+                            # in the middle of the day, take the latest change as the schedule
+                            # for that day.
+                            ctDaySummary.drop_duplicates(subset="day", keep="last", inplace=True)
+                            ctDaySummary.reset_index(inplace=True, drop=True)
 
                             # SCHEDULED BASAL RATES
                             sbrColHeadings = ["sbr.localTime", "rate", "sbr.type"]
@@ -940,7 +928,7 @@ for dIndex in range(startIndex, endIndex):
                                 if 'Auto Mode' not in actSched:
                                     tempDF = pd.DataFrame(pumpSettings.loc[p, "basalSchedules." + actSched])
                                     tempDF["day"] = pumpSettings.loc[p, "day"]
-                                    tempDF["sbr.type"] = np.nan
+                                    tempDF["sbr.type"] = "regular"
                                     tempDF["sbr.localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
                                     endOfDay = pd.DataFrame(pd.to_datetime(pumpSettings.loc[p, "day"] + pd.Timedelta(1, "D")), columns=["sbr.localTime"], index=[0])
                                     tempDF = get_setting_durations(tempDF, "sbr", endOfDay)
@@ -952,7 +940,7 @@ for dIndex in range(startIndex, endIndex):
                                     tempDaySummary["sbr.weightedMean"] = \
                                         np.sum(tempDF["rate"] * tempDF["sbr.durationHours"]) / tempDF["sbr.durationHours"].sum()
                                     tempDaySummary["sbr.max"] = tempDF["rate"].max()
-                                    tempDaySummary["sbr.type"] = np.nan
+                                    tempDaySummary["sbr.type"] = "regular"
 
                                 else:
                                     tempDF = pd.DataFrame(index=[0])
@@ -972,9 +960,15 @@ for dIndex in range(startIndex, endIndex):
                                 sbrDaySummary = pd.concat([sbrDaySummary, tempDaySummary], ignore_index=True)
 
                             sbrDaySummary = pd.concat([sbrDaySummary, dataPulledDF], sort=False)
-                            sbrDaySummary.reset_index(inplace=True, drop=True)
                             sbrDaySummary.fillna(method='ffill', inplace=True)
+                            # it is possible for someone to someone to change their schedule
+                            # in the middle of the day, take the latest change as the schedule
+                            # for that day.
+                            sbrDaySummary.drop_duplicates(subset="day", keep="last", inplace=True)
+                            sbrDaySummary.reset_index(inplace=True, drop=True)
 
+
+                            # %% test this later
     #                        # max basal rate, max bolus amount, and insulin duration
     #                        if "rateMaximum" in list(data):
     #                            pdb.set_trace()
@@ -1014,7 +1008,6 @@ for dIndex in range(startIndex, endIndex):
                             basal["totalAmountOfBasalInsulin"] = basal["durationHours"] * basal["rate"]
 
                             # actual basal delivered
-    #                        abrColHeadings = commonColumnHeadings.copy()
                             abrColHeadings = ["utcTime", "timezone", "roundedTime", "durationHours", "rate", "type"]
                             abr = basal[abrColHeadings]
                             if "duration" in list(bolus):
@@ -1073,7 +1066,6 @@ for dIndex in range(startIndex, endIndex):
                             cgmRecordsPerDay["date"] = cgmRecordsPerDay.index
 
                             # filter the cgm data
-    #                        cgmColHeadings = commonColumnHeadings.copy()
                             cgmColHeadings = ["utcTime", "timezone", "roundedTime", "value"]
 
                             # get data in mg/dL units
@@ -1156,6 +1148,7 @@ for dIndex in range(startIndex, endIndex):
                             ageSummary["nDaysValidCgm"] = pd.DataFrame(catDF.validCGMData.sum())
                             ageSummary["nDaysClosedLoop"] = pd.DataFrame(catDF["basal.closedLoopDays"].sum())
                             ageSummary["n670gDays"] = pd.DataFrame(catDF["670g"].sum())
+                            pdb.set_trace()
 
                             # add in isf stats
                             ageSummary["isf.nDays"] = catDF["isf.min"].count()
@@ -1356,7 +1349,7 @@ for dIndex in range(startIndex, endIndex):
                             allAgeSummaries = pd.concat([allAgeSummaries, ageSummary], ignore_index=True)
 
                             allAgeSummaries.to_csv(os.path.join(outputPath,
-                                "allAgeSummaries-dIndex-" + str(startIndex) + "-" + str(dIndex) + ".csv"))
+                                "allAgeSummaries-dIndex-" + str(startIndex) + ".csv"))
 
                             # repoeat for years living with
                             catDF = pumpEvents.groupby("ylw")
@@ -1387,7 +1380,8 @@ for dIndex in range(startIndex, endIndex):
                             allYlwSummaries = pd.concat([allYlwSummaries, ylwSummary], ignore_index=True)
 
                             allYlwSummaries.to_csv(os.path.join(outputPath,
-                                "allYlwSummaries-dIndex-" + str(startIndex) + "-" + str(dIndex) + ".csv"))
+                                "allYlwSummaries-dIndex-" + str(startIndex) + ".csv"))
+
 
                              # %% save data for this person
     #                        outputString = "age-%s-%s-ylw-%s-%s-lp-%s-670g-%s-id-%s"
