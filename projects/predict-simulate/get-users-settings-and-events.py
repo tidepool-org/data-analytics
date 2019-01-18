@@ -834,8 +834,8 @@ for dIndex in range(startIndex, endIndex):
 
 
                             # CORRECTION TARGET
-                            ctColHeadings = ["ct.localTime", "ct.low", "ct.high", "ct.target", "ct.range"]
-                            ctDayColHeadings = ['day',
+                            ctColHeadings = ['deviceId', "ct.localTime", "ct.low", "ct.high", "ct.target", "ct.range"]
+                            ctDayColHeadings = ['day', 'deviceId',
                                                 "ct.low.min", "ct.low.weightedMean", "ct.low.max",
                                                 "ct.high.min", "ct.high.weightedMean", "ct.high.max",
                                                 "ct.target.min", "ct.target.weightedMean", "ct.target.max",
@@ -863,6 +863,7 @@ for dIndex in range(startIndex, endIndex):
                                 # add a day summary
                                 ctDaySummary = pd.DataFrame(columns=ctDayColHeadings)
                                 ctDaySummary["day"] = correctionTarget["ct.localTime"].dt.date
+                                ctDaySummary["deviceId"] = correctionTarget["deviceId"]
                                 # add min, weightedMean, and max
                                 for targetType in ["ct.low", "ct.high", "ct.target", "ct.range"]:
                                     for stat in [".min", ".weightedMean", ".max"]:
@@ -882,6 +883,7 @@ for dIndex in range(startIndex, endIndex):
                                     tempDF = pd.DataFrame(pumpSettings.loc[p, ctColHead + "." + actSched])
                                     targetTypes = list(set(list(tempDF)) - set(["start"]))
                                     tempDF["day"] = pumpSettings.loc[p, "day"]
+                                    tempDF["deviceId"] = pumpSettings.loc[p, "deviceId"]
                                     tempDF["ct.localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
                                     endOfDay = pd.DataFrame(pd.to_datetime(pumpSettings.loc[p, "day"] + pd.Timedelta(1, "D")), columns=["ct.localTime"], index=[0])
                                     tempDF = get_setting_durations(tempDF, "ct", endOfDay)
@@ -889,6 +891,7 @@ for dIndex in range(startIndex, endIndex):
 
                                     tempDaySummary = pd.DataFrame(columns=ctDayColHeadings, index=[0])
                                     tempDaySummary["day"] = tempDF["ct.localTime"].dt.date
+                                    tempDaySummary["deviceId"] = tempDF["deviceId"]
 
                                     for targetType in targetTypes:
                                         tempDF["ct." + targetType] = mmolL_to_mgdL(tempDF[targetType])
@@ -1177,6 +1180,8 @@ for dIndex in range(startIndex, endIndex):
                                     ageSummary[ch + ".weightedMean"] = catDF[ch].sum() / catDF[ch].count()
                                     ageSummary[ch + ".max"] = catDF[ch].max()
 
+
+
                             ageSummary.reset_index(inplace=True)
 
                             analysisCriterion = ageSummary[((ageSummary["nDaysValidPump"]> 28) &
@@ -1271,7 +1276,7 @@ for dIndex in range(startIndex, endIndex):
                                                      startWithFirstRecord=True, verbose=False)
 
                             colOrder = ["hashID", "age", "ylw", "localTime", "localRoundedTime",
-                                        "isf", "cir", "sbr",
+                                        "isf", "cir", "sbr", "deviceId",
                                         "ct.low", "ct.high", "ct.target", "ct.range",
                                         "sbr.type", "isf_mmolL_U"]
                             allSettings = allSettings[colOrder]
