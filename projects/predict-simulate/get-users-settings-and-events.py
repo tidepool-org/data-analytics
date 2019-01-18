@@ -543,6 +543,9 @@ def getPumpSettingsStats(df, col, pumpCol):
 
     return df, df2
 
+# %% DELELET LATER
+#args.startIndex = 2
+
 
 # %% START OF CODE
 dataPulledDate = args.dateStamp
@@ -565,7 +568,7 @@ donors = load_csv(os.path.join(donorPath, donorList))
 allMetadata = pd.DataFrame()
 allAgeSummaries = pd.DataFrame()
 allYlwSummaries = pd.DataFrame()
-
+allAgeANDylwSummaries = pd.DataFrame()
 
 # %% MAKE THIS A FUNCTION SO THAT IT CAN BE RUN PER EACH INDIVIDUAL
 nUniqueDonors = len(donors)
@@ -1265,6 +1268,41 @@ for dIndex in range(startIndex, endIndex):
                             metadata["minYLW"] = minYLW
                             metadata["maxYLW"] = maxYLW
 
+                            # age and ylw
+                            catDF = dayData.groupby(["age", "ylw"])
+                            ageANDylwSummary = pd.DataFrame(catDF.validPumpData.sum())
+                            ageANDylwSummary.rename(columns={"validPumpData": "nDaysValidPump"}, inplace=True)
+                            ageANDylwSummary["nDaysValidCgm"] = pd.DataFrame(catDF.validCGMData.sum())
+                            ageANDylwSummary["nDaysClosedLoop"] = pd.DataFrame(catDF["basal.closedLoopDays"].sum())
+                            ageANDylwSummary["n670gDays"] = pd.DataFrame(catDF["670g"].sum())
+
+                            ageANDylwSummary["isf.nDays"] = catDF["isf.min"].count()
+                            ageANDylwSummary["isf.min"] = catDF["isf.min"].min()
+                            ageANDylwSummary["isf.weightedMean"] = catDF["isf.weightedMean"].sum() / catDF["isf.weightedMean"].count()
+                            ageANDylwSummary["isf.max"] = catDF["isf.max"].max()
+
+                            # add cir stats
+                            ageANDylwSummary["cir.nDays"] = catDF["cir.min"].count()
+                            ageANDylwSummary["cir.min"] = catDF["cir.min"].min()
+                            ageANDylwSummary["cir.weightedMean"] = catDF["cir.weightedMean"].sum() / catDF["cir.weightedMean"].count()
+                            ageANDylwSummary["cir.max"] = catDF["cir.max"].max()
+
+                            # add sbr stats
+                            ageANDylwSummary["sbr.nDays"] = catDF["sbr.min"].count()
+                            ageANDylwSummary["sbr.min"] = catDF["sbr.min"].min()
+                            ageANDylwSummary["sbr.weightedMean"] = catDF["sbr.weightedMean"].sum() / catDF["sbr.weightedMean"].count()
+                            ageANDylwSummary["sbr.max"] = catDF["sbr.max"].max()
+                            ageANDylwSummary["sbr.nAutoMode"] = catDF["sbr.type"].count()
+
+                            # correctionTarget stats
+                            ageANDylwSummary["ct.nDays"] = catDF["ct.target.min"].count()
+                            ageANDylwSummary["ct.target.min"] = catDF["ct.target.min"].min()
+                            ageANDylwSummary["ct.target.weightedMean"] = catDF["ct.target.weightedMean"].sum() / catDF["ct.target.weightedMean"].count()
+                            ageANDylwSummary["ct.target.max"] = catDF["ct.target.max"].max()
+
+#                            analysisCriterion = ageANDylwSummary[((ageANDylwSummary["nDaysValidPump"]> 28) &
+#                                                            (ageANDylwSummary["nDaysValidCgm"]> 28))]
+
 
                             # %% calculate local time
                             abr["date"] = pd.to_datetime(abr["utcTime"].dt.date)
@@ -1414,35 +1452,68 @@ for dIndex in range(startIndex, endIndex):
                                 "allYlwSummaries-dIndex-" + str(startIndex) + ".csv"))
 
 
+                            # repoeat for agne AND years living with
+                            catDF = pumpEvents.groupby(["age", "ylw"])
+                            # actual basal rates
+                            ageANDylwPump = pd.DataFrame(catDF["basalRate"].count()).add_suffix(".count")
+                            ageANDylwPump["basalRate.min"] = catDF["basalRate"].min()
+                            ageANDylwPump["basalRate.weightedMean"] = catDF["rateTimesDurationHours"].sum() / catDF["durationHours"].sum()
+                            ageANDylwPump["basalRate.max"] = catDF["basalRate"].max()
+
+                            # insulin events
+                            insulinEvents = catDF["unitsInsulin"].describe().add_prefix("insulin.")
+                            ageANDylwPump = pd.concat([ageANDylwPump, insulinEvents], axis=1)
+
+                            # carbs entered in bolus calculator
+                            carbEvents = catDF["carbInput"].describe().add_prefix("carb.")
+                            ageANDylwPump = pd.concat([ageANDylwPump, carbEvents], axis=1)
+
+                            # very low level cgm stats per age
+                            catDF = cgmLite.groupby(["age", "ylw"])
+                            cgmStats = catDF["mg_dL"].describe().add_prefix("cgm.")
+                            ageANDylwPumpCgm = pd.concat([ageANDylwPump, cgmStats], axis=1)
+
+                            ageANDylwSummary = ageANDylwSummary.join(ageANDylwPumpCgm, how="left")
+
+                            ageANDylwPumpCgm.reset_index(inplace=True)
+                            ageANDylwSummary.reset_index(inplace=True)
+
+                            ageANDylwSummary["hashID"] = hashID
+                            allAgeANDylwSummaries = pd.concat([allAgeANDylwSummaries, ageANDylwSummary], ignore_index=True)
+
+                            allAgeANDylwSummaries.to_csv(os.path.join(outputPath,
+                                "allAgeANDylwSummaries-dIndex-" + str(startIndex) + ".csv"))
+
+
                              # %% save data for this person
-    #                        outputString = "age-%s-%s-ylw-%s-%s-lp-%s-670g-%s-id-%s"
-    #                        outputFormat = (f"{minAge:02d}",
-    #                                        f"{maxAge:02d}",
-    #                                        f"{minYLW:02d}",
-    #                                        f"{maxYLW:02d}",
-    #                                        f"{nDaysClosedLoop:03d}",
-    #                                        f"{n670gDays:03d}",
-    #                                        hashID[0:4])
-    #                        outputFolderName = outputString % outputFormat
-    #                        outputFolderName_Path = os.path.join(outputPath,"data", outputFolderName)
-    #                        if not os.path.exists(outputFolderName_Path):
-    #                            os.makedirs(outputFolderName_Path)
-    #
-    #                        fName = outputFolderName + "-allSettings.csv"
-    #                        allSettings.to_csv(os.path.join(outputFolderName_Path, fName))
-    #                        fName = outputFolderName + "-pumpEvents.csv"
-    #                        pumpEvents.to_csv(os.path.join(outputFolderName_Path, fName))
-    #                        fName = outputFolderName + "-cgmLite.csv"
-    #                        cgmLite.to_csv(os.path.join(outputFolderName_Path, fName))
+                            outputString = "age-%s-%s-ylw-%s-%s-lp-%s-670g-%s-id-%s"
+                            outputFormat = (f"{minAge:02d}",
+                                            f"{maxAge:02d}",
+                                            f"{minYLW:02d}",
+                                            f"{maxYLW:02d}",
+                                            f"{int(nDaysClosedLoop):03d}",
+                                            f"{int(n670gDays):03d}",
+                                            hashID[0:4])
+                            outputFolderName = outputString % outputFormat
+                            outputFolderName_Path = os.path.join(outputPath, "data", outputFolderName)
+                            if not os.path.exists(outputFolderName_Path):
+                                os.makedirs(outputFolderName_Path)
+
+                            fName = outputFolderName + "-allSettings.csv"
+                            allSettings.to_csv(os.path.join(outputFolderName_Path, fName))
+                            fName = outputFolderName + "-pumpEvents.csv"
+                            pumpEvents.to_csv(os.path.join(outputFolderName_Path, fName))
+                            fName = outputFolderName + "-cgmLite.csv"
+                            cgmLite.to_csv(os.path.join(outputFolderName_Path, fName))
 
 
 
                             # %% save the processed data (saving this data will take up a lot of space and time)
-                            #data.to_csv(os.path.join(processedDataPath, "allDataCleaned-PHI-" + userID + ".csv"))
-                            #basal.to_csv(os.path.join(processedDataPath, "basal-PHI-" + userID + ".csv"))
-                            #bolus.to_csv(os.path.join(processedDataPath, "bolus-PHI-" + userID + ".csv"))
-                            #cgmData.to_csv(os.path.join(processedDataPath, "cgm-PHI-" + userID + ".csv"))
-                            #pumpSettings.to_csv(os.path.join(processedDataPath, "pumpSettings-PHI-" + userID + ".csv"))
+                            data.to_csv(os.path.join(processedDataPath, "allDataCleaned-PHI-" + userID + ".csv"))
+                            basal.to_csv(os.path.join(processedDataPath, "basal-PHI-" + userID + ".csv"))
+                            bolus.to_csv(os.path.join(processedDataPath, "bolus-PHI-" + userID + ".csv"))
+                            cgmData.to_csv(os.path.join(processedDataPath, "cgm-PHI-" + userID + ".csv"))
+                            pumpSettings.to_csv(os.path.join(processedDataPath, "pumpSettings-PHI-" + userID + ".csv"))
 
                         else:
                             metadata["flags"] = "no bolus wizard data"
@@ -1463,7 +1534,7 @@ for dIndex in range(startIndex, endIndex):
     # write metaData to allMetadata
     allMetadata = pd.concat([allMetadata, metadata], axis=0, sort=True)
     allMetadata.to_csv(os.path.join(outputPath,
-        "allMetadata-dIndex-" + str(startIndex) + "-" + str(dIndex) + ".csv"))
+        "allMetadata-dIndex-" + str(startIndex) + ".csv"))
 
     print("done with", dIndex)
 
