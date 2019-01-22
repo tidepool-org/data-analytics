@@ -951,9 +951,6 @@ for dIndex in range(startIndex, endIndex):
                             ctDaySummary.reset_index(inplace=True, drop=True)
 
 
-                            print(correctionTarget)
-                            print(ctDaySummary)
-
                             # SCHEDULED BASAL RATES
                             sbrColHeadings = ["sbr.localTime", "rate", "sbr.type"]
                             sbr = pd.DataFrame(columns=sbrColHeadings)
