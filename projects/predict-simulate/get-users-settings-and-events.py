@@ -391,6 +391,9 @@ def getClosedLoopDays(groupedData, nTempBasalsPerDayIsClosedLoop, metadata):
             closedLoopDF["basal.temp.count"] >= nTB
         nClosedLoopDays = closedLoopDF["basal.closedLoopDays"].sum()
 
+        if nClosedLoopDays == 0:
+            closedLoopDF = pd.DataFrame(columns=["basal.closedLoopDays", "day"])
+
         # get the number of days with 670g
         basalData["day"] = pd.to_datetime(basalData.time).dt.date
         bdGroup = basalData.groupby("day")
