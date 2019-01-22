@@ -20,7 +20,7 @@ import datetime as dt
 import os
 import argparse
 import pdb
-
+pd.options.mode.chained_assignment = None  # default='warn'
 
 # %% USER INPUTS (ADD THIS IN LATER)
 codeDescription = "Get user's settings and events"
