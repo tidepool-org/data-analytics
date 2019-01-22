@@ -218,6 +218,10 @@ def mmolL_to_mgdL(mmolL):
     return mmolL * 18.01559
 
 
+def mgdL_to_mmolL(mgdL):
+    return mgdL / 18.01559
+
+
 def round_time(df, timeIntervalMinutes=5, timeField="time",
                roundedTimeFieldName="roundedTime", startWithFirstRecord=True,
                verbose=False):
@@ -543,8 +547,23 @@ def getPumpSettingsStats(df, col, pumpCol):
 
     return df, df2
 
+
+def isf_likely_units(df, columnHeading):
+    isfNotNull = df[df[columnHeading].notnull()][columnHeading]
+    minVal = np.min(isfNotNull)
+    maxVal = np.max(isfNotNull)
+    minDiff = np.abs(minVal - np.round(minVal))
+    maxDiff = np.abs(maxVal - np.round(maxVal))
+    if ((maxDiff == 0) & (maxDiff == 0) & (maxVal > 22.1)):
+        likelyUnits = "mg/dL"
+    else:
+        likelyUnits = "mmol/L"
+    return likelyUnits
+
+
+
 # %% DELELET LATER
-#args.startIndex = 2
+args.startIndex = 96
 
 
 # %% START OF CODE
@@ -673,15 +692,21 @@ for dIndex in range(startIndex, endIndex):
                             # get a summary of boluses per day
                             bolusDaySummary = get_bolusDaySummary(bolus)
 
-    #                        # isf and cir associated with bolus event
-    #                        if "insulinSensitivities" in list(bolus):
-    #                            pdb.set_trace()
-    #
-    #                        if "carbRatios" in list(bolus):
-    #                            pdb.set_trace()
+                            # figure out likely isf units
+                            isfUnits = isf_likely_units(bolus, "insulinSensitivity")
+                            metadata["bolus.isfLikelyUnits"] = isfUnits
 
-                            bolus["isf_mmolL_U"] = bolus["insulinSensitivity"]
-                            bolus["isf"] = mmolL_to_mgdL(bolus["isf_mmolL_U"])
+                            if isfUnits in "mmol/L":
+
+                                bolus["isf_mmolL_U"] = bolus["insulinSensitivity"]
+                                bolus["isf"] = mmolL_to_mgdL(bolus["isf_mmolL_U"])
+
+                            else:
+                                # I am pretty sure this case does NOT exist
+                                pdb.set_trace()
+                                bolus["isf"] = bolus["insulinSensitivity"]
+                                bolus["isf_mmolL_U"]  = mgdL_to_mmolL(bolus["isf"])
+
 
                             bolusCH = ["utcTime", "timezone", "roundedTime", "normal", "carbInput", "subType",
                                             "insulinOnBoard", "bgInput",
@@ -732,8 +757,21 @@ for dIndex in range(startIndex, endIndex):
 
                             if "insulinSensitivity.amount" in list(pumpSettings):
                                 isfColHead = "insulinSensitivity"
-                                pumpSettings["isf_mmolL_U"] = pumpSettings[isfColHead + ".amount"]
-                                pumpSettings["isf"] = mmolL_to_mgdL(pumpSettings["isf_mmolL_U"])
+
+                                # figure out likely isf units
+                                isfUnits = isf_likely_units(pumpSettings, "insulinSensitivity.amount")
+                                metadata["pumpSettings.isfLikelyUnits"] = isfUnits
+
+                                if isfUnits in "mmol/L":
+
+                                    pumpSettings["isf_mmolL_U"] = pumpSettings[isfColHead + ".amount"]
+                                    pumpSettings["isf"] = mmolL_to_mgdL(pumpSettings["isf_mmolL_U"])
+
+                                else:
+
+                                    pumpSettings["isf"] = pumpSettings[isfColHead + ".amount"]
+                                    pumpSettings["isf_mmolL_U"] = mgdL_to_mmolL(pumpSettings["isf"])
+
                                 pumpSettings["isf.localTime"] = pd.to_datetime(pumpSettings["day"]) + \
                                     pd.to_timedelta(pumpSettings[isfColHead + ".start"], unit="ms")
 
@@ -759,8 +797,21 @@ for dIndex in range(startIndex, endIndex):
                                     tempDF = pd.DataFrame(pumpSettings.loc[p, isfColHead + "." + actSched])
                                     tempDF["day"] = pumpSettings.loc[p, "day"]
                                     tempDF["isf.localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
-                                    tempDF["isf_mmolL_U"] = tempDF["amount"]
-                                    tempDF["isf"] = mmolL_to_mgdL(tempDF["isf_mmolL_U"])
+
+                                    # figure out likely isf units
+                                    isfUnits = isf_likely_units(tempDF, "amount")
+                                    metadata["tempDF.isfLikelyUnits"] = isfUnits
+
+                                    if isfUnits in "mmol/L":
+
+                                        tempDF["isf_mmolL_U"] = tempDF["amount"]
+                                        tempDF["isf"] = mmolL_to_mgdL(tempDF["isf_mmolL_U"])
+
+                                    else:
+
+                                        tempDF["isf"] = tempDF["amount"]
+                                        tempDF["isf_mmolL_U"] = mgdL_to_mmolL(tempDF["isf"])
+
                                     endOfDay = pd.DataFrame(pd.to_datetime(pumpSettings.loc[p, "day"] + pd.Timedelta(1, "D")), columns=["isf.localTime"], index=[0])
                                     tempDF = get_setting_durations(tempDF, "isf", endOfDay)
                                     tempDF = tempDF[:-1]
