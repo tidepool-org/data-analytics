@@ -398,6 +398,9 @@ def getClosedLoopDays(groupedData, nTempBasalsPerDayIsClosedLoop, metadata):
         med670g = pd.DataFrame(topPump.str.contains("1780")).rename(columns={"top":"670g"})
         med670g.reset_index(inplace=True)
         n670gDays = med670g["670g"].sum()
+        if n670gDays == 0:
+            med670g = pd.DataFrame(columns=["670g", "day"])
+
 
     else:
         closedLoopDF = pd.DataFrame(columns=["basal.closedLoopDays", "day"])
