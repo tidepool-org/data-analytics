@@ -566,7 +566,7 @@ def isf_likely_units(df, columnHeading):
 
 
 # %% DELELET LATER
-args.startIndex = 96
+#args.startIndex = 96
 
 
 # %% START OF CODE
@@ -706,7 +706,7 @@ for dIndex in range(startIndex, endIndex):
 
                             else:
                                 # I am pretty sure this case does NOT exist
-                                pdb.set_trace()
+#                                pdb.set_trace()
                                 bolus["isf"] = bolus["insulinSensitivity"]
                                 bolus["isf_mmolL_U"]  = mgdL_to_mmolL(bolus["isf"])
 
