@@ -726,7 +726,6 @@ for dIndex in range(startIndex, endIndex):
                                 bolus["duration"].replace(0, np.nan, inplace=True)
                                 bolus["durationHours"] = bolus["duration"] / 1000.0 / 3600.0
                                 bolus["rate"] = bolus["extended"] / bolus["durationHours"]
-    #                            bolusExtendedCH = commonColumnHeadings.copy()
                                 bolusExtendedCH = ["utcTime", "timezone", "roundedTime", "durationHours", "rate",  "type"]
                                 bolusExtendedEvents = bolus.loc[
                                         ((bolus["extended"].notnull()) &
@@ -1071,6 +1070,8 @@ for dIndex in range(startIndex, endIndex):
                             basal = data[data.type == "basal"].copy().dropna(axis=1, how="all")
                             basal.sort_values("uploadTime", ascending=False, inplace=True)
 
+                            metadata["pump.top"] = basal.deviceId.describe()["top"]
+
                             basalBeginDate, basalEndDate = getStartAndEndTimes(basal, "day")
                             metadata["basal.beginDate"] = basalBeginDate
                             metadata["basal.endDate"] = basalEndDate
@@ -1142,6 +1143,10 @@ for dIndex in range(startIndex, endIndex):
                             cgmData, percentDexcom = getListOfDexcomCGMDays(cgmData)
                             metadata["cgm.percentDexcomCGM"] = percentDexcom
 
+                            # see if cgm is freestyle
+                            cgmData["isFreeStyle"] = cgmData["deviceId"].str.contains("Free")
+                            metadata["cgm.top"] = cgmData.deviceId.describe()["top"]
+
                             # group by date (day) and get stats
                             catDF = cgmData.groupby(cgmData["day"])
                             cgmRecordsPerDay = \
@@ -1149,9 +1154,12 @@ for dIndex in range(startIndex, endIndex):
                                 rename(columns={"value": "cgm.count"})
                             dayDate = catDF.day.describe()["top"]
                             dexcomCGM = catDF.dexcomCGM.describe()["top"]
-                            nTypesCGM = catDF.dexcomCGM.describe()["unique"]
+                            freeStyleCGM = catDF.isFreeStyle.describe()["top"]
+#                            nTypesCGM = catDF.dexcomCGM.describe()["unique"]
                             cgmRecordsPerDay["cgm.dexcomOnly"] = \
-                                (dexcomCGM & (nTypesCGM == 1))
+                                (dexcomCGM & (catDF.dexcomCGM.describe()["unique"] == 1))
+                            cgmRecordsPerDay["cgm.freeStyleOnly"] = \
+                                (freeStyleCGM & (catDF.isFreeStyle.describe()["unique"] == 1))
                             cgmRecordsPerDay["date"] = cgmRecordsPerDay.index
 
                             # filter the cgm data
@@ -1189,7 +1197,10 @@ for dIndex in range(startIndex, endIndex):
                                 dayData = pd.merge(dayData, dfType, on="day", how="left")
 
                             dayData["validPumpData"] = dayData["numberOfNormalBoluses"] > 3
-                            dayData["validCGMData"] = dayData["cgm.count"] > (288*.75)
+
+                            dayData["validCGMData"] = \
+                                ((dayData["cgm.count"] > (288*.75)) |
+                                 (dayData["cgm.count"] > (96*.75)) & (dayData["cgm.freeStyleOnly"]))
 
                             dayData["timezone"].fillna(method='ffill', inplace=True)
                             dayData["timezone"].fillna(method='bfill', inplace=True)
@@ -1268,8 +1279,8 @@ for dIndex in range(startIndex, endIndex):
 
                             ageSummary.reset_index(inplace=True)
 
-                            analysisCriterion = ageSummary[((ageSummary["nDaysValidPump"]> 28) &
-                                                            (ageSummary["nDaysValidCgm"]> 28))]
+                            analysisCriterion = ageSummary[((ageSummary["nDaysValidPump"]> 0) &
+                                                            (ageSummary["nDaysValidCgm"]> 0))]
                             minAge = analysisCriterion["age"].min()
                             maxAge = analysisCriterion["age"].max()
                             nDaysClosedLoop = analysisCriterion["nDaysClosedLoop"].sum()
@@ -1312,8 +1323,8 @@ for dIndex in range(startIndex, endIndex):
 
                             ylwSummary.reset_index(inplace=True)
 
-                            analysisCriterion = ylwSummary[((ylwSummary["nDaysValidPump"]> 28) &
-                                                            (ylwSummary["nDaysValidCgm"]> 28))]
+                            analysisCriterion = ylwSummary[((ylwSummary["nDaysValidPump"]> 0) &
+                                                            (ylwSummary["nDaysValidCgm"]> 0))]
                             minYLW = analysisCriterion["ylw"].min()
                             maxYLW = analysisCriterion["ylw"].max()
                             metadata["minYLW"] = minYLW
@@ -1351,12 +1362,10 @@ for dIndex in range(startIndex, endIndex):
                             ageANDylwSummary["ct.target.weightedMean"] = catDF["ct.target.weightedMean"].sum() / catDF["ct.target.weightedMean"].count()
                             ageANDylwSummary["ct.target.max"] = catDF["ct.target.max"].max()
 
-#                            analysisCriterion = ageANDylwSummary[((ageANDylwSummary["nDaysValidPump"]> 28) &
-#                                                            (ageANDylwSummary["nDaysValidCgm"]> 28))]
-
 
                             # %% calculate local time
                             abr["date"] = pd.to_datetime(abr["utcTime"].dt.date)
+
                             abr = pd.merge(abr, dayData[["date", "tzo", "isDSTChangeDay"]], how="left", on="date")
                             abr["localTime"] = abr["utcTime"] + pd.to_timedelta(abr["tzo"], unit="m")
 
@@ -1538,10 +1547,10 @@ for dIndex in range(startIndex, endIndex):
 
                              # %% save data for this person
                             outputString = "age-%s-%s-ylw-%s-%s-lp-%s-670g-%s-id-%s"
-                            outputFormat = (f"{minAge:02d}",
-                                            f"{maxAge:02d}",
-                                            f"{minYLW:02d}",
-                                            f"{maxYLW:02d}",
+                            outputFormat = (f"{int(minAge):02d}",
+                                            f"{int(maxAge):02d}",
+                                            f"{int(minYLW):02d}",
+                                            f"{int(maxYLW):02d}",
                                             f"{int(nDaysClosedLoop):03d}",
                                             f"{int(n670gDays):03d}",
                                             hashID[0:4])
