@@ -1018,6 +1018,10 @@ for dIndex in range(startIndex, endIndex):
                                     actSched = str(int(actSched))
                                 if 'Auto Mode' not in actSched:
                                     tempDF = pd.DataFrame(pumpSettings.loc[p, "basalSchedules." + actSched])
+                                    if len(tempDF) == 0:
+                                        tempDF.loc[0, "start"] = 0
+                                        tempDF.loc[0, "rate"] = 0
+
                                     tempDF["day"] = pumpSettings.loc[p, "day"]
                                     tempDF["sbr.type"] = "regular"
                                     tempDF["sbr.localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
