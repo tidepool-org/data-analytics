@@ -1017,14 +1017,16 @@ for dIndex in range(startIndex, endIndex):
                                 if isinstance(actSched, float):
                                     actSched = str(int(actSched))
                                 if 'Auto Mode' not in actSched:
-                                    tempDF = pd.DataFrame(pumpSettings.loc[p, "basalSchedules." + actSched])
-                                    if len(tempDF) == 0:
-                                        tempDF.loc[0, "start"] = 0
-                                        tempDF.loc[0, "rate"] = 0
-
-                                    tempDF["day"] = pumpSettings.loc[p, "day"]
-                                    tempDF["sbr.type"] = "regular"
-                                    tempDF["sbr.localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
+                                    # edge case where a active schedule is nan
+                                    try:
+                                        tempDF = pd.DataFrame(pumpSettings.loc[p, "basalSchedules." + actSched])
+                                    except:
+                                        tempDF = pd.DataFrame()
+                                        metadata["issueWithBasalSchedule"] = True
+                                    if len(tempDF) > 0:
+                                        tempDF["day"] = pumpSettings.loc[p, "day"]
+                                        tempDF["sbr.type"] = "regular"
+                                        tempDF["sbr.localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
                                     endOfDay = pd.DataFrame(pd.to_datetime(pumpSettings.loc[p, "day"] + pd.Timedelta(1, "D")), columns=["sbr.localTime"], index=[0])
                                     tempDF = get_setting_durations(tempDF, "sbr", endOfDay)
                                     tempDF = tempDF[:-1]
@@ -1033,11 +1035,22 @@ for dIndex in range(startIndex, endIndex):
                                     tempDaySummary["day"] = tempDF["sbr.localTime"].dt.date
                                     tempDaySummary["sbr.min"] = tempDF["rate"].min()
                                     tempDaySummary["sbr.weightedMean"] = \
-                                        np.sum(tempDF["rate"] * tempDF["sbr.durationHours"]) / tempDF["sbr.durationHours"].sum()
-                                    tempDaySummary["sbr.max"] = tempDF["rate"].max()
-                                    tempDaySummary["sbr.type"] = "regular"
+                                            np.sum(tempDF["rate"] * tempDF["sbr.durationHours"]) / tempDF["sbr.durationHours"].sum()
+                                        tempDaySummary["sbr.max"] = tempDF["rate"].max()
+                                        tempDaySummary["sbr.type"] = "regular"
+                                    else:
+                                        tempDF = pd.DataFrame(index=[0])
+                                        tempDF["day"] = pumpSettings.loc[p, "day"]
+                                        tempDF["sbr.localTime"] = pd.to_datetime(tempDF["day"])
+                                        tempDF["rate"] = np.nan
+                                        tempDF["sbr.type"] = "AutoMode"
 
-
+                                        tempDaySummary = pd.DataFrame(index=[0])
+                                        tempDaySummary["day"] = tempDF["sbr.localTime"].dt.date
+                                        tempDaySummary["sbr.min"] = np.nan
+                                        tempDaySummary["sbr.weightedMean"] = np.nan
+                                        tempDaySummary["sbr.max"] = np.nan
+                                        tempDaySummary["sbr.type"] = "missingNullOrIssue"
                                 else:
                                     tempDF = pd.DataFrame(index=[0])
                                     tempDF["day"] = pumpSettings.loc[p, "day"]
