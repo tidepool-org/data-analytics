@@ -1037,6 +1037,7 @@ for dIndex in range(startIndex, endIndex):
                                     tempDaySummary["sbr.max"] = tempDF["rate"].max()
                                     tempDaySummary["sbr.type"] = "regular"
 
+
                                 else:
                                     tempDF = pd.DataFrame(index=[0])
                                     tempDF["day"] = pumpSettings.loc[p, "day"]
@@ -1552,16 +1553,20 @@ for dIndex in range(startIndex, endIndex):
                                 "allAgeANDylwSummaries-dIndex-" + str(startIndex) + ".csv"))
 
 
-                             # %% save data for this person
-                            outputString = "age-%s-%s-ylw-%s-%s-lp-%s-670g-%s-id-%s"
-                            outputFormat = (f"{int(minAge):02d}",
-                                            f"{int(maxAge):02d}",
+                            # %% save data for this person
+                            if ((pd.notna(minAge)) & (pd.notna(minYLW))):
+                                outputString = "age-%s-%s-ylw-%s-%s-lp-%s-670g-%s-id-%s"
+                                outputFormat = (f"{int(minAge):02d}",
+                                                f"{int(maxAge):02d}",
                                             f"{int(minYLW):02d}",
                                             f"{int(maxYLW):02d}",
                                             f"{int(nDaysClosedLoop):03d}",
-                                            f"{int(n670gDays):03d}",
-                                            hashID[0:4])
-                            outputFolderName = outputString % outputFormat
+                                                f"{int(n670gDays):03d}",
+                                                hashID[0:4])
+                                outputFolderName = outputString % outputFormat
+                            else:
+                                outputFolderName = "dIndex-" + str(dIndex) + "-investigate-" + str(hashID[0:4])
+
                             outputFolderName_Path = os.path.join(outputPath, "data", outputFolderName)
                             if not os.path.exists(outputFolderName_Path):
                                 os.makedirs(outputFolderName_Path)
@@ -1572,7 +1577,6 @@ for dIndex in range(startIndex, endIndex):
                             pumpEvents.to_csv(os.path.join(outputFolderName_Path, fName))
                             fName = outputFolderName + "-cgmLite.csv"
                             cgmLite.to_csv(os.path.join(outputFolderName_Path, fName))
-
 
 
                             # %% save the processed data (saving this data will take up a lot of space and time)
