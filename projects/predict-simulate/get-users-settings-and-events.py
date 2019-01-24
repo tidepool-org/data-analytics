@@ -1625,7 +1625,7 @@ for dIndex in range(startIndex, endIndex):
 
 
 # %% V2 DATA TO GRAB
-# INVESTIGATE SETTINGS OUTLIERS (Paradigm Veo pumps have unrealistic high ISF)
+# INVESTIGATE SETTINGS OUTLIERS (Paradigm Veo pumps have unrealistic high ISF, ommipod with likely mg/dL have wrong correction target)
 # ADD ROUNDEDLOCAL TIME TO THE END RESULTS
 # CALCULATE MMOL SUMMARIES
 # DEFINE A DAY BETWEEN 6AM AND 6AM
