@@ -1290,7 +1290,8 @@ for dIndex in range(startIndex, endIndex):
                             ageSummary["sbr.min"] = catDF["sbr.min"].min()
                             ageSummary["sbr.weightedMean"] = catDF["sbr.weightedMean"].sum() / catDF["sbr.weightedMean"].count()
                             ageSummary["sbr.max"] = catDF["sbr.max"].max()
-                            ageSummary["sbr.nAutoMode"] = catDF["sbr.type"].count()
+                            ageSummary["sbr.typeTop"] = catDF["sbr.type"].describe()["top"]
+                            ageSummary["sbr.typeCount"] = catDF["sbr.type"].count()
 
                             # correctionTarget stats
                             ageSummary["ct.nDays"] = catDF["ct.target.min"].count()
