@@ -3,6 +3,12 @@ class Sections():
     LOOP_VERSION = "loop_version"
     DEVICE_DATA_MANAGER = "device_data_manager"
     RILEY_LINK_DEVICE = "riley_link_device"
+    CARB_STORE = "carb_store"
+    DOSE_STORE = "dose_store"
+    MINIMED_PUMP_MANAGER = "minimed_pump_manager"
+    OMNIPOD_PUMP_MAANGER ="omnipod_pump_manager"
+    WATCH_DATA_MANAGER ="watch_data_manager"
+    LOOP_DATA_MANAGER ="loop_data_manager"
 
 
 def _split_key_value(line, separator):
@@ -178,6 +184,12 @@ def parse_loop_report(dataPathAndName):
                 all_sections["watch_data_manager"] = watch_data_manager
                 new_line = False
 
+            elif line.startswith('## OmnipodPumpManager'):
+                omnipod_pump_manager = {}
+                current_section = "omnipod_pump_manager"
+                all_sections["omnipod_pump_manager"] = omnipod_pump_manager
+                new_line = False
+
             elif line.startswith('\n'):
                 new_line = True
 
@@ -211,7 +223,9 @@ def parse_loop_report(dataPathAndName):
                             key = key[1:]
                         if key.startswith(' '):
                             key = key[1:]
-                        dict[key] = value
+                        if value.endswith('\n'):
+                            value.replace('\n', '')
+                        dict[key] = value.replace('\n', '')
 
     return all_sections
 
