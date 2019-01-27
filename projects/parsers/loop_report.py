@@ -45,23 +45,28 @@ class LoopReport:
         if Sections.RILEY_LINK_DEVICE in dict:
             try:
                 riley_link_device = dict[Sections.RILEY_LINK_DEVICE]
-                loop_report_dict["radio_firmware"] = riley_link_device["radioFirmware"].strip()
-                loop_report_dict["ble_firmware"] = riley_link_device["bleFirmware"].strip()
+                loop_report_dict["rileyLink_radio_firmware"] = riley_link_device["radioFirmware"].strip()
+                loop_report_dict["rileyLink_ble_firmware"] = riley_link_device["bleFirmware"].strip()
             except:
                 print("handled error riley link device")
 
         if Sections.CARB_STORE in dict:
             try:
                 carb_store = dict[Sections.CARB_STORE]
-                loop_report_dict["carb_ratio_schedule"] = json.loads(carb_store["carbRatioSchedule"].replace("[", "{").
+                carb_ratio_schedule = json.loads(carb_store["carbRatioSchedule"].replace("[", "{").
                                                          replace("]", "}").replace("{{", "{").replace("}}", "}"))
+
+                loop_report_dict["carb_ratio_unit"] = carb_ratio_schedule['unit']
+                loop_report_dict["carb_ratio_timeZone"] = carb_ratio_schedule['timeZone']
+                loop_report_dict["carb_ratio_schedule"] = carb_ratio_schedule['items']
+
 
                 default_absorption_times = json.loads(carb_store["defaultAbsorptionTimes"].replace("(", "{")
                                                       .replace(")", "}").replace("fast", '"fast"').
                                                       replace("medium", '"medium"').replace("slow", '"slow"'))
-                loop_report_dict["default_absorption_times_fast"] = default_absorption_times["fast"]
-                loop_report_dict["default_absorption_times_medium"] = default_absorption_times["medium"]
-                loop_report_dict["default_absorption_times_slow"] = default_absorption_times["slow"]
+                loop_report_dict["carb_default_absorption_times_fast"] = default_absorption_times["fast"]
+                loop_report_dict["carb_default_absorption_times_medium"] = default_absorption_times["medium"]
+                loop_report_dict["carb_default_absorption_times_slow"] = default_absorption_times["slow"]
 
                 temp = carb_store["insulinSensitivitySchedule"].replace("[", "{").replace("]", "}").replace("{{", "{").\
                     replace("}}", "}").replace('"items": {{', '"items": [{').replace('"items": {', '"items": [{').\
@@ -70,7 +75,7 @@ class LoopReport:
 
                 if temp[-1:] != '}':
                     temp = temp + '}'
-                loop_report_dict["insuline_sensitivity_schedule"] = json.loads(temp)
+                loop_report_dict["insulin_sensitivity_factor_schedule"] = json.loads(temp)
 
             except:
                 print("handled error carb store")
@@ -81,12 +86,12 @@ class LoopReport:
                 basal_profile = json.loads(dose_store["basalProfile"].replace("[", "{").replace("]", "}").
                                                   replace("{{", "{").replace("}}", "}").replace(": {", ": [{").
                                                   replace("}}", "}]}").replace('}, "timeZone"', '}], "timeZone"'))
-                loop_report_dict["basal_profile_time_zone"] = basal_profile['timeZone']
-                loop_report_dict["basal_profile_time_items"] = basal_profile['items']
+                loop_report_dict["basal_rate_timeZone"] = basal_profile['timeZone']
+                loop_report_dict["basal_rate_schedule"] = basal_profile['items']
 
                 loop_report_dict["insulin_model"] = re.search(r'Optional\((.+?)\(Exponential',
                                                                      dose_store["insulinModel"]).group(1)
-                loop_report_dict["action_duration"] = re.search('actionDuration: (.+?), peakActivityTime',
+                loop_report_dict["insulin_action_duration"] = re.search('actionDuration: (.+?), peakActivityTime',
                                                                        dose_store["insulinModel"]).group(1)
 
             except:
@@ -121,11 +126,11 @@ class LoopReport:
             try:
                 loop_data_manager = dict[Sections.LOOP_DATA_MANAGER]
 
-                loop_report_dict["maximum_basal_rate_per_hour"] = \
+                loop_report_dict["maximum_basal_rate"] = \
                     re.search(r'maximumBasalRatePerHour: Optional\((.+?)\), maximumBolus',
                               loop_data_manager["settings"]).group(1)
 
-                loop_report_dict["maxium_bolus"] = re.search(
+                loop_report_dict["maximum_bolus"] = re.search(
                     r'maximumBolus: Optional\((.+?)\), suspendThreshold', loop_data_manager["settings"]).group(1)
 
                 loop_report_dict["retrospective_correction_enabled"] = \
@@ -158,7 +163,7 @@ class LoopReport:
                 while check != ']':
                     workout += 1
                     check = substr[workout]
-                loop_report_dict["workout"] = eval(substr[start_index:workout + 1])
+                loop_report_dict["override_range_workout"] = eval(substr[start_index:workout + 1])
 
                 premeal = substr.index('preMeal')
                 start_index = premeal + 10
@@ -167,7 +172,7 @@ class LoopReport:
                 while check != ']':
                     premeal += 1
                     check = substr[premeal]
-                loop_report_dict["premeal"] = eval(substr[start_index:premeal + 1])
+                loop_report_dict["override_range_premeal"] = eval(substr[start_index:premeal + 1])
 
                 return loop_report_dict
 
