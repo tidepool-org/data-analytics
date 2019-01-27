@@ -78,9 +78,12 @@ class LoopReport:
         if Sections.DOSE_STORE in dict:
             try:
                 dose_store = dict[Sections.DOSE_STORE]
-                self.__basal_profile = json.loads(dose_store["basalProfile"].replace("[", "{").replace("]", "}").
+                basal_profile = json.loads(dose_store["basalProfile"].replace("[", "{").replace("]", "}").
                                                   replace("{{", "{").replace("}}", "}").replace(": {", ": [{").
                                                   replace("}}", "}]}").replace('}, "timeZone"', '}], "timeZone"'))
+                loop_report_dict["basal_profile_time_zone"] = basal_profile['timeZone']
+                loop_report_dict["basal_profile_time_items"] = basal_profile['items']
+
                 loop_report_dict["insulin_model"] = re.search(r'Optional\((.+?)\(Exponential',
                                                                      dose_store["insulinModel"]).group(1)
                 loop_report_dict["action_duration"] = re.search('actionDuration: (.+?), peakActivityTime',
