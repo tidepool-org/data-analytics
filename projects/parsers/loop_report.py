@@ -135,18 +135,39 @@ class LoopReport:
                 loop_report_dict["suspend_threshold"] = re.search(
                     r'Loop.GlucoseThreshold\(value: (.+?), unit', loop_data_manager["settings"]).group(1)
 
-                """
-                self.__loop_report_dict["suspend_threshold_unit"] = re.search(
-                    r'"unit": "(.+?)\)\),', self.__loop_data_manager["settings"]).group(1)
-    
-               
-                unable to parse this out currently
-                self.__loop_report_dict["workout"] = re.search(
-                    '"workout": (.+?)"]], maximumBasalRatePerHour', loop_data_manager["settings"]).group(1)
-        
-                self.__loop_report_dict["premeal"] = re.search(
-                    '"preMeal": (.+?)"]', loop_data_manager["settings"]).group(1)
-                """
+                start_index = loop_data_manager["settings"].index('suspendThreshold')
+                end_index = loop_data_manager["settings"].index('retrospectiveCorrectionEnabled')
+                substr = loop_data_manager["settings"][start_index:end_index]
+
+                unit = substr.index('unit')
+                start_index = unit + 6
+                check = ""
+                while check != ')':
+                    unit += 1
+                    check = substr[unit]
+                loop_report_dict["suspend_threshold_unit"] = substr[start_index:unit]
+
+
+                start_index = loop_data_manager["settings"].index('overrideRanges')
+                end_index = loop_data_manager["settings"].index('maximumBasalRatePerHour')
+                substr = loop_data_manager["settings"][start_index:end_index]
+
+                workout = substr.index('workout')
+                start_index = workout + 10
+                check = ""
+                while check != ']':
+                    workout += 1
+                    check = substr[workout]
+                loop_report_dict["workout"] = eval(substr[start_index:workout + 1])
+
+                premeal = substr.index('preMeal')
+                start_index = premeal + 10
+                check = ""
+
+                while check != ']':
+                    premeal += 1
+                    check = substr[premeal]
+                loop_report_dict["premeal"] = eval(substr[start_index:premeal + 1])
 
                 return loop_report_dict
 
