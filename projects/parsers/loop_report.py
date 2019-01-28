@@ -1,4 +1,4 @@
-from loop_report_parser import parse_loop_report, Sections
+from .loop_report_parser import parse_loop_report, Sections
 import os
 import re
 import json
@@ -101,8 +101,8 @@ class LoopReport:
 
                 loop_report_dict["insulin_model"] = re.search(r'Optional\((.+?)\(Exponential',
                                                                      dose_store["insulinModel"]).group(1)
-                loop_report_dict["insulin_action_duration"] = re.search('actionDuration: (.+?), peakActivityTime',
-                                                                       dose_store["insulinModel"]).group(1)
+                loop_report_dict["insulin_action_duration"] = float(re.search('actionDuration: (.+?), peakActivityTime',
+                                                                       dose_store["insulinModel"]).group(1))
 
             except:
                 print("handled error dose store")
@@ -136,18 +136,18 @@ class LoopReport:
                 loop_data_manager = dict[Sections.LOOP_DATA_MANAGER]
 
                 loop_report_dict["maximum_basal_rate"] = \
-                    re.search(r'maximumBasalRatePerHour: Optional\((.+?)\), maximumBolus',
-                              loop_data_manager["settings"]).group(1)
+                    float(re.search(r'maximumBasalRatePerHour: Optional\((.+?)\), maximumBolus',
+                              loop_data_manager["settings"]).group(1))
 
-                loop_report_dict["maximum_bolus"] = re.search(
-                    r'maximumBolus: Optional\((.+?)\), suspendThreshold', loop_data_manager["settings"]).group(1)
+                loop_report_dict["maximum_bolus"] = float(re.search(
+                    r'maximumBolus: Optional\((.+?)\), suspendThreshold', loop_data_manager["settings"]).group(1))
 
                 loop_report_dict["retrospective_correction_enabled"] = \
                     re.search('retrospectiveCorrectionEnabled: (.+?), retrospectiveCorrection',
                               loop_data_manager["settings"]).group(1)
 
-                loop_report_dict["suspend_threshold"] = re.search(
-                    r'Loop.GlucoseThreshold\(value: (.+?), unit', loop_data_manager["settings"]).group(1)
+                loop_report_dict["suspend_threshold"] = float(re.search(
+                    r'Loop.GlucoseThreshold\(value: (.+?), unit', loop_data_manager["settings"]).group(1))
 
                 start_index = loop_data_manager["settings"].index('suspendThreshold')
                 end_index = loop_data_manager["settings"].index('retrospectiveCorrectionEnabled')
