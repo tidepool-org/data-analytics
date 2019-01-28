@@ -78,7 +78,7 @@ class LoopReport:
 
                 insulin_sensitivity_factor_schedule = json.loads(temp)
                 loop_report_dict["insulin_sensitivity_factor_schedule"] = insulin_sensitivity_factor_schedule["items"]
-                loop_report_dict["insulin_sensitivity_factor_schedule"] = insulin_sensitivity_factor_schedule["timeZone"]
+                loop_report_dict["insulin_sensitivity_factor_timeZone"] = insulin_sensitivity_factor_schedule["timeZone"]
                 loop_report_dict["insulin_sensitivity_factor_unit"] = insulin_sensitivity_factor_schedule["unit"]
 
             except:
