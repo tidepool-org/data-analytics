@@ -1,4 +1,4 @@
-from .loop_report_parser import parse_loop_report, Sections
+from loop_report_parser import parse_loop_report, Sections
 import os
 import re
 import json
