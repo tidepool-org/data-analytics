@@ -53,9 +53,6 @@ class LoopReport:
         if Sections.CARB_STORE in dict:
             try:
                 carb_store = dict[Sections.CARB_STORE]
-              #  carb_ratio_schedule = json.loads(carb_store["carbRatioSchedule"].replace("[", "{").
-              #                                           replace("]", "}").replace("{{", "{").replace("}}", "}"))
-
                 temp = carb_store["carbRatioSchedule"].replace("[", "{").replace("]", "}").replace("{{", "{"). \
                     replace("}}", "}").replace('"items": {{', '"items": [{').replace('"items": {', '"items": [{'). \
                     replace("}}", "}]") \
@@ -66,11 +63,9 @@ class LoopReport:
 
                 carb_ratio_schedule = json.loads(temp)
 
-
                 loop_report_dict["carb_ratio_unit"] = carb_ratio_schedule['unit']
                 loop_report_dict["carb_ratio_timeZone"] = carb_ratio_schedule['timeZone']
                 loop_report_dict["carb_ratio_schedule"] = carb_ratio_schedule['items']
-
 
                 default_absorption_times = json.loads(carb_store["defaultAbsorptionTimes"].replace("(", "{")
                                                       .replace(")", "}").replace("fast", '"fast"').
@@ -111,7 +106,6 @@ class LoopReport:
 
             except:
                 print("handled error dose store")
-
 
         minimed_pump_manager = None
         omnipod_pump_manager = None
