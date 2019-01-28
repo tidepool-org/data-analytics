@@ -53,8 +53,19 @@ class LoopReport:
         if Sections.CARB_STORE in dict:
             try:
                 carb_store = dict[Sections.CARB_STORE]
-                carb_ratio_schedule = json.loads(carb_store["carbRatioSchedule"].replace("[", "{").
-                                                         replace("]", "}").replace("{{", "{").replace("}}", "}"))
+              #  carb_ratio_schedule = json.loads(carb_store["carbRatioSchedule"].replace("[", "{").
+              #                                           replace("]", "}").replace("{{", "{").replace("}}", "}"))
+
+                temp = carb_store["carbRatioSchedule"].replace("[", "{").replace("]", "}").replace("{{", "{"). \
+                    replace("}}", "}").replace('"items": {{', '"items": [{').replace('"items": {', '"items": [{'). \
+                    replace("}}", "}]") \
+                    .replace('}, "unit"', '}], "unit"').replace('}, "timeZone"', '}], "timeZone"')
+
+                if temp[-1:] != '}':
+                    temp = temp + '}'
+
+                carb_ratio_schedule = json.loads(temp)
+
 
                 loop_report_dict["carb_ratio_unit"] = carb_ratio_schedule['unit']
                 loop_report_dict["carb_ratio_timeZone"] = carb_ratio_schedule['timeZone']
