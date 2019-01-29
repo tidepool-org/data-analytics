@@ -339,15 +339,18 @@ def get_bolusDaySummary(bolusData):
     return bolusDaySummary
 
 
-def get_basalDaySummary(basal):
+def get_basalDaySummary(df):
     # group data by day
-    basalByDay = basal.groupby(basal["day"])
+    basalByDay = df.groupby(df["day"])
 
     # total basal insulin per day
     basalDaySummary = pd.DataFrame(basalByDay.totalAmountOfBasalInsulin.sum())
 
+    # total duration per each day (this should add up to 24 hours)
+    basalDaySummary["totalBasalDuration"] = basalByDay.durationHours.sum()
+
     # total number of basals types per day
-    basalTypePerDay = basal.groupby(["day", "deliveryType"]).size().unstack()
+    basalTypePerDay = df.groupby(["day", "deliveryType"]).size().unstack()
 
     basalDaySummary["numberOfScheduledBasals"] = basalTypePerDay["scheduled"].fillna(0)
     if "suspend" not in list(basalTypePerDay):
@@ -567,9 +570,96 @@ def isf_likely_units(df, columnHeading):
     return likelyUnits
 
 
+def correct_basal_extends_past_midnight(df, timeCol, dayCol):
+    # deal with case when basal extends past midnight due to utcTime and localTime difference
+    df.sort_values(timeCol, inplace=True)
+    uniqueDays = pd.DatetimeIndex(df[dayCol].unique())
+    midnightsNotInBasalData = uniqueDays[~uniqueDays.isin(df[timeCol])]
+    for midnight in midnightsNotInBasalData:
+        # find the last basal prior to midnight
+        dayBefore = midnight - pd.Timedelta(24, unit="h")
+        dataDayBefore = df[(df[timeCol] < midnight) & (df[timeCol] > dayBefore)]
+
+        if len(dataDayBefore) > 0:
+
+            basalPriorToMidnight = dataDayBefore[dataDayBefore[timeCol] == dataDayBefore[timeCol].max()]
+            indexToDrop = basalPriorToMidnight.index.values[0]
+            oldDuration = basalPriorToMidnight.loc[indexToDrop, "duration"]
+            newDuration = (midnight - basalPriorToMidnight.loc[indexToDrop, timeCol]).seconds * 1000.0
+            newMidnightDuration = oldDuration - newDuration
+
+            newBasalPriorToMidnight = df.copy().drop(index=df.index)
+            newBasalPriorToMidnight.loc[0,:] = basalPriorToMidnight.loc[indexToDrop,:]
+            newBasalPriorToMidnight["duration"] = newDuration
+
+            # new basal at midnight
+            newBasalAtMidnight = df.copy().drop(index=df.index)
+            newBasalAtMidnight.loc[1,:] = basalPriorToMidnight.loc[indexToDrop,:]
+            newBasalAtMidnight["duration"] = newMidnightDuration
+            newBasalAtMidnight[timeCol] = midnight.to_pydatetime()
+            newBasalAtMidnight[dayCol] = newBasalAtMidnight[timeCol].dt.date
+
+            # add data back to the basal data frame
+            newRowsToAdd = pd.concat([newBasalPriorToMidnight, newBasalAtMidnight], ignore_index = True)
+            newRowsToAdd = newRowsToAdd.astype({"rate": "float64",
+                                                "duration": "float64"})
+            df = df.drop(indexToDrop)
+            df = pd.concat([df, newRowsToAdd], ignore_index=True)
+
+    return df
+
+
+def get_basalEvent_summary(df, categories):
+    catDF = df[df["type"] == "basal"].groupby(categories)
+    summaryDF = pd.DataFrame(catDF["rate"].count()).add_suffix(".count")
+    summaryDF["basalRate.min"] = catDF["rate"].min()
+    summaryDF["basalRate.weightedMean"] = catDF["totalAmountOfBasalInsulin"].sum() / catDF["durationHours"].sum()
+    summaryDF["basalRate.max"] = catDF["rate"].max()
+
+    # max basal rate including extended boluses
+    catDF = df.groupby(categories)
+    summaryDF["basalRateIncludingExtendedBoluses.count"] = catDF["rate"].count()
+    summaryDF["basalRateIncludingExtendedBoluses.max"] = catDF["rate"].max()
+
+    return summaryDF
+
+
+def get_bolusEvent_summary(df, categories):
+
+    catDF = df.groupby(categories)
+    summaryDF = pd.DataFrame(catDF["unitsInsulin"].describe().add_prefix("insulin."))
+
+    # carbs entered in bolus calculator
+    carbEvents = catDF["carbInput"].describe().add_prefix("carbsPerMeal.")
+    summaryDF = pd.concat([summaryDF, carbEvents], axis=1)
+
+    return summaryDF
+
+
+def get_dayData_summary(df, categories):
+
+    catDF = df[df["validPumpData"]].groupby(categories)
+    summaryDF = pd.DataFrame(catDF["totalAmountOfInsulin"].describe().add_prefix("totalDailyDose."))
+    totalDailyCarbs = catDF["totalDailyCarbs"].describe().add_prefix("totalDailyCarbs.")
+    percentBasal = catDF["percentBasal"].describe().add_prefix("percentBasal.")
+    percentBolus = catDF["percentBolus"].describe().add_prefix("percentBolus.")
+    summaryDF = pd.concat([summaryDF, totalDailyCarbs, percentBasal, percentBolus], axis=1)
+
+    return summaryDF
+
+
+def get_pumpSummary(basalEventsDF, bolusEventsDF, dayDataDF, categories):
+    basalEventSummary = get_basalEvent_summary(basalEventsDF, categories)
+    bolusEventSummary = get_bolusEvent_summary(bolusEventsDF, categories)
+    dailySummary = get_dayData_summary(dayDataDF, categories)
+    pumpSummaryDF = pd.concat([basalEventSummary, bolusEventSummary, dailySummary], axis=1)
+
+    return pumpSummaryDF
+
 
 # %% DELELET LATER
-#args.startIndex = 96
+args.startIndex = 0
+args.endIndex = 4226
 
 
 # %% START OF CODE
@@ -608,7 +698,7 @@ for dIndex in range(startIndex, endIndex):
     metadata = pd.DataFrame(index=[dIndex])
     metadata["hashID"] = hashID
 
-    try:
+    if 1 == 1:  # try:
         # make folder to save data
         processedDataPath = os.path.join(phiOutputPath, "PHI-" + userID)
         if not os.path.exists(processedDataPath):
@@ -720,9 +810,12 @@ for dIndex in range(startIndex, endIndex):
                                 bolus["isf_mmolL_U"]  = mgdL_to_mmolL(bolus["isf"])
 
 
-                            bolusCH = ["utcTime", "timezone", "roundedTime", "normal", "carbInput", "subType",
-                                            "insulinOnBoard", "bgInput",
-                                            "isf", "isf_mmolL_U", "insulinCarbRatio"]
+                            bolusCH = ["hashID", "age", "ylw", "day",
+                                       "utcTime", "localTime", "timezone", "tzo",
+                                       "roundedTime", "roundedLocalTime",
+                                       "normal", "carbInput", "subType",
+                                       "insulinOnBoard", "bgInput",
+                                       "isf", "isf_mmolL_U", "insulinCarbRatio"]
                             bolusEvents = bolus.loc[bolus["normal"].notnull(), bolusCH]
                             bolusEvents.loc[bolusEvents["bgInput"] == 0, "bgInput"] = np.nan
                             bolusEvents = bolusEvents.rename(columns={"normal": "unitsInsulin",
@@ -735,7 +828,12 @@ for dIndex in range(startIndex, endIndex):
                                 bolus["duration"].replace(0, np.nan, inplace=True)
                                 bolus["durationHours"] = bolus["duration"] / 1000.0 / 3600.0
                                 bolus["rate"] = bolus["extended"] / bolus["durationHours"]
-                                bolusExtendedCH = ["utcTime", "timezone", "roundedTime", "durationHours", "rate",  "type"]
+#                                bolusExtendedCH = ["localTime", "timezone", "roundedTime", "roundedLocalTime",
+#                                                   "durationHours", "rate",  "type"]
+                                bolusExtendedCH = ["hashID", "age", "ylw", "day",
+                                                   "utcTime", "localTime", "timezone", "tzo",
+                                                   "roundedTime", "roundedLocalTime",
+                                                   "durationHours", "rate", "type"]
                                 bolusExtendedEvents = bolus.loc[
                                         ((bolus["extended"].notnull()) &
                                          (bolus["duration"] > 0)), bolusExtendedCH]
@@ -1033,14 +1131,14 @@ for dIndex in range(startIndex, endIndex):
                                         tempDF["day"] = pumpSettings.loc[p, "day"]
                                         tempDF["sbr.type"] = "regular"
                                         tempDF["sbr.localTime"] = pd.to_datetime(tempDF["day"]) + pd.to_timedelta(tempDF["start"], unit="ms")
-                                    endOfDay = pd.DataFrame(pd.to_datetime(pumpSettings.loc[p, "day"] + pd.Timedelta(1, "D")), columns=["sbr.localTime"], index=[0])
-                                    tempDF = get_setting_durations(tempDF, "sbr", endOfDay)
-                                    tempDF = tempDF[:-1]
+                                        endOfDay = pd.DataFrame(pd.to_datetime(pumpSettings.loc[p, "day"] + pd.Timedelta(1, "D")), columns=["sbr.localTime"], index=[0])
+                                        tempDF = get_setting_durations(tempDF, "sbr", endOfDay)
+                                        tempDF = tempDF[:-1]
 
-                                    tempDaySummary = pd.DataFrame(index=[0])
-                                    tempDaySummary["day"] = tempDF["sbr.localTime"].dt.date
-                                    tempDaySummary["sbr.min"] = tempDF["rate"].min()
-                                    tempDaySummary["sbr.weightedMean"] = \
+                                        tempDaySummary = pd.DataFrame(index=[0])
+                                        tempDaySummary["day"] = tempDF["sbr.localTime"].dt.date
+                                        tempDaySummary["sbr.min"] = tempDF["rate"].min()
+                                        tempDaySummary["sbr.weightedMean"] = \
                                             np.sum(tempDF["rate"] * tempDF["sbr.durationHours"]) / tempDF["sbr.durationHours"].sum()
                                         tempDaySummary["sbr.max"] = tempDF["rate"].max()
                                         tempDaySummary["sbr.type"] = "regular"
@@ -1107,6 +1205,9 @@ for dIndex in range(startIndex, endIndex):
                                 removeDuplicates(basal, ["deliveryType", "deviceTime", "duration", "rate"])
                             metadata["basal.nBasalDuplicatesRemoved"] = nBasalDuplicatesRemoved
 
+                            # deal with case when basal extends past midnight due to utcTime and localTime difference
+                            basal = correct_basal_extends_past_midnight(basal, "localTime", "day")
+
                             # fill NaNs with 0, as it indicates a suspend (temp basal of 0)
                             basal.rate.fillna(0, inplace=True)
 
@@ -1125,14 +1226,18 @@ for dIndex in range(startIndex, endIndex):
                             basal["totalAmountOfBasalInsulin"] = basal["durationHours"] * basal["rate"]
 
                             # actual basal delivered
-                            abrColHeadings = ["utcTime", "timezone", "roundedTime", "durationHours", "rate", "type"]
-                            abr = basal[abrColHeadings]
+                            basalEventsColHeadings = ["hashID", "age", "ylw", "day",
+                                                      "utcTime", "localTime", "timezone", "tzo",
+                                                      "roundedTime", "roundedLocalTime",
+                                                      "durationHours", "rate", "type"]
+                            basalEvents = basal[basalEventsColHeadings]
                             if "duration" in list(bolus):
-                                abr = pd.concat([abr, bolusExtendedEvents], ignore_index=True)
-                                abr.sort_values("utcTime", inplace=True)
+                                basalEvents = pd.concat([basalEvents, bolusExtendedEvents], ignore_index=True)
+                                basalEvents.sort_values("localTime", inplace=True)
 
-                            abr["timezone"].fillna(method='ffill', inplace=True)
-                            abr["timezone"].fillna(method='bfill', inplace=True)
+                            basalEvents["timezone"].fillna(method='ffill', inplace=True)
+                            basalEvents["timezone"].fillna(method='bfill', inplace=True)
+                            basalEvents["totalAmountOfBasalInsulin"] = basalEvents["rate"] * basalEvents["durationHours"]
 
                             # get a summary of basals per day
                             basalDaySummary = get_basalDaySummary(basal)
@@ -1144,6 +1249,7 @@ for dIndex in range(startIndex, endIndex):
 
                             isClosedLoopDay, is670g, metadata = \
                                 getClosedLoopDays(groupedData, 30, metadata)
+
 
                             # %% CGM DATA
                             # filter by cgm and sort by uploadTime
@@ -1190,7 +1296,10 @@ for dIndex in range(startIndex, endIndex):
                             cgmRecordsPerDay["date"] = cgmRecordsPerDay.index
 
                             # filter the cgm data
-                            cgmColHeadings = ["utcTime", "timezone", "roundedTime", "value"]
+                            cgmColHeadings = ["hashID", "age", "ylw", "day",
+                                              "utcTime", "localTime",
+                                              "timezone", "tzo",
+                                              "roundedTime", "roundedLocalTime", "value"]
 
                             # get data in mg/dL units
                             cgm = cgmData[cgmColHeadings]
@@ -1218,12 +1327,39 @@ for dIndex in range(startIndex, endIndex):
                             metadata["day.endDate"] = dayEndDate
                             rng = pd.date_range(dayBeginDate, dayEndDate).date
                             dayData = pd.DataFrame(rng, columns=["day"])
+
                             for dfType in [dataPerDay, basalDaySummary, bolusDaySummary, cgmRecordsPerDay]:
                                 dayData = pd.merge(dayData, dfType.reset_index(), on="day", how="left")
+
                             for dfType in [isClosedLoopDay, is670g]:
                                 dayData = pd.merge(dayData, dfType, on="day", how="left")
 
-                            dayData["validPumpData"] = dayData["numberOfNormalBoluses"] > 3
+                            # calculate the total amount of daily insulin
+                            dayData["totalAmountOfInsulin"] = (
+                                    dayData["totalAmountOfBasalInsulin"] +
+                                    dayData["totalAmountOfBolusInsulin"]
+                                    )
+
+                            # calculate the percent bolus and percent basal
+                            dayData["percentBasal"] = (
+                                    dayData["totalAmountOfBasalInsulin"] /
+                                    dayData["totalAmountOfInsulin"]
+                                    )
+
+                            dayData["percentBolus"] = (
+                                    dayData["totalAmountOfBolusInsulin"] /
+                                    dayData["totalAmountOfInsulin"]
+                                    )
+
+                            # total daily carbs
+                            totalDailyCarbs = pd.DataFrame(bolusEvents.groupby("day").carbInput.sum())
+                            totalDailyCarbs.reset_index(inplace=True)
+                            totalDailyCarbs.rename(columns={"carbInput": "totalDailyCarbs"}, inplace=True)
+                            dayData = pd.merge(dayData, totalDailyCarbs, how="left", on="day")
+
+                            # valid pump should be having exactly 24 hours of basal rate
+                            dayData["validPumpData"] = dayData["totalBasalDuration"] == 24
+                            dayData["atLeast3Boluses"] = dayData["numberOfNormalBoluses"] >= 3
 
                             dayData["validCGMData"] = \
                                 ((dayData["cgm.count"] > (288*.75)) |
@@ -1392,18 +1528,14 @@ for dIndex in range(startIndex, endIndex):
 
 
                             # %% calculate local time
-                            abr["date"] = pd.to_datetime(abr["utcTime"].dt.date)
+                            basalEvents["day"] = basalEvents["localTime"].dt.date
+                            basalEvents = pd.merge(basalEvents, dayData[["day", "isDSTChangeDay"]], how="left", on="day")
 
-                            abr = pd.merge(abr, dayData[["date", "tzo", "isDSTChangeDay"]], how="left", on="date")
-                            abr["localTime"] = abr["utcTime"] + pd.to_timedelta(abr["tzo"], unit="m")
+                            cgm["day"] = cgm["localTime"].dt.date
+                            cgm = pd.merge(cgm, dayData[["day", "isDSTChangeDay"]], how="left", on="day")
 
-                            cgm["date"] = pd.to_datetime(cgm["utcTime"].dt.date)
-                            cgm = pd.merge(cgm, dayData[["date", "tzo", "isDSTChangeDay"]], how="left", on="date")
-                            cgm["localTime"] = cgm["utcTime"] + pd.to_timedelta(cgm["tzo"], unit="m")
-
-                            bolusEvents["date"] = pd.to_datetime(bolusEvents["utcTime"].dt.date)
-                            bolusEvents = pd.merge(bolusEvents, dayData[["date", "tzo", "isDSTChangeDay"]], how="left", on="date")
-                            bolusEvents["localTime"] = bolusEvents["utcTime"] + pd.to_timedelta(bolusEvents["tzo"], unit="m")
+                            bolusEvents["day"] = bolusEvents["localTime"].dt.date
+                            bolusEvents = pd.merge(bolusEvents, dayData[["day", "isDSTChangeDay"]], how="left", on="day")
 
 
                             # %% STATS PER EACH TYPE, OVERALL AND PER EACH AGE & YLW (MIN, PERCENTILES, MAX, MEAN, SD, IQR, COV)
@@ -1428,149 +1560,51 @@ for dIndex in range(startIndex, endIndex):
                                                      roundedTimeFieldName="localRoundedTime",
                                                      startWithFirstRecord=True, verbose=False)
 
-                            colOrder = ["hashID", "age", "ylw", "localTime", "localRoundedTime",
+                            allSettings["day"] = allSettings["localTime"].dt.date
+                            allSettings = pd.merge(allSettings, dayData[["day", "isDSTChangeDay"]], how="left", on="day")
+
+
+                            colOrder = ["hashID", "age", "ylw", "day", "isDSTChangeDay",
+                                        "localTime", "localRoundedTime",
                                         "isf", "cir", "sbr", "deviceId",
                                         "ct.low", "ct.high", "ct.target", "ct.range",
                                         "sbr.type", "isf_mmolL_U"]
                             allSettings = allSettings[colOrder]
 
 
-                            fieldsToDrop = ["utcTime", "timezone", "roundedTime", "date", "tzo", "isDSTChangeDay"]
-                            pumpEvents = pd.merge(abr.drop(columns=fieldsToDrop),
-                                                  bolusEvents.drop(columns=fieldsToDrop),
-                                                  how="outer", on="localTime")
-                            pumpEvents["type"].fillna("bolus", inplace=True)
-                            pumpEvents["eventType"].fillna("basal", inplace=True)
-                            pumpEvents["hashID"] = hashID
-                            pumpEvents["age"] = np.floor((pumpEvents["localTime"] - bDate).dt.days/365.25).astype(int)
-                            pumpEvents["ylw"] = np.floor((pumpEvents["localTime"] - dDate).dt.days/365.25).astype(int)
-                            pumpEvents = round_time(pumpEvents, timeIntervalMinutes=5,
-                                                    timeField="localTime",
-                                                    roundedTimeFieldName="localRoundedTime",
-                                                    startWithFirstRecord=True, verbose=False)
+                            # %% GET AND SAVE RESULTS BY AGE AND YLW
+                            for category in ["age", "ylw", ["age", "ylw"]]:
+                                pumpSummary = get_pumpSummary(basalEvents, bolusEvents, dayData, category)
 
+                                # very low level cgm stats per age
+                                catDF = cgm.groupby(category)
+                                cgmStats = catDF["mg_dL"].describe().add_prefix("cgm.")
+                                pumpCgmSummary = pd.concat([pumpSummary, cgmStats], axis=1)
 
-                            colOrder = ["hashID", "age", "ylw", "localTime", "localRoundedTime",
-                                        "rate", "durationHours",
-                                        "unitsInsulin", "carbInput", "type", "eventType", "subType",
-                                        "isf", "isf_mmolL_U", "insulinCarbRatio", "insulinOnBoard",
-                                        "bg_mgdL", "bg_mmolL"]
+                                if category == "age":
+                                    pumpCgmSummary.reset_index(inplace=True)
+                                    ageSummary = pd.merge(ageSummary, pumpCgmSummary, on=category, how="left")
+                                    ageSummary["hashID"] = hashID
+                                    allAgeSummaries = pd.concat([allAgeSummaries, ageSummary], ignore_index=True)
+                                    allAgeSummaries.to_csv(os.path.join(outputPath,
+                                        "allAgeSummaries-dIndex-" + str(startIndex) + ".csv"))
+                                elif category == "ylw":
+                                    pumpCgmSummary.reset_index(inplace=True)
+                                    ylwSummary = pd.merge(ylwSummary, pumpCgmSummary, on=category, how="left")
+                                    ylwSummary["hashID"] = hashID
+                                    allYlwSummaries = pd.concat([allYlwSummaries, ylwSummary], ignore_index=True)
+                                    allYlwSummaries.to_csv(os.path.join(outputPath,
+                                        "allYlwSummaries-dIndex-" + str(startIndex) + ".csv"))
+                                else:
 
-                            pumpEvents = pumpEvents[colOrder]
+                                    ageANDylwSummary = ageANDylwSummary.join(pumpCgmSummary, how="left")
+                                    pumpCgmSummary.reset_index(inplace=True)
+                                    pumpCgmSummary.reset_index(inplace=True)
+                                    pumpCgmSummary["hashID"] = hashID
+                                    allAgeANDylwSummaries = pd.concat([allAgeANDylwSummaries, pumpCgmSummary], ignore_index=True)
 
-                            cgmLite = cgm.drop(columns=fieldsToDrop)
-                            cgmLite["hashID"] = hashID
-                            cgmLite["age"] = np.floor((cgmLite["localTime"] - bDate).dt.days/365.25).astype(int)
-                            cgmLite["ylw"] = np.floor((cgmLite["localTime"] - dDate).dt.days/365.25).astype(int)
-                            cgmLite = round_time(cgmLite, timeIntervalMinutes=5,
-                                                 timeField="localTime",
-                                                 roundedTimeFieldName="localRoundedTime",
-                                                 startWithFirstRecord=True, verbose=False)
-
-                            colOrder = ["hashID", "age", "ylw", "localTime", "localRoundedTime",
-                                        "mg_dL", "mmol_L"]
-
-                            cgmLite = cgmLite[colOrder]
-
-
-                            # %% SAVE RESULTS
-
-                            # age and ylw stats
-                            pumpEvents["rateTimesDurationHours"] = pumpEvents["rate"] * pumpEvents["durationHours"]
-                            pumpEvents.rename(columns={"rate":"basalRate"}, inplace=True)
-                            catDF = pumpEvents.groupby("age")
-
-                            # actual basal rates
-                            agePump = pd.DataFrame(catDF["basalRate"].count()).add_suffix(".count")
-                            agePump["basalRate.min"] = catDF["basalRate"].min()
-                            agePump["basalRate.weightedMean"] = catDF["rateTimesDurationHours"].sum() / catDF["durationHours"].sum()
-                            agePump["basalRate.max"] = catDF["basalRate"].max()
-
-                            # insulin events
-                            insulinEvents = catDF["unitsInsulin"].describe().add_prefix("insulin.")
-                            agePump = pd.concat([agePump, insulinEvents], axis=1)
-
-                            # carbs entered in bolus calculator
-                            carbEvents = catDF["carbInput"].describe().add_prefix("carb.")
-                            agePump = pd.concat([agePump, carbEvents], axis=1)
-
-                            # very low level cgm stats per age
-                            catDF = cgmLite.groupby("age")
-                            cgmStats = catDF["mg_dL"].describe().add_prefix("cgm.")
-                            agePumpCgm = pd.concat([agePump, cgmStats], axis=1)
-
-                            agePumpCgm.reset_index(inplace=True)
-
-                            ageSummary = pd.merge(ageSummary, agePumpCgm, on="age", how="left")
-                            ageSummary["hashID"] = hashID
-                            allAgeSummaries = pd.concat([allAgeSummaries, ageSummary], ignore_index=True)
-
-                            allAgeSummaries.to_csv(os.path.join(outputPath,
-                                "allAgeSummaries-dIndex-" + str(startIndex) + ".csv"))
-
-                            # repoeat for years living with
-                            catDF = pumpEvents.groupby("ylw")
-                            # actual basal rates
-                            ylwPump = pd.DataFrame(catDF["basalRate"].count()).add_suffix(".count")
-                            ylwPump["basalRate.min"] = catDF["basalRate"].min()
-                            ylwPump["basalRate.weightedMean"] = catDF["rateTimesDurationHours"].sum() / catDF["durationHours"].sum()
-                            ylwPump["basalRate.max"] = catDF["basalRate"].max()
-
-                            # insulin events
-                            insulinEvents = catDF["unitsInsulin"].describe().add_prefix("insulin.")
-                            ylwPump = pd.concat([ylwPump, insulinEvents], axis=1)
-
-                            # carbs entered in bolus calculator
-                            carbEvents = catDF["carbInput"].describe().add_prefix("carb.")
-                            ylwPump = pd.concat([ylwPump, carbEvents], axis=1)
-
-                            # very low level cgm stats per age
-                            catDF = cgmLite.groupby("ylw")
-                            cgmStats = catDF["mg_dL"].describe().add_prefix("cgm.")
-                            ylwPumpCgm = pd.concat([ylwPump, cgmStats], axis=1)
-
-                            ylwPumpCgm.reset_index(inplace=True)
-
-                            ylwSummary = pd.merge(ylwSummary, ylwPumpCgm, on="ylw", how="left")
-
-                            ylwSummary["hashID"] = hashID
-                            allYlwSummaries = pd.concat([allYlwSummaries, ylwSummary], ignore_index=True)
-
-                            allYlwSummaries.to_csv(os.path.join(outputPath,
-                                "allYlwSummaries-dIndex-" + str(startIndex) + ".csv"))
-
-
-                            # repoeat for agne AND years living with
-                            catDF = pumpEvents.groupby(["age", "ylw"])
-                            # actual basal rates
-                            ageANDylwPump = pd.DataFrame(catDF["basalRate"].count()).add_suffix(".count")
-                            ageANDylwPump["basalRate.min"] = catDF["basalRate"].min()
-                            ageANDylwPump["basalRate.weightedMean"] = catDF["rateTimesDurationHours"].sum() / catDF["durationHours"].sum()
-                            ageANDylwPump["basalRate.max"] = catDF["basalRate"].max()
-
-                            # insulin events
-                            insulinEvents = catDF["unitsInsulin"].describe().add_prefix("insulin.")
-                            ageANDylwPump = pd.concat([ageANDylwPump, insulinEvents], axis=1)
-
-                            # carbs entered in bolus calculator
-                            carbEvents = catDF["carbInput"].describe().add_prefix("carb.")
-                            ageANDylwPump = pd.concat([ageANDylwPump, carbEvents], axis=1)
-
-                            # very low level cgm stats per age
-                            catDF = cgmLite.groupby(["age", "ylw"])
-                            cgmStats = catDF["mg_dL"].describe().add_prefix("cgm.")
-                            ageANDylwPumpCgm = pd.concat([ageANDylwPump, cgmStats], axis=1)
-
-                            ageANDylwSummary = ageANDylwSummary.join(ageANDylwPumpCgm, how="left")
-
-                            ageANDylwPumpCgm.reset_index(inplace=True)
-                            ageANDylwSummary.reset_index(inplace=True)
-
-                            ageANDylwSummary["hashID"] = hashID
-                            allAgeANDylwSummaries = pd.concat([allAgeANDylwSummaries, ageANDylwSummary], ignore_index=True)
-
-                            allAgeANDylwSummaries.to_csv(os.path.join(outputPath,
-                                "allAgeANDylwSummaries-dIndex-" + str(startIndex) + ".csv"))
+                                    allAgeANDylwSummaries.to_csv(os.path.join(outputPath,
+                                        "allAgeANDylwSummaries-dIndex-" + str(startIndex) + ".csv"))
 
 
                             # %% save data for this person
@@ -1578,9 +1612,9 @@ for dIndex in range(startIndex, endIndex):
                                 outputString = "age-%s-%s-ylw-%s-%s-lp-%s-670g-%s-id-%s"
                                 outputFormat = (f"{int(minAge):02d}",
                                                 f"{int(maxAge):02d}",
-                                            f"{int(minYLW):02d}",
-                                            f"{int(maxYLW):02d}",
-                                            f"{int(nDaysClosedLoop):03d}",
+                                                f"{int(minYLW):02d}",
+                                                f"{int(maxYLW):02d}",
+                                                f"{int(nDaysClosedLoop):03d}",
                                                 f"{int(n670gDays):03d}",
                                                 hashID[0:4])
                                 outputFolderName = outputString % outputFormat
@@ -1592,19 +1626,27 @@ for dIndex in range(startIndex, endIndex):
                                 os.makedirs(outputFolderName_Path)
 
                             fName = outputFolderName + "-allSettings.csv"
-                            allSettings.to_csv(os.path.join(outputFolderName_Path, fName))
-                            fName = outputFolderName + "-pumpEvents.csv"
-                            pumpEvents.to_csv(os.path.join(outputFolderName_Path, fName))
-                            fName = outputFolderName + "-cgmLite.csv"
-                            cgmLite.to_csv(os.path.join(outputFolderName_Path, fName))
+                            allSettingsMinusPumpSerial = allSettings.copy().drop(columns=["deviceId"])
+                            allSettingsMinusPumpSerial.to_csv(os.path.join(outputFolderName_Path, fName))
+                            fName = outputFolderName + "-dayData.csv"
+                            dayDataMinusPumpSerial = dayData.copy().drop(columns=["deviceId"])
+                            dayDataMinusPumpSerial.to_csv(os.path.join(outputFolderName_Path, fName))
+                            fName = outputFolderName + "-basalEvents.csv"
+                            basalEvents.to_csv(os.path.join(outputFolderName_Path, fName))
+                            fName = outputFolderName + "-bolusEvents.csv"
+                            bolusEvents.to_csv(os.path.join(outputFolderName_Path, fName))
+                            fName = outputFolderName + "-cgm.csv"
+                            cgm.to_csv(os.path.join(outputFolderName_Path, fName))
 
 
                             # %% save the processed data (saving this data will take up a lot of space and time)
-                            data.to_csv(os.path.join(processedDataPath, "allDataCleaned-PHI-" + userID + ".csv"))
-                            basal.to_csv(os.path.join(processedDataPath, "basal-PHI-" + userID + ".csv"))
-                            bolus.to_csv(os.path.join(processedDataPath, "bolus-PHI-" + userID + ".csv"))
-                            cgmData.to_csv(os.path.join(processedDataPath, "cgm-PHI-" + userID + ".csv"))
-                            pumpSettings.to_csv(os.path.join(processedDataPath, "pumpSettings-PHI-" + userID + ".csv"))
+#                            data.to_csv(os.path.join(processedDataPath, "allDataCleaned-PHI-" + userID + ".csv"))
+#                            basal.to_csv(os.path.join(processedDataPath, "basal-PHI-" + userID + ".csv"))
+#                            bolus.to_csv(os.path.join(processedDataPath, "bolus-PHI-" + userID + ".csv"))
+#                            cgmData.to_csv(os.path.join(processedDataPath, "cgm-PHI-" + userID + ".csv"))
+#                            pumpSettings.to_csv(os.path.join(processedDataPath, "pumpSettings-PHI-" + userID + ".csv"))
+#                            allSettings.to_csv(os.path.join(processedDataPath, "allSettings-PHI-" + userID + ".csv"))
+#                            dayData.to_csv(os.path.join(processedDataPath, "dayData-PHI-" + userID + ".csv"))
 
                         else:
                             metadata["flags"] = "no bolus wizard data"
@@ -1617,9 +1659,9 @@ for dIndex in range(startIndex, endIndex):
         else:
             metadata["flags"] = "missing bDay/dDay"
 
-    except:
-        print("something is broke dIndex=", dIndex)
-        metadata["flags"] = "something is broke"
+#    except:
+#        print("something is broke dIndex=", dIndex)
+#        metadata["flags"] = "something is broke"
 
 
     # write metaData to allMetadata
