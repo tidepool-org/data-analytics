@@ -668,7 +668,11 @@ for dIndex in range(startIndex, endIndex):
                         data["utcTime"] = pd.to_datetime(data["time"])
                         data["timezone"].fillna(method='ffill', inplace=True)
                         data["timezone"].fillna(method='bfill', inplace=True)
-                        data["day"] = pd.DatetimeIndex(data["utcTime"]).date
+
+                        # estimate local time (simple method)
+                        data["tzo"] = data[['utcTime', 'timezone']].apply(lambda x: getTimezoneOffset(*x), axis=1)
+                        data["localTime"] = data["utcTime"] + pd.to_timedelta(data["tzo"], unit="m")
+                        data["day"] = pd.DatetimeIndex(data["localTime"]).date
 
                         # round to the nearest 5 minutes
                         # TODO: once roundTime is pushed to tidals repository then this line can be replaced
@@ -676,14 +680,16 @@ for dIndex in range(startIndex, endIndex):
                         data = round_time(data, timeIntervalMinutes=5, timeField="time",
                                           roundedTimeFieldName="roundedTime", startWithFirstRecord=True,
                                           verbose=False)
+
+                        data["roundedLocalTime"] = data["roundedTime"] + pd.to_timedelta(data["tzo"], unit="m")
                         data.sort_values("uploadTime", ascending=False, inplace=True)
 
 
                         # %% ID, HASHID, AGE, & YLW
                         data["userID"] = userID
                         data["hashID"] = hashID
-                        data["age"] = np.floor((data["utcTime"] - bDate).dt.days/365.25).astype(int)
-                        data["ylw"] = np.floor((data["utcTime"] - dDate).dt.days/365.25).astype(int)
+                        data["age"] = np.floor((data["localTime"] - bDate).dt.days/365.25).astype(int)
+                        data["ylw"] = np.floor((data["localTime"] - dDate).dt.days/365.25).astype(int)
 
 
                         # %% BOLUS EVENTS (CORRECTION, AND MEAL INCLUING: CARBS, EXTENDED, DUAL)
