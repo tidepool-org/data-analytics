@@ -48,13 +48,20 @@ def test_parse_by_file_missing_file_name():
     with pytest.raises(RuntimeError) as excinfo:
         lr = LoopReport()
         lr.parse_by_file(os.getcwd() + "/files", '')
-    assert 'The file path and name passed in is invalid.' in str(excinfo.value)
+    assert 'The file path or file name passed in is invalid.' in str(excinfo.value)
 
 def test_parse_by_file_invalid_directory():
     with pytest.raises(RuntimeError) as excinfo:
         lr = LoopReport()
-        lr.parse_by_file(os.getcwd() + "", 'myfile')
-    assert 'The file path and name passed in is invalid.' in str(excinfo.value)
+        lr.parse_by_file("", 'test_loop_report.py')
+    assert 'The file path or file name passed in is invalid.' in str(excinfo.value)
+
+
+def test_parse_by_directory_invalid_directory():
+    with pytest.raises(RuntimeError) as excinfo:
+        lr = LoopReport()
+        lr.parse_by_directory("")
+    assert 'The directory passed in is invalid.' in str(excinfo.value)
 
     
 
