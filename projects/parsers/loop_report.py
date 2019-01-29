@@ -9,24 +9,24 @@ class LoopReport:
     def parse_by_file(self, path: str, file_name: str) -> dict:
         try:
             if not os.path.isdir(path) or not os.path.isfile(f"{path}/{file_name}"):
-                raise RuntimeError('The file path and name passed in is invalid.')
+                raise RuntimeError('The file path or file name passed in is invalid.')
         except:
-            raise RuntimeError('The file path and name passed in is invalid.')
+            raise RuntimeError('The file path or file name passed in is invalid.')
 
         return self.__parse(path, file_name)
 
-
     def parse_by_directory(self, directory: dict) -> list:
-        all_dict_list = []
         try:
-            for file_name in os.listdir(directory):
-                if file_name.endswith(".md"):
-                    all_dict_list.append(self.__parse(directory, file_name))
-            return all_dict_list
-        except IsADirectoryError:
-            raise RuntimeError('The file path and name passed in is invalid.')
+            if not os.path.isdir(directory):
+                raise RuntimeError('The directory passed in is invalid.')
         except:
-            raise
+            raise RuntimeError('The directory passed in is invalid.')
+
+        all_dict_list = []
+        for file_name in os.listdir(directory):
+            if file_name.endswith(".md"):
+                all_dict_list.append(self.__parse(directory, file_name))
+        return all_dict_list
 
     def __parse(self, path, file_name) -> dict:
         loop_report_dict= {}
