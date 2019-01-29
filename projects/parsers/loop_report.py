@@ -8,11 +8,13 @@ class LoopReport:
 
     def parse_by_file(self, path: str, file_name: str) -> dict:
         try:
-            return self.__parse(path, file_name)
-        except IsADirectoryError:
-            raise RuntimeError('The file path and name passed in is invalid.')
+            if not os.path.isdir(path) or not os.path.isfile(f"{path}/{file_name}"):
+                raise RuntimeError('The file path and name passed in is invalid.')
         except:
-            raise
+            raise RuntimeError('The file path and name passed in is invalid.')
+
+        return self.__parse(path, file_name)
+
 
     def parse_by_directory(self, directory: dict) -> list:
         all_dict_list = []
