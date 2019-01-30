@@ -729,7 +729,7 @@ def get_episodes(df):
 
         allEpisodes = pd.concat([allEpisodes, episodes]).reset_index(drop=True)
 
-        return allEpisodes
+    return allEpisodes
 
 
 def get_cgmStats(df):
@@ -780,7 +780,7 @@ def get_cgmStats(df):
 
 
 # %% DELELET LATER
-args.startIndex = 46
+args.startIndex = 0
 args.endIndex = 4226
 
 
