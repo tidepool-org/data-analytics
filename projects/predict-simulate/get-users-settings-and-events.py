@@ -657,8 +657,130 @@ def get_pumpSummary(basalEventsDF, bolusEventsDF, dayDataDF, categories):
     return pumpSummaryDF
 
 
+def get_episodes(df):
+    df = df.copy().sort_values("localTime").reset_index(drop=True)
+    allEpisodes = pd.DataFrame()
+    cgmFrequency = 5.0
+    episodeCriteria = pd.DataFrame({"threshold": [54, 70, 180, 250],
+                                    "duration": [15, 60, 120, 120],
+                                    "percentReadings": [75, 75, 75, 75],
+                                    "episodeName": ["extreme-hypo", "hypo",
+                                                    "hyper", "extreme-hyper"]})
+    episodes = pd.DataFrame()
+    for episodeType in range(0,len(episodeCriteria)):
+
+        # first find all of the cross points
+        episodeThreshold = episodeCriteria.loc[episodeType, "threshold"]
+        episodeDurationRequirement = episodeCriteria.loc[episodeType, "duration"]
+        episodePercentOfReadings = episodeCriteria.loc[episodeType, "percentReadings"]
+        episodeName = episodeCriteria.loc[episodeType, "episodeName"]
+
+        if episodeThreshold > 110:
+
+            df["startCrossPoint"] = ((df.mg_dL.shift(1) <= episodeThreshold) &
+                                      (df.mg_dL > episodeThreshold))
+
+            df["endCrossPoint"] = ((df.mg_dL.shift(1) > episodeThreshold) &
+                                    (df.mg_dL <= episodeThreshold))
+
+        else:
+            df["startCrossPoint"] = ((df.mg_dL.shift(1) >= episodeThreshold) &
+                                      (df.mg_dL < episodeThreshold))
+
+            df["endCrossPoint"] = ((df.mg_dL.shift(1) < episodeThreshold) &
+                                    (df.mg_dL >= episodeThreshold))
+
+
+        startList = pd.DataFrame(df[df.startCrossPoint].roundedLocalTime)
+        endList = pd.DataFrame(df[df.endCrossPoint].roundedLocalTime)
+        if len(startList) > len(endList):
+            endList = endList.append(
+                    df.loc[df.roundedLocalTime == df.roundedLocalTime.max(),
+                            ["roundedLocalTime"]]
+                    )
+        elif len(startList) < len(endList):
+            startList = startList.append(
+                    df.loc[df.roundedLocalTime == df.roundedLocalTime.min(),
+                            ["roundedLocalTime"]]
+                    ).sort_index()
+
+        if len(startList) == len(endList):
+
+            episodes = pd.concat([startList.reset_index().add_prefix("start."),
+                                  endList.reset_index().add_prefix("end.")], axis=1)
+
+            episodes["durationMinutes"] = \
+                (episodes["end.roundedLocalTime"] - episodes["start.roundedLocalTime"]).dt.seconds / 60
+
+            episodes["totalPoints"] = episodes["end.index"] - episodes["start.index"]
+            episodes["totalPossiblePoints"] = episodes["durationMinutes"] / cgmFrequency
+            episodes["percentOfReadings"] = episodes["totalPoints"] / episodes["totalPossiblePoints"] * 100
+
+        else:
+            "figure out how to resolve this case if it exists"
+            pdb.set_trace()
+
+        episodes = episodes[(episodes.durationMinutes >= episodeDurationRequirement) &
+                            (episodes.percentOfReadings >= episodePercentOfReadings)].reset_index(drop=True)
+        episodes["criterion.name"] = episodeName
+        episodes["criterion.threshold"] = episodeThreshold
+        episodes["criterion.duration"] = episodeDurationRequirement
+        episodes["criterion.percentOfReadings"] = episodePercentOfReadings
+
+        allEpisodes = pd.concat([allEpisodes, episodes]).reset_index(drop=True)
+
+        return allEpisodes
+
+
+def get_cgmStats(df):
+
+    statDF = pd.Series(df.mg_dL.describe())
+    statDF.rename(index={"count":"totalNumberCBGValues"}, inplace=True)
+
+    statDF["mean_mgdL"] = df.mg_dL.mean()
+    statDF["std_mgdL"] = df.mg_dL.std()
+    statDF["cov_mgdL"] = statDF["std_mgdL"] / statDF["mean_mgdL"]
+
+    statDF["totalBelow54"] = sum(df.mg_dL < 54)
+    statDF["totalBelow70"] = sum(df.mg_dL < 70)
+    statDF["total54to70"] = sum((df.mg_dL >= 54) & (df.mg_dL < 70))
+    statDF["total70to140"] = sum((df.mg_dL >= 70) & (df.mg_dL <= 140))
+    statDF["total70to180"] = sum((df.mg_dL >= 70) & (df.mg_dL <= 180))
+    statDF["total180to250"] = sum((df.mg_dL > 180) & (df.mg_dL <= 250))
+    statDF["totalAbove180"] = sum(df.mg_dL > 180)
+    statDF["totalAbove250"] = sum(df.mg_dL > 250)
+
+    statDF["percentBelow54"] = statDF["totalBelow54"] / statDF["totalNumberCBGValues"]
+    statDF["percentBelow70"] = statDF["totalBelow70"] / statDF["totalNumberCBGValues"]
+    statDF["percent70to140"] = statDF["total70to140"] / statDF["totalNumberCBGValues"]
+    statDF["percent70to180"] = statDF["total70to180"] / statDF["totalNumberCBGValues"]
+    statDF["percentAbove180"] = statDF["totalAbove180"] / statDF["totalNumberCBGValues"]
+    statDF["percentAbove250"] = statDF["totalAbove250"]  / statDF["totalNumberCBGValues"]
+
+    statDF["min_mgdL"] = df.mg_dL.min()
+    statDF["median_mgdL"] = df.mg_dL.describe()["50%"]
+    statDF["max_mgdL"] = df.mg_dL.max()
+
+    # calculate the start and end time of the cbg data
+    startTime = df["roundedLocalTime"].min()
+    statDF["startTime"] = startTime
+    endTime = df["roundedLocalTime"].max()
+    statDF["endTime"] = endTime
+    cgmFrequency = np.round((endTime - startTime).seconds / statDF["totalNumberCBGValues"])
+
+    # sense whether cgm data comes in 5 minute or 15 minute intervals
+    cgmFrequency = \
+        np.nanmedian((df["roundedLocalTime"] - df["roundedLocalTime"].shift(1)).dt.seconds / 60)
+
+    statDF["cgmFrequency"] = cgmFrequency
+    statDF["totalNumberPossibleCBGvalues"] = len(pd.date_range(startTime, endTime, freq=str(int(cgmFrequency)) + "min"))
+    statDF["percentCgmValues"] = statDF["totalNumberCBGValues"] / statDF["totalNumberPossibleCBGvalues"]
+
+    return statDF
+
+
 # %% DELELET LATER
-args.startIndex = 0
+args.startIndex = 46
 args.endIndex = 4226
 
 
@@ -1357,7 +1479,34 @@ for dIndex in range(startIndex, endIndex):
                             totalDailyCarbs.rename(columns={"carbInput": "totalDailyCarbs"}, inplace=True)
                             dayData = pd.merge(dayData, totalDailyCarbs, how="left", on="day")
 
-                            # valid pump should be having exactly 24 hours of basal rate
+                            # get daily cgm stats
+                            cgm.sort_values("localTime", inplace=True)
+                            cgmCountsPerDay = cgm.groupby("day")["mg_dL"].count().reset_index()
+                            cgmCountsPerDay.rename(columns={"mg_dL":"cgmCountsPerDay"}, inplace=True)
+                            cgm = pd.merge(cgm, cgmCountsPerDay, how="left", on="day")
+
+                            cgmStats = cgm[cgm["cgmCountsPerDay"] > 1].groupby("day").apply(get_cgmStats)
+                            # fix start and end times (not sure why the get transformed to ints)
+                            cgmStats["startTime"] = pd.to_datetime(cgmStats["startTime"])
+                            cgmStats["endTime"] = pd.to_datetime(cgmStats["endTime"])
+
+                            cgmStats = cgmStats.add_prefix("cgm.")
+                            cgmStats.reset_index(inplace=True)
+                            dayData = pd.merge(dayData, cgmStats, how="left", on="day")
+
+                            # %% get all episodes
+                            allEpisodes = get_episodes(cgm)
+                            allEpisodes["day"] = allEpisodes["start.roundedLocalTime"].dt.date
+                            allEpisodes = pd.merge(allEpisodes, dayData[["age", "ylw", "day"]], how="left", on="day")
+
+                            for episodeType in allEpisodes["criterion.name"].unique():
+                                episodeGroup = allEpisodes[allEpisodes["criterion.name"] == episodeType].groupby(["day"])
+                                episodeDaySummary = episodeGroup["durationMinutes"].describe().add_prefix(episodeType + "-durationMinutes.")
+                                episodeDaySummary.rename(columns={episodeType + "-durationMinutes.count": episodeType + ".count"}, inplace=True)
+                                episodeDaySummary.reset_index(inplace=True)
+                                dayData = pd.merge(dayData, episodeDaySummary, how="left", on="day")
+
+                            # %% valid pump should be having exactly 24 hours of basal rate
                             dayData["validPumpData"] = dayData["totalBasalDuration"] == 24
                             dayData["atLeast3Boluses"] = dayData["numberOfNormalBoluses"] >= 3
 
@@ -1576,23 +1725,35 @@ for dIndex in range(startIndex, endIndex):
                             for category in ["age", "ylw", ["age", "ylw"]]:
                                 pumpSummary = get_pumpSummary(basalEvents, bolusEvents, dayData, category)
 
-                                # very low level cgm stats per age
-                                catDF = cgm.groupby(category)
-                                cgmStats = catDF["mg_dL"].describe().add_prefix("cgm.")
+                                # cgm stats per category
+                                catDF = cgm[cgm["cgmCountsPerDay"] > 1].groupby(category)
+                                cgmStats = catDF.apply(get_cgmStats)
+                                # fix start and end times (not sure why the get transformed to ints)
+                                cgmStats["startTime"] = pd.to_datetime(cgmStats["startTime"])
+                                cgmStats["endTime"] = pd.to_datetime(cgmStats["endTime"])
+
+                                cgmStats = cgmStats.add_prefix("cgm.")
                                 pumpCgmSummary = pd.concat([pumpSummary, cgmStats], axis=1)
+
+                                # get all episodes
+                                for episodeType in allEpisodes["criterion.name"].unique():
+                                    episodeGroup = allEpisodes[allEpisodes["criterion.name"] == episodeType].groupby(category)
+                                    episodeDaySummary = episodeGroup["durationMinutes"].describe().add_prefix(episodeType + "-durationMinutes.")
+                                    episodeDaySummary.rename(columns={episodeType + "-durationMinutes.count": episodeType + ".count"}, inplace=True)
+                                    pumpCgmSummary = pd.concat([pumpCgmSummary, episodeDaySummary], axis=1)
 
                                 if category == "age":
                                     pumpCgmSummary.reset_index(inplace=True)
                                     ageSummary = pd.merge(ageSummary, pumpCgmSummary, on=category, how="left")
                                     ageSummary["hashID"] = hashID
-                                    allAgeSummaries = pd.concat([allAgeSummaries, ageSummary], ignore_index=True)
+                                    allAgeSummaries = pd.concat([allAgeSummaries, ageSummary], ignore_index=True, sort=False)
                                     allAgeSummaries.to_csv(os.path.join(outputPath,
                                         "allAgeSummaries-dIndex-" + str(startIndex) + ".csv"))
                                 elif category == "ylw":
                                     pumpCgmSummary.reset_index(inplace=True)
                                     ylwSummary = pd.merge(ylwSummary, pumpCgmSummary, on=category, how="left")
                                     ylwSummary["hashID"] = hashID
-                                    allYlwSummaries = pd.concat([allYlwSummaries, ylwSummary], ignore_index=True)
+                                    allYlwSummaries = pd.concat([allYlwSummaries, ylwSummary], ignore_index=True, sort=False)
                                     allYlwSummaries.to_csv(os.path.join(outputPath,
                                         "allYlwSummaries-dIndex-" + str(startIndex) + ".csv"))
                                 else:
@@ -1601,7 +1762,7 @@ for dIndex in range(startIndex, endIndex):
                                     pumpCgmSummary.reset_index(inplace=True)
                                     pumpCgmSummary.reset_index(inplace=True)
                                     pumpCgmSummary["hashID"] = hashID
-                                    allAgeANDylwSummaries = pd.concat([allAgeANDylwSummaries, pumpCgmSummary], ignore_index=True)
+                                    allAgeANDylwSummaries = pd.concat([allAgeANDylwSummaries, pumpCgmSummary], ignore_index=True, sort=False)
 
                                     allAgeANDylwSummaries.to_csv(os.path.join(outputPath,
                                         "allAgeANDylwSummaries-dIndex-" + str(startIndex) + ".csv"))
@@ -1637,16 +1798,18 @@ for dIndex in range(startIndex, endIndex):
                             bolusEvents.to_csv(os.path.join(outputFolderName_Path, fName))
                             fName = outputFolderName + "-cgm.csv"
                             cgm.to_csv(os.path.join(outputFolderName_Path, fName))
+                            fName = outputFolderName + "-allEpisodes.csv"
+                            allEpisodes.to_csv(os.path.join(outputFolderName_Path, fName))
 
 
                             # %% save the processed data (saving this data will take up a lot of space and time)
-#                            data.to_csv(os.path.join(processedDataPath, "allDataCleaned-PHI-" + userID + ".csv"))
-#                            basal.to_csv(os.path.join(processedDataPath, "basal-PHI-" + userID + ".csv"))
-#                            bolus.to_csv(os.path.join(processedDataPath, "bolus-PHI-" + userID + ".csv"))
-#                            cgmData.to_csv(os.path.join(processedDataPath, "cgm-PHI-" + userID + ".csv"))
-#                            pumpSettings.to_csv(os.path.join(processedDataPath, "pumpSettings-PHI-" + userID + ".csv"))
-#                            allSettings.to_csv(os.path.join(processedDataPath, "allSettings-PHI-" + userID + ".csv"))
-#                            dayData.to_csv(os.path.join(processedDataPath, "dayData-PHI-" + userID + ".csv"))
+                            data.to_csv(os.path.join(processedDataPath, "allDataCleaned-PHI-" + userID + ".csv"))
+                            basal.to_csv(os.path.join(processedDataPath, "basal-PHI-" + userID + ".csv"))
+                            bolus.to_csv(os.path.join(processedDataPath, "bolus-PHI-" + userID + ".csv"))
+                            cgmData.to_csv(os.path.join(processedDataPath, "cgm-PHI-" + userID + ".csv"))
+                            pumpSettings.to_csv(os.path.join(processedDataPath, "pumpSettings-PHI-" + userID + ".csv"))
+                            allSettings.to_csv(os.path.join(processedDataPath, "allSettings-PHI-" + userID + ".csv"))
+                            dayData.to_csv(os.path.join(processedDataPath, "dayData-PHI-" + userID + ".csv"))
 
                         else:
                             metadata["flags"] = "no bolus wizard data"
