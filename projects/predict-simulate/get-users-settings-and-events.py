@@ -820,7 +820,7 @@ for dIndex in range(startIndex, endIndex):
     metadata = pd.DataFrame(index=[dIndex])
     metadata["hashID"] = hashID
 
-    if 1 == 1:  # try:
+    try:
         # make folder to save data
         processedDataPath = os.path.join(phiOutputPath, "PHI-" + userID)
         if not os.path.exists(processedDataPath):
@@ -834,7 +834,6 @@ for dIndex in range(startIndex, endIndex):
 
 
             # %% LOAD IN DONOR JSON DATA
-
             jsonDataPath = os.path.join(donorPath, phiDate + "-donorJsonData")
             jsonFileName = os.path.join(jsonDataPath, "PHI-" + userID + ".json")
 
@@ -950,8 +949,7 @@ for dIndex in range(startIndex, endIndex):
                                 bolus["duration"].replace(0, np.nan, inplace=True)
                                 bolus["durationHours"] = bolus["duration"] / 1000.0 / 3600.0
                                 bolus["rate"] = bolus["extended"] / bolus["durationHours"]
-#                                bolusExtendedCH = ["localTime", "timezone", "roundedTime", "roundedLocalTime",
-#                                                   "durationHours", "rate",  "type"]
+
                                 bolusExtendedCH = ["hashID", "age", "ylw", "day",
                                                    "utcTime", "localTime", "timezone", "tzo",
                                                    "roundedTime", "roundedLocalTime",
@@ -1822,9 +1820,9 @@ for dIndex in range(startIndex, endIndex):
         else:
             metadata["flags"] = "missing bDay/dDay"
 
-#    except:
-#        print("something is broke dIndex=", dIndex)
-#        metadata["flags"] = "something is broke"
+    except:
+        print("something is broke dIndex=", dIndex)
+        metadata["flags"] = "something is broke"
 
 
     # write metaData to allMetadata
