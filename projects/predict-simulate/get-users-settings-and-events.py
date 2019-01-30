@@ -779,11 +779,6 @@ def get_cgmStats(df):
     return statDF
 
 
-# %% DELELET LATER
-args.startIndex = 0
-args.endIndex = 4226
-
-
 # %% START OF CODE
 dataPulledDate = args.dateStamp
 dataPulledDF = pd.DataFrame(pd.to_datetime(dataPulledDate), columns=["day"], index=[0])
