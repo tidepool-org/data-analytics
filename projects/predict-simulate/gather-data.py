@@ -51,7 +51,7 @@ outputPath = os.path.join(donorPath, "settings-and-events")
 
 for name in ["allMetadata", "allAgeANDylwSummaries",
              "allAgeSummaries", "allYlwSummaries",
-             "basalEvents", "bolusEvents"]:
+             "dayData", "basalEvents", "bolusEvents"]:
     allDF = pd.DataFrame()
     if name.startswith("all"):
         files = glob.glob(os.path.join(outputPath, name + '*'))
