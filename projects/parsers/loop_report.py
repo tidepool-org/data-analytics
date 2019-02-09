@@ -38,7 +38,7 @@ class LoopReport:
 
     def __parse(self, path, file_name) -> dict:
         loop_report_dict = {}
-        dict = parse_loop_report(f"{path}/{file_name}")
+        dict = parse_loop_report(path, file_name)
         loop_report_dict["file_name"] = file_name
         if Sections.LOOP_VERSION in dict:
             try:
@@ -174,16 +174,16 @@ class LoopReport:
         omnipod_pump_manager = None
         if (
             Sections.MINIMED_PUMP_MANAGER in dict
-            or Sections.OMNIPOD_PUMP_MAANGER in dict
+            or Sections.OMNIPOD_PUMP_MANAGER in dict
         ):
             if Sections.MINIMED_PUMP_MANAGER in dict:
                 try:
                     minimed_pump_manager = dict[Sections.MINIMED_PUMP_MANAGER]
                 except:
                     print("handled error minimed pump manager")
-            if Sections.OMNIPOD_PUMP_MAANGER in dict:
+            if Sections.OMNIPOD_PUMP_MANAGER in dict:
                 try:
-                    omnipod_pump_manager = dict[Sections.OMNIPOD_PUMP_MAANGER]
+                    omnipod_pump_manager = dict[Sections.OMNIPOD_PUMP_MANAGER]
                 except:
                     print("handled error omnipod pump manager")
 
@@ -219,10 +219,12 @@ class LoopReport:
                     ).group(1)
                 )
 
-                loop_report_dict["retrospective_correction_enabled"] = re.search(
+                temp = re.search(
                     "retrospectiveCorrectionEnabled: (.+?), retrospectiveCorrection",
                     loop_data_manager["settings"],
-                ).group(1)
+                )
+                if temp:
+                    loop_report_dict["retrospective_correction_enabled"] = temp.group(1)
 
                 loop_report_dict["suspend_threshold"] = float(
                     re.search(
@@ -260,17 +262,21 @@ class LoopReport:
                 loop_report_dict["override_range_workout"] = eval(
                     substr[start_index : workout + 1]
                 )
+                try:
+                    premeal = substr.index("preMeal")
+                    start_index = premeal + 10
+                    check = ""
 
-                premeal = substr.index("preMeal")
-                start_index = premeal + 10
-                check = ""
+                    while check != "]":
+                        premeal += 1
+                        check = substr[premeal]
+                    loop_report_dict["override_range_premeal"] = eval(
+                        substr[start_index : premeal + 1]
+                    )
+                except:
+                    print("preMeal is not in loop data")
 
-                while check != "]":
-                    premeal += 1
-                    check = substr[premeal]
-                loop_report_dict["override_range_premeal"] = eval(
-                    substr[start_index : premeal + 1]
-                )
+
 
                 return loop_report_dict
 
@@ -282,12 +288,18 @@ class LoopReport:
     ):
         if minimed_pump_manager:
             loop_report_dict["pump_manager_type"] = "minimed"
-            loop_report_dict["pump_model"] = minimed_pump_manager["pumpModel"].strip()
+            try:
+                loop_report_dict["pump_model"] = minimed_pump_manager["pumpModel"].strip()
+            except:
+                print("pump model in minimed_pump_manager is not available")
 
         elif omnipod_pump_manager:
             loop_report_dict["pump_manager_type"] = "omnipod"
-            loop_report_dict["pm_version"] = omnipod_pump_manager["pmVersion"].strip()
-            loop_report_dict["pi_version"] = omnipod_pump_manager["piVersion"].strip()
+            try:
+                loop_report_dict["pm_version"] = omnipod_pump_manager["pmVersion"].strip()
+                loop_report_dict["pi_version"] = omnipod_pump_manager["piVersion"].strip()
+            except:
+                print("pm version or pi version in omnipod_pump_manager is not available")
 
         else:
             loop_report_dict["pump_manager_type"] = "unknown"

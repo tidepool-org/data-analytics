@@ -7,6 +7,9 @@ dependencies:
 * <>
 license: BSD-2-Clause
 """
+import pandas as pd
+import os
+import datetime
 
 
 class Sections:
@@ -16,9 +19,15 @@ class Sections:
     CARB_STORE = "carb_store"
     DOSE_STORE = "dose_store"
     MINIMED_PUMP_MANAGER = "minimed_pump_manager"
-    OMNIPOD_PUMP_MAANGER = "omnipod_pump_manager"
+    OMNIPOD_PUMP_MANAGER = "omnipod_pump_manager"
     WATCH_DATA_MANAGER = "watch_data_manager"
     LOOP_DATA_MANAGER = "loop_data_manager"
+    GET_NORMALIZED_DOSE_ENTRIES = "get_normalized_dose_entries"
+    POD_COMMS = "pod_comms"
+    MESSAGE_LOG = "message_log"
+    POD_INFO_FAULT_EVENT = "pod_info_fault_event"
+    OMNIPOD_PUMP_MANAGER_STATE = "omnipod_pump_manager_state"
+    POD_STATE = "pod_state"
 
 
 def _split_key_value(line, separator):
@@ -28,13 +37,16 @@ def _split_key_value(line, separator):
     return key, value
 
 
-def parse_loop_report(dataPathAndName):
+def parse_loop_report(path: str, file_name: str):
     current_section = ""
     all_sections = {}
+
     new_line = False
+    dataPathAndName = os.path.join(path, file_name)
 
     with open(dataPathAndName, "r") as reader:
         for line in reader:
+
             if line.startswith("Generated:"):
                 key, value = _split_key_value(line, ":")
                 generated = {}
@@ -105,6 +117,42 @@ def parse_loop_report(dataPathAndName):
                 all_sections["loop_data_manager"] = loop_data_manager
                 new_line = False
 
+            elif line.startswith("retrospectivePredictedGlucose"):
+                parse_key_value(all_sections, line)
+
+            elif line.startswith("glucoseMomentumEffect"):
+                parse_key_value(all_sections, line)
+
+            elif line.startswith("retrospectiveGlucoseEffect"):
+                parse_key_value(all_sections, line)
+
+            elif line.startswith("recommendedTempBasal"):
+                parse_key_value(all_sections, line)
+
+            elif line.startswith("recommendedBolus"):
+                parse_key_value(all_sections, line)
+
+            elif line.startswith("lastBolus"):
+                parse_key_value(all_sections, line)
+
+            elif line.startswith("retrospectiveGlucoseChange"):
+                parse_key_value(all_sections, line)
+
+            elif line.startswith("lastLoopCompleted"):
+                parse_key_value(all_sections, line)
+
+            elif line.startswith("lastTempBasal"):
+                parse_key_value(all_sections, line)
+
+            elif line.startswith("carbsOnBoard"):
+                parse_key_value(all_sections, line)
+
+            elif line.startswith("error"):
+                parse_key_value(all_sections, line)
+
+
+
+
             elif line.startswith("insulinCounteractionEffects:"):
                 insulin_counteraction_effects = []
                 current_section = "insulin_counteraction_effects"
@@ -113,10 +161,38 @@ def parse_loop_report(dataPathAndName):
                 ] = insulin_counteraction_effects
                 new_line = False
 
+            elif line.startswith("carbEffect:"):
+                carb_effect = []
+                current_section = "carb_effect"
+                all_sections[
+                    "carb_effect"
+                ] = carb_effect
+                new_line = False
+
+            elif line.startswith("insulinEffect:"):
+                insulin_effect = []
+                current_section = "insulin_effect"
+                all_sections[
+                    "insulin_effect"
+                ] = insulin_effect
+                new_line = False
+
             elif line.startswith("predictedGlucose:"):
                 predicted_glucose = []
                 current_section = "predicted_glucose"
                 all_sections["predicted_glucose"] = predicted_glucose
+                new_line = False
+
+            elif line.startswith("retrospectiveGlucoseDiscrepancies:"):
+                retrospective_glucose_discrepancies = []
+                current_section = "retrospective_glucose_discrepancies"
+                all_sections["retrospective_glucose_discrepancies"] = retrospective_glucose_discrepancies
+                new_line = False
+
+            elif line.startswith("retrospectiveGlucoseDiscrepanciesSummed:"):
+                retrospective_glucose_discrepancies_summed = []
+                current_section = "retrospective_glucose_discrepancies_summed"
+                all_sections["retrospective_glucose_discrepancies_summed"] = retrospective_glucose_discrepancies_summed
                 new_line = False
 
             elif line.startswith("retrospectivePredictedGlucose"):
@@ -181,12 +257,18 @@ def parse_loop_report(dataPathAndName):
                 all_sections["get_pump_event_values"] = get_pump_event_values
                 new_line = False
 
+            elif line.startswith("### getNormalizedDoseEntries"):
+                get_normalized_dose_entries = []
+                current_section = "get_normalized_dose_entries"
+                all_sections["get_normalized_dose_entries"] = get_normalized_dose_entries
+                new_line = False
+
             elif line.startswith(
                 "### getNormalizedPumpEventDoseEntriesOverlaidWithBasalEntries"
             ):
-                normalized_pump_event_dose = {}
-                current_section = "normalized_pump_event_dose"
-                all_sections["normalized_pump_event_dose"] = normalized_pump_event_dose
+                get_normalized_pump_event_dose = []
+                current_section = "get_normalized_pump_event_dose"
+                all_sections["get_normalized_pump_event_dose"] = get_normalized_pump_event_dose
                 new_line = False
 
             elif line.startswith("### InsulinDeliveryStore"):
@@ -207,6 +289,56 @@ def parse_loop_report(dataPathAndName):
                 all_sections["omnipod_pump_manager"] = omnipod_pump_manager
                 new_line = False
 
+            elif line.startswith("## G6CGMManager"):
+                g6_cgm_manager = {}
+                current_section = "g6_cgm_manager"
+                all_sections["g6_cgm_manager"] = g6_cgm_manager
+                new_line = False
+
+            elif line.startswith("## ShareClientManager"):
+                share_client_manager = {}
+                current_section = "share_client_manager"
+                all_sections["share_client_manager"] = share_client_manager
+                new_line = False
+
+            elif line.startswith("## PodComms"):
+                pod_comms = {}
+                current_section = "pod_comms"
+                all_sections["pod_comms"] = pod_comms
+                new_line = False
+
+            elif line.startswith("### MessageLog"):
+                message_log = []
+                current_section = "message_log"
+                all_sections["message_log"] = message_log
+                new_line = False
+
+            elif line.startswith("#### cachedDoseEntries"):
+                cached_dose_entries = []
+                current_section = "cached_dose_entries"
+                all_sections["cached_dose_entries"] = cached_dose_entries
+                new_line = False
+
+            elif line.startswith("## PodInfoFaultEvent"):
+                pod_info_fault_event = {}
+                current_section = "pod_info_fault_event"
+                all_sections["pod_info_fault_event"] = pod_info_fault_event
+                new_line = False
+
+            elif line.startswith("### OmnipodPumpManagerState"):
+                omnipod_pump_manager_state = {}
+                current_section = "omnipod_pump_manager_state"
+                all_sections["omnipod_pump_manager_state"] = omnipod_pump_manager_state
+                new_line = False
+
+            elif line.startswith("## PodState"):
+                pod_state = {}
+                current_section = "pod_state"
+                all_sections["pod_state"] = pod_state
+                new_line = False
+
+
+
             elif line.startswith("\n"):
                 new_line = True
 
@@ -222,6 +354,14 @@ def parse_loop_report(dataPathAndName):
                     or current_section == "get_reservoir_values"
                     or current_section == "predicted_glucose"
                     or current_section == "get_pump_event_values"
+                    or current_section == "get_normalized_dose_entries"
+                    or current_section == "message_log"
+                    or current_section == "cached_dose_entries"
+                    or current_section == "get_normalized_pump_event_dose"
+                    or current_section == "insulin_effect"
+                    or current_section == "carb_effect"
+                    or current_section == "retrospective_glucose_discrepancies"
+                    or current_section == "retrospective_glucose_discrepancies_summed"
                 ):
                     new_line = False
                     i_list = all_sections[current_section]
@@ -234,6 +374,8 @@ def parse_loop_report(dataPathAndName):
 
                     i_list.append(line)
 
+                elif not line.startswith("settings") and current_section == Sections.LOOP_DATA_MANAGER:
+                    one="one"
                 elif current_section:
                     new_line = False
                     dict = all_sections[current_section]
@@ -248,6 +390,19 @@ def parse_loop_report(dataPathAndName):
                         dict[key] = value.replace("\n", "")
 
     return all_sections
+
+
+def parse_key_value(all_sections, line):
+    dict = all_sections["loop_data_manager"]
+    key, value = _split_key_value(line, ":")
+    if key or value != "\n":
+        if key.startswith("*"):
+            key = key[1:]
+        if key.startswith(" "):
+            key = key[1:]
+        if value.endswith("\n"):
+            value.replace("\n", "")
+        dict[key] = value.replace("\n", "")
 
 
 def list_sections_in_loop_report(file_path):
