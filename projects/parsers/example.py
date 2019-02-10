@@ -7,7 +7,7 @@ Created on Fri Jan 25 06:55:48 2019
 @author: ed
 """
 
-from loop_report import LoopReport
+from projects.parsers.loop_report import LoopReport
 import pandas as pd
 import json
 import os
