@@ -1,4 +1,4 @@
-import projects.parsers.loop_report_parser as plr #import parse_loop_report, Sections
+import projects.parsers.loop_report_parser as plr
 import os
 import pytest
 

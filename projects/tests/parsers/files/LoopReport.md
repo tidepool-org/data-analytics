@@ -80,6 +80,15 @@ peripheral: <CBPeripheral: 0x2827d4fa0, identifier = 3F390A3A-9BEC-D2E4-08D7-13D
 sessionQueue.operationCount: 0
 
 
+### MessageLog
+* 2019-01-08 18:42:00 +0000 send 1f0d624118030e01008179
+* 2019-01-08 18:42:02 +0000 receive 1f0d62411c0a1d2803c0a000003d9bff81b4
+* 2019-01-08 18:46:07 +0000 send 1f0d624120030e010002cd
+* 2019-01-08 18:46:09 +0000 receive 1f0d6241240a1d2803c1a000003dabff0342
+* 2019-01-08 18:46:11 +0000 send 1f0d624128071f054c4d1dbb0280ff
+* 2019-01-08 18:46:14 +0000 receive 1f0d62412c0a1d1803c1d000003dabff82a6
+
+
 
 ## StatusExtensionDataManager
 appGroupName: group.com.34SNZ39Q48.loopkit.LoopGroup
@@ -377,6 +386,17 @@ deletedCarbEntries: [
 * authorizationRequired: false
 
 * lastBasalEndDate: 2019-01-28 10:06:28 +0000
+
+
+#### cachedDoseEntries
+DoseEntry(type: LoopKit.DoseType.basal, startDate: 2019-01-07 20:43:18 +0000, endDate: 2019-01-07 20:43:21 +0000, value: 0.0, unit: LoopKit.DoseUnit.units, description: nil, syncIdentifier: Optional("BasalRateSchedule 2019-01-07T20:43:18Z 2019-01-07T20:43:21Z"), scheduledBasalRate: nil)
+DoseEntry(type: LoopKit.DoseType.tempBasal, startDate: 2019-01-07 20:43:21 +0000, endDate: 2019-01-07 21:13:21 +0000, value: 0.95, unit: LoopKit.DoseUnit.units, description: nil, syncIdentifier: Optional("74656d70426173616c20302e39323520323031392d30312d30375432303a34333a32315a20313830302e30"), scheduledBasalRate: Optional(0.9 IU/hr))
+DoseEntry(type: LoopKit.DoseType.basal, startDate: 2019-01-07 21:13:21 +0000, endDate: 2019-01-07 21:16:57 +0000, value: 0.05, unit: LoopKit.DoseUnit.units, description: nil, syncIdentifier: Optional("BasalRateSchedule 2019-01-07T21:13:21Z 2019-01-07T21:16:57Z"), scheduledBasalRate: nil)
+DoseEntry(type: LoopKit.DoseType.tempBasal, startDate: 2019-01-07 21:16:57 +0000, endDate: 2019-01-07 21:21:14 +0000, value: 0.0, unit: LoopKit.DoseUnit.units, description: nil, syncIdentifier: Optional("74656d70426173616c20302e3020323031392d30312d30375432313a31363a35375a203235372e3132383533333935393338383733"), scheduledBasalRate: Optional(0.9 IU/hr))
+DoseEntry(type: LoopKit.DoseType.basal, startDate: 2019-01-07 21:21:14 +0000, endDate: 2019-01-07 21:21:20 +0000, value: 0.0, unit: LoopKit.DoseUnit.units, description: nil, syncIdentifier: Optional("BasalRateSchedule 2019-01-07T21:21:14Z 2019-01-07T21:21:20Z"), scheduledBasalRate: nil)
+DoseEntry(type: LoopKit.DoseType.tempBasal, startDate: 2019-01-07 21:21:20 +0000, endDate: 2019-01-07 21:26:00 +0000, value: 0.0, unit: LoopKit.DoseUnit.units, description: nil, syncIdentifier: Optional("74656d70426173616c20302e3020323031392d30312d30375432313a32313a32305a203237392e37333436363930383933313733"), scheduledBasalRate: Optional(0.9 IU/hr))
+DoseEntry(type: LoopKit.DoseType.basal, startDate: 2019-01-07 21:26:00 +0000, endDate: 2019-01-07 21:26:08 +0000, value: 0.0, unit: LoopKit.DoseUnit.units, description: nil, syncIdentifier: Optional("BasalRateSchedule 2019-01-07T21:26:00Z 2019-01-07T21:26:08Z"), scheduledBasalRate: nil)
+
 
 
 
