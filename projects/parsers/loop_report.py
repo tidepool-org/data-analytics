@@ -11,6 +11,7 @@ from loop_report_parser import parse_loop_report, Sections
 import os
 import re
 import json
+import pandas as pd
 
 
 class LoopReport:
@@ -276,12 +277,232 @@ class LoopReport:
                 except:
                     print("preMeal is not in loop data")
 
-
-
-                return loop_report_dict
-
             except:
                 print("handled error loop data manager")
+
+
+
+        if Sections.INSULIN_COUNTERACTION_EFFECTS in dict:
+            try:
+                ice_list = dict[Sections.INSULIN_COUNTERACTION_EFFECTS]
+                df = pd.DataFrame(columns=['start_time', 'end_time', 'value'])
+                ice_list.pop(0)
+                ice_list.pop(len(ice_list)-1)
+
+
+                for items in ice_list:
+                    start, end, value = items.split(',')
+                    df = df.append({'start_time': start, 'end_time': end, 'value': value}, ignore_index=True)
+
+                loop_report_dict["insulin_counteration_effects"] = df
+
+            except:
+                print("handled error INSULIN_COUNTERACTION_EFFECTS")
+
+        if Sections.RETROSPECTIVE_GLUCOSE_DISCREPANCIES_SUMMED in dict:
+            try:
+                local_list = dict[Sections.RETROSPECTIVE_GLUCOSE_DISCREPANCIES_SUMMED]
+                df = pd.DataFrame(columns=['start_time', 'end_time', 'value'])
+                local_list.pop(0)
+                local_list.pop(len(local_list) - 1)
+
+                for items in local_list:
+                    start, end, value = items.split(',')
+                    df = df.append({'start_time': start, 'end_time': end, 'value': value}, ignore_index=True)
+
+                loop_report_dict["retrospective_glucose_discrepancies_summed"] = df
+
+            except:
+                print("handled error RETROSPECTIVE_GLUCOSE_DISCREPANCIES")
+
+        if Sections.INSULIN_COUNTERACTION_EFFECTS in dict:
+            try:
+                local_list = dict[Sections.INSULIN_COUNTERACTION_EFFECTS]
+                df = pd.DataFrame(columns=['start_time', 'end_time', 'value'])
+                local_list.pop(0)
+                local_list.pop(len(local_list) - 1)
+
+                for items in local_list:
+                    start, end, value = items.split(',')
+                    df = df.append({'start_time': start, 'end_time': end, 'value': value}, ignore_index=True)
+
+                loop_report_dict["insulin_counteraction_effects"] = df
+
+            except:
+                print("handled error INSULIN_COUNTERACTION_EFFECTS")
+
+        if Sections.GET_RESERVOIR_VALUES in dict:
+            try:
+                local_list = dict[Sections.GET_RESERVOIR_VALUES]
+                df = pd.DataFrame(columns=['start_time', 'value'])
+                local_list.pop(0)
+                local_list.pop(len(local_list) - 1)
+
+                for items in local_list:
+                    start, value = items.split(',')
+                    df = df.append({'start_time': start, 'value': value}, ignore_index=True)
+
+                loop_report_dict["get_reservoir_values"] = df
+
+            except:
+                print("handled error GET_RESERVOIR_VALUES")
+
+        if Sections.PREDICTED_GLUCOSE in dict:
+            try:
+                local_list = dict[Sections.PREDICTED_GLUCOSE]
+                df = pd.DataFrame(columns=['start_time', 'value'])
+                local_list.pop(0)
+                local_list.pop(len(local_list) - 1)
+
+                for items in local_list:
+                    start, value = items.split(',')
+                    df = df.append({'start_time': start, 'value': value}, ignore_index=True)
+
+                loop_report_dict["predicted_glucose"] = df
+
+            except:
+                print("handled error PREDICTED_GLUCOSE")
+
+        if Sections.RETROSPECTIVE_GLUCOSE_DISCREPANCIES in dict:
+            try:
+                local_list = dict[Sections.RETROSPECTIVE_GLUCOSE_DISCREPANCIES]
+                df = pd.DataFrame(columns=['start_time', 'value'])
+                local_list.pop(0)
+                local_list.pop(len(local_list) - 1)
+
+                for items in local_list:
+                    start, value = items.split(',')
+                    df = df.append({'start_time': start, 'value': value}, ignore_index=True)
+
+                loop_report_dict["retrospective_glucose_discrepancies"] = df
+
+            except:
+                print("handled error RETROSPECTIVE_GLUCOSE_DISCREPANCIES")
+
+
+        if Sections.CARB_EFFECT in dict:
+            try:
+                local_list = dict[Sections.CARB_EFFECT]
+                df = pd.DataFrame(columns=['start_time', 'value'])
+                local_list.pop(0)
+                local_list.pop(len(local_list) - 1)
+
+                for items in local_list:
+                    start, value = items.split(',')
+                    df = df.append({'start_time': start, 'value': value}, ignore_index=True)
+
+                loop_report_dict["carb_effect"] = df
+
+            except:
+                print("handled error CARB_EFFECT")
+
+        if Sections.INSULIN_EFFECT in dict:
+            try:
+                local_list = dict[Sections.INSULIN_EFFECT]
+                df = pd.DataFrame(columns=['start_time', 'value'])
+                local_list.pop(0)
+                local_list.pop(len(local_list) - 1)
+
+                for item in local_list:
+                    start, value = item.split(',')
+                    df = df.append({'start_time': start, 'value': value}, ignore_index=True)
+
+                loop_report_dict["insulin_effect"] = df
+
+            except:
+                print("handled error INSULIN_EFFECT")
+
+        if Sections.GET_NORMALIZED_PUMP_EVENT_DOSE in dict:
+            try:
+                local_list = dict[Sections.GET_NORMALIZED_PUMP_EVENT_DOSE]
+                complete_df = pd.DataFrame()
+                for item in local_list:
+                    record_dict = {}
+                    item = item.replace('DoseEntry(', '')
+                    item = item.replace(item[len(item) - 1], '')
+                    key_value = item.split(", ")
+
+                    for v in key_value:
+                        aux = v.split(": ")
+                        record_dict[aux[0]] = aux[1]
+                    # if complete_df:
+                    df = pd.DataFrame([record_dict], columns=record_dict.keys())
+                    complete_df = pd.concat([complete_df, df], axis=0)
+
+                loop_report_dict["get_normalized_pump_even_dose"] = complete_df
+            except:
+                print("handled error GET_NORMALIZED_PUMP_EVENT_DOSE")
+
+        if Sections.GET_NORMALIZED_DOSE_ENTRIES in dict:
+            try:
+                local_list = dict[Sections.GET_NORMALIZED_DOSE_ENTRIES]
+                complete_df = pd.DataFrame()
+                for item in local_list:
+                    record_dict = {}
+                    item = item.replace('DoseEntry(', '')
+                    item = item.replace(item[len(item)-1], '')
+                    key_value = item.split(", ")
+
+                    for v in key_value:
+                        aux = v.split(": ")
+                        record_dict[aux[0]] = aux[1]
+                    #if complete_df:
+                    df = pd.DataFrame([record_dict], columns=record_dict.keys())
+                    complete_df = pd.concat([complete_df, df], axis=0)
+
+                loop_report_dict["get_normalized_dose_entries"] = complete_df
+            except:
+                print("handled error GET_NORMALIZED_DOSE_ENTRIES")
+
+
+        if Sections.CACHED_DOSE_ENTRIES in dict:
+            try:
+                local_list = dict[Sections.CACHED_DOSE_ENTRIES]
+                complete_df = pd.DataFrame()
+                for item in local_list:
+                    record_dict = {}
+                    item = item.replace('DoseEntry(', '')
+                    item = item.replace(item[len(item) - 1], '')
+                    key_value = item.split(", ")
+
+                    for v in key_value:
+                        aux = v.split(": ")
+                        record_dict[aux[0]] = aux[1]
+                    # if complete_df:
+                    df = pd.DataFrame([record_dict], columns=record_dict.keys())
+                    complete_df = pd.concat([complete_df, df], axis=0)
+
+                loop_report_dict["cached_dose_entries"] = complete_df
+            except:
+                print("handled error CACHED_DOSE_ENTRIES")
+
+        if Sections.GET_PUMP_EVENT_VALUES in dict:
+            try:
+                local_list = dict[Sections.GET_PUMP_EVENT_VALUES]
+                complete_df = pd.DataFrame()
+                for item in local_list:
+                    record_dict = {}
+                    item = item.replace('PersistedPumpEvent(', '')
+                    item = item.replace(item[len(item) - 1], '')
+                    key_value = item.split(", ")
+
+                    for v in key_value:
+                        aux = v.split(": ")
+                        record_dict[aux[0]] = aux[1]
+                    # if complete_df:
+                    df = pd.DataFrame([record_dict], columns=record_dict.keys())
+                    complete_df = pd.concat([complete_df, df], axis=0)
+
+                loop_report_dict["get_pump_event_values"] = complete_df
+            except:
+                print("handled error GET_PUMP_EVENT_VALUES")
+
+        if Sections.MESSAGE_LOG in dict:
+            local_list = dict[Sections.MESSAGE_LOG]
+            loop_report_dict["message_log"] = local_list
+
+
+        return loop_report_dict
 
     def __set_pump_manager_type(
         self, loop_report_dict, minimed_pump_manager, omnipod_pump_manager

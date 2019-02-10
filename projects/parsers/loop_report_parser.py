@@ -7,9 +7,7 @@ dependencies:
 * <>
 license: BSD-2-Clause
 """
-import pandas as pd
 import os
-import datetime
 
 
 class Sections:
@@ -22,12 +20,22 @@ class Sections:
     OMNIPOD_PUMP_MANAGER = "omnipod_pump_manager"
     WATCH_DATA_MANAGER = "watch_data_manager"
     LOOP_DATA_MANAGER = "loop_data_manager"
-    GET_NORMALIZED_DOSE_ENTRIES = "get_normalized_dose_entries"
+    GET_RESERVOIR_VALUES = "get_reservoir_values"
+    PREDICTED_GLUCOSE = "predicted_glucose"
+    GET_PUMP_EVENT_VALUES = "get_pump_event_values"
     POD_COMMS = "pod_comms"
     MESSAGE_LOG = "message_log"
     POD_INFO_FAULT_EVENT = "pod_info_fault_event"
     OMNIPOD_PUMP_MANAGER_STATE = "omnipod_pump_manager_state"
     POD_STATE = "pod_state"
+    INSULIN_COUNTERACTION_EFFECTS = "insulin_counteraction_effects"
+    RETROSPECTIVE_GLUCOSE_DISCREPANCIES_SUMMED = 'retrospective_glucose_discrepancies_summed'
+    RETROSPECTIVE_GLUCOSE_DISCREPANCIES = 'retrospective_glucose_discrepancies'
+    CARB_EFFECT = 'carb_effect'
+    INSULIN_EFFECT = 'insulin_effect'
+    GET_NORMALIZED_PUMP_EVENT_DOSE = 'get_normalized_pump_event_dose'
+    GET_NORMALIZED_DOSE_ENTRIES = "get_normalized_dose_entries"
+    CACHED_DOSE_ENTRIES = 'cached_dose_entries'
 
 
 def _split_key_value(line, separator):
@@ -337,8 +345,6 @@ def parse_loop_report(path: str, file_name: str):
                 all_sections["pod_state"] = pod_state
                 new_line = False
 
-
-
             elif line.startswith("\n"):
                 new_line = True
 
@@ -354,8 +360,8 @@ def parse_loop_report(path: str, file_name: str):
                     or current_section == "get_reservoir_values"
                     or current_section == "predicted_glucose"
                     or current_section == "get_pump_event_values"
-                    or current_section == "get_normalized_dose_entries"
                     or current_section == "message_log"
+                    or current_section == "get_normalized_dose_entries"
                     or current_section == "cached_dose_entries"
                     or current_section == "get_normalized_pump_event_dose"
                     or current_section == "insulin_effect"
