@@ -501,6 +501,90 @@ class LoopReport:
             local_list = dict[Sections.MESSAGE_LOG]
             loop_report_dict["message_log"] = local_list
 
+        if Sections.G5_CGM_MANAGER in dict:
+            try:
+                loop_report_dict["g5_cgm_manager"] = dict[Sections.G5_CGM_MANAGER]
+            except:
+                print("handled error G5_CGM_MANAGER")
+
+        if Sections.DEX_CGM_MANAGER in dict:
+            try:
+                loop_report_dict["dex_cgm_manager"] = dict[Sections.DEX_CGM_MANAGER]
+            except:
+                print("handled error DEX_CGM_MANAGER")
+
+        if Sections.RILEY_LINK_PUMP_MANAGER in dict:
+            try:
+                loop_report_dict["riley_link_pump_manager"] = dict[Sections.RILEY_LINK_PUMP_MANAGER]
+            except:
+                print("handled error RILEY_LINK_PUMP_MANAGER")
+
+        if Sections.RILEY_LINK_DEVICE_MANAGER in dict:
+            try:
+                loop_report_dict["riley_link_device_manager"] = dict[Sections.RILEY_LINK_DEVICE_MANAGER]
+            except:
+                print("handled error RILEY_LINK_DEVICE_MANAGER")
+
+        if Sections.PERSISTENCE_CONTROLLER in dict:
+            try:
+                loop_report_dict["persistence_controller"] = dict[Sections.PERSISTENCE_CONTROLLER]
+            except:
+                print("handled error PERSISTENCE_CONTROLLER")
+
+        if Sections.INSULIN_DELIVERY_STORE in dict:
+            try:
+                loop_report_dict["insulin_delivery_store"] = dict[Sections.INSULIN_DELIVERY_STORE]
+            except:
+                print("handled error INSULIN_DELIVERY_STORE")
+
+        if Sections.CACHED_CARB_ENTRIES in dict:
+            try:
+                complete_df = pd.DataFrame()
+                items = dict[Sections.CACHED_CARB_ENTRIES]
+                items.pop(0)
+                items.pop(len(items) - 1)
+                columns = ['sampleUUID', 'syncIdentifier', 'syncVersion', 'startDate', 'quantity', 'foodType', 'absorptionTime', 'createdByCurrentApp', 'externalID', 'isUploaded']
+                for item in items:
+                    empty, sampleUUID, syncIdentifier, syncVersion, startDate, quantity, foodType, absorptionTime, createdByCurrentApp, externalID, isUploaded = item.split(',')
+                    record_dict = {'sampleUUID' : sampleUUID, 'syncIdentifier' : syncIdentifier, 'syncVersion' : syncVersion, 'startDate' : startDate, 'quantity' : quantity, 'foodType' : foodType, 'absorptionTime' : absorptionTime, 'createdByCurrentApp' : createdByCurrentApp, 'externalID' : externalID, 'isUploaded' : isUploaded}
+                    df = pd.DataFrame([record_dict], columns=columns)
+                    complete_df = pd.concat([complete_df, df], axis=0)
+                loop_report_dict["cached_carb_entries"] = complete_df
+            except:
+                print("handled error CACHED_CARB_ENTRIES")
+
+
+
+        #todo: still need to parse out section further
+        if Sections.GLUCOSE_STORE in dict:
+                            try:
+                                loop_report_dict["glucose_store"] = dict[Sections.GLUCOSE_STORE]
+
+                            except:
+                                print("handled error GLUCOSE_STORE")
+
+        if Sections.CACHED_GLUCOSE_SAMPLES in dict:
+            try:
+                local_list = dict[Sections.CACHED_GLUCOSE_SAMPLES]
+                complete_df = pd.DataFrame()
+                for item in local_list:
+                    record_dict = {}
+                    item = item.replace('StoredGlucoseSample(', '')
+                    item = item.replace(item[len(item) - 1], '')
+                    key_value = item.split(", ")
+
+                    for v in key_value:
+                        aux = v.split(": ")
+                        record_dict[aux[0]] = aux[1]
+                    # if complete_df:
+                    df = pd.DataFrame([record_dict], columns=record_dict.keys())
+                    complete_df = pd.concat([complete_df, df], axis=0)
+
+                loop_report_dict["cached_glucose_samples"] = complete_df
+            except:
+                print("handled error CACHED_GLUCOSE_SAMPLES")
+
+
 
         return loop_report_dict
 
@@ -521,6 +605,9 @@ class LoopReport:
                 loop_report_dict["pi_version"] = omnipod_pump_manager["piVersion"].strip()
             except:
                 print("pm version or pi version in omnipod_pump_manager is not available")
+
+
+
 
         else:
             loop_report_dict["pump_manager_type"] = "unknown"

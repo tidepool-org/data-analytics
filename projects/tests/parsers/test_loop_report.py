@@ -54,6 +54,15 @@ def test_parse_by_file():
     assert loop_dict['get_pump_event_values'].shape[0] == 19
     assert loop_dict['get_pump_event_values'].shape[1] == 22
     assert loop_dict['message_log'] == get_message_log()
+    assert loop_dict['g5_cgm_manager'] == get_g5_cgm_manager()
+    assert loop_dict['dex_cgm_manager'] == {'shareManager': ' Optional(## ShareClientManager', 'latestBackfill': ' nil', ')': ')'}
+    assert loop_dict['riley_link_pump_manager'] == {'rileyLinkConnectionManager': ' Optional(RileyLinkBLEKit.RileyLinkConnectionManager)', 'lastTimerTick': ' 2019-01-28 14:26:19 +0000'}
+    assert loop_dict['riley_link_device_manager'] == get_riley_link_device_manager()
+    assert loop_dict['persistence_controller'] == get_persistence_controller()
+    assert loop_dict['glucose_store'] == get_glucose_store()
+    assert loop_dict['cached_glucose_samples'].to_dict() == get_cached_glucose_samples()
+    assert loop_dict['cached_carb_entries'].to_dict() == get_cached_carb_entries()
+    assert loop_dict['insulin_delivery_store'] == get_insulin_delivery_store()
 
 
 def test_parse_by_directory():
@@ -225,10 +234,45 @@ def get_reservoir_values():
                8: ' 169.3', 9: ' 169.3', 10: ' 169.4', 11: ' 169.5', 12: ' 169.5'}}
 
 
+def get_cached_carb_entries():
+    return {'sampleUUID': {0: ' 2C030171-3604-4542-B492-9990AF375546'},
+     'syncIdentifier': {0: ' 7FF9C039-BE6E-4479-BE4C-3F7EAC1ECF34'}, 'syncVersion': {0: ' 1'},
+     'startDate': {0: ' 2019-01-28 05:41:22 +0000'}, 'quantity': {0: ' 7 g'}, 'foodType': {0: ' '},
+     'absorptionTime': {0: ' 10800.0'}, 'createdByCurrentApp': {0: ' true'},
+     'externalID': {0: ' 5c4e9604d8dfb37103e428d1'}, 'isUploaded': {0: ' true'}}
 
-    
+
+def get_insulin_delivery_store():
+    return {'observerQuery': ' Optional(<HKObserverQuery:0x2838f1180 active>)',
+     'observationStart': ' 2019-01-28 04:20:09 +0000', 'observationEnabled': ' true', 'authorizationRequired': ' false',
+     'lastBasalEndDate': ' 2019-01-28 10:06:28 +0000'}
 
 
+def get_cached_glucose_samples():
+    return {'sampleUUID': {0: 'AFCF551E-BA6D-45A3-9507-18ADCC1F41EB'},
+     'syncIdentifier': {0: '"AFCF551E-BA6D-45A3-9507-18ADCC1F41EB"'}, 'syncVersion': {0: '1'},
+     'startDate': {0: '2019-01-27 16:36:22 +0000'}, 'quantity': {0: '71 mg/dL'}, 'isDisplayOnly': {0: 'false'},
+     'provenanceIdentifier': {0: '"com.dexcom.G6"'}}
 
+
+def get_glucose_store():
+    return {'latestGlucoseValue': ' Optional(LoopKit.StoredGlucoseSample(sampleUUID: 7ED3FC10-0E37-4243-86F1-6E187E62F2DF, syncIdentifier: "00AA0A 2596408", syncVersion: 1, startDate: 2019-01-28 15:16:20 +0000, quantity: 85 mg/dL, isDisplayOnly: false, provenanceIdentifier: ""))', 'managedDataInterval': ' 10800.0', 'cacheLength': ' 86400.0', 'momentumDataInterval': ' 900.0', 'observerQuery': ' Optional(<HKObserverQuery:0x2838d4e80 active>)', 'observationStart': ' 2019-01-27 10:20:09 +0000', 'observationEnabled': ' true', 'authorizationRequired': ' false'}
+
+
+def get_persistence_controller():
+    return {'isReadOnly': ' false',
+     'directoryURL': ' file:///private/var/mobile/Containers/Shared/AppGroup/8BC29390-EA20-4B3E-AB35-4AFB9CA53A94/com.loopkit.LoopKit/',
+     'persistenceStoreCoordinator': ' Optional(<NSPersistentStoreCoordinator: 0x280389140>)'}
+
+
+def get_riley_link_device_manager():
+    return {'central': ' <CBCentralManager: 0x28039c140>', 'autoConnectIDs': ' ["3F390A3A-9BEC-D2E4-08D7-13D13BDF4672"]',
+     'timerTickEnabled': ' false', 'idleListeningState': ' enabled(timeout: 240.0, channel: 0)'}
+
+
+def get_g5_cgm_manager():
+    return {
+        'latestReading': ' Optional(CGMBLEKit.Glucose(glucoseMessage: CGMBLEKit.GlucoseSubMessage(timestamp: 2596408, glucoseIsDisplayOnly: false, glucose: 85, state: 6, trend: -1), timeMessage: CGMBLEKit.TransmitterTimeRxMessage(status: 0, currentTime: 2596413, sessionStartTime: 1820222), transmitterID: "00AA0A", status: CGMBLEKit.TransmitterStatus.ok, sessionStartDate: 2019-01-19 15:39:54 +0000, lastCalibration: nil, readDate: 2019-01-28 15:16:20 +0000))',
+        'transmitter': ' Optional(CGMBLEKit.Transmitter)', 'providesBLEHeartbeat': ' true'}
 
 

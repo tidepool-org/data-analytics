@@ -11,6 +11,15 @@ import os
 
 
 class Sections:
+    G5_CGM_MANAGER = "g5_cgm_manager"
+    DEX_CGM_MANAGER = "dex_cgm_manager"
+    RILEY_LINK_PUMP_MANAGER = "riley_link_pump_manager"
+    RILEY_LINK_DEVICE_MANAGER = "riley_link_device_manager"
+    PERSISTENCE_CONTROLLER = "persistence_controller"
+    GLUCOSE_STORE = "glucose_store"
+    CACHED_GLUCOSE_SAMPLES = "cached_glucose_samples"
+    CACHED_CARB_ENTRIES = "cached_carb_entries"
+    INSULIN_DELIVERY_STORE = "insulin_delivery_store"
     LOOP_VERSION = "loop_version"
     DEVICE_DATA_MANAGER = "device_data_manager"
     RILEY_LINK_DEVICE = "riley_link_device"
@@ -36,6 +45,13 @@ class Sections:
     GET_NORMALIZED_PUMP_EVENT_DOSE = 'get_normalized_pump_event_dose'
     GET_NORMALIZED_DOSE_ENTRIES = "get_normalized_dose_entries"
     CACHED_DOSE_ENTRIES = 'cached_dose_entries'
+
+    """ 
+        #this is complex 
+        status_extension_data_manager
+        #not sure this one is used
+        deleted_carb_entries
+    """
 
 
 def _split_key_value(line, separator):
@@ -224,7 +240,7 @@ def parse_loop_report(path: str, file_name: str):
                 new_line = False
 
             elif line.startswith("### cachedGlucoseSamples"):
-                cached_glucose_samples = {}
+                cached_glucose_samples = []
                 current_section = "cached_glucose_samples"
                 all_sections["cached_glucose_samples"] = cached_glucose_samples
                 new_line = False
@@ -236,7 +252,7 @@ def parse_loop_report(path: str, file_name: str):
                 new_line = False
 
             elif line.startswith("cachedCarbEntries:"):
-                cached_carb_entries = {}
+                cached_carb_entries = []
                 current_section = "cached_carb_entries"
                 all_sections["cached_carb_entries"] = cached_carb_entries
                 new_line = False
@@ -368,6 +384,8 @@ def parse_loop_report(path: str, file_name: str):
                     or current_section == "carb_effect"
                     or current_section == "retrospective_glucose_discrepancies"
                     or current_section == "retrospective_glucose_discrepancies_summed"
+                    or current_section == "cached_glucose_samples"
+                    or current_section == "cached_carb_entries"
                 ):
                     new_line = False
                     i_list = all_sections[current_section]
