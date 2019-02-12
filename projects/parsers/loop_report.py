@@ -280,19 +280,19 @@ class LoopReport:
             except:
                 print("handled error loop data manager")
 
-
-
         if Sections.INSULIN_COUNTERACTION_EFFECTS in dict:
             try:
                 ice_list = dict[Sections.INSULIN_COUNTERACTION_EFFECTS]
-                df = pd.DataFrame(columns=['start_time', 'end_time', 'value'])
+                df = pd.DataFrame(columns=["start_time", "end_time", "value"])
                 ice_list.pop(0)
-                ice_list.pop(len(ice_list)-1)
-
+                ice_list.pop(len(ice_list) - 1)
 
                 for items in ice_list:
-                    start, end, value = items.split(',')
-                    df = df.append({'start_time': start, 'end_time': end, 'value': value}, ignore_index=True)
+                    start, end, value = items.split(",")
+                    df = df.append(
+                        {"start_time": start, "end_time": end, "value": value},
+                        ignore_index=True,
+                    )
 
                 loop_report_dict["insulin_counteration_effects"] = df
 
@@ -302,13 +302,16 @@ class LoopReport:
         if Sections.RETROSPECTIVE_GLUCOSE_DISCREPANCIES_SUMMED in dict:
             try:
                 local_list = dict[Sections.RETROSPECTIVE_GLUCOSE_DISCREPANCIES_SUMMED]
-                df = pd.DataFrame(columns=['start_time', 'end_time', 'value'])
+                df = pd.DataFrame(columns=["start_time", "end_time", "value"])
                 local_list.pop(0)
                 local_list.pop(len(local_list) - 1)
 
                 for items in local_list:
-                    start, end, value = items.split(',')
-                    df = df.append({'start_time': start, 'end_time': end, 'value': value}, ignore_index=True)
+                    start, end, value = items.split(",")
+                    df = df.append(
+                        {"start_time": start, "end_time": end, "value": value},
+                        ignore_index=True,
+                    )
 
                 loop_report_dict["retrospective_glucose_discrepancies_summed"] = df
 
@@ -318,13 +321,16 @@ class LoopReport:
         if Sections.INSULIN_COUNTERACTION_EFFECTS in dict:
             try:
                 local_list = dict[Sections.INSULIN_COUNTERACTION_EFFECTS]
-                df = pd.DataFrame(columns=['start_time', 'end_time', 'value'])
+                df = pd.DataFrame(columns=["start_time", "end_time", "value"])
                 local_list.pop(0)
                 local_list.pop(len(local_list) - 1)
 
                 for items in local_list:
-                    start, end, value = items.split(',')
-                    df = df.append({'start_time': start, 'end_time': end, 'value': value}, ignore_index=True)
+                    start, end, value = items.split(",")
+                    df = df.append(
+                        {"start_time": start, "end_time": end, "value": value},
+                        ignore_index=True,
+                    )
 
                 loop_report_dict["insulin_counteraction_effects"] = df
 
@@ -334,13 +340,15 @@ class LoopReport:
         if Sections.GET_RESERVOIR_VALUES in dict:
             try:
                 local_list = dict[Sections.GET_RESERVOIR_VALUES]
-                df = pd.DataFrame(columns=['start_time', 'value'])
+                df = pd.DataFrame(columns=["start_time", "value"])
                 local_list.pop(0)
                 local_list.pop(len(local_list) - 1)
 
                 for items in local_list:
-                    start, value = items.split(',')
-                    df = df.append({'start_time': start, 'value': value}, ignore_index=True)
+                    start, value = items.split(",")
+                    df = df.append(
+                        {"start_time": start, "value": value}, ignore_index=True
+                    )
 
                 loop_report_dict["get_reservoir_values"] = df
 
@@ -350,13 +358,15 @@ class LoopReport:
         if Sections.PREDICTED_GLUCOSE in dict:
             try:
                 local_list = dict[Sections.PREDICTED_GLUCOSE]
-                df = pd.DataFrame(columns=['start_time', 'value'])
+                df = pd.DataFrame(columns=["start_time", "value"])
                 local_list.pop(0)
                 local_list.pop(len(local_list) - 1)
 
                 for items in local_list:
-                    start, value = items.split(',')
-                    df = df.append({'start_time': start, 'value': value}, ignore_index=True)
+                    start, value = items.split(",")
+                    df = df.append(
+                        {"start_time": start, "value": value}, ignore_index=True
+                    )
 
                 loop_report_dict["predicted_glucose"] = df
 
@@ -366,30 +376,33 @@ class LoopReport:
         if Sections.RETROSPECTIVE_GLUCOSE_DISCREPANCIES in dict:
             try:
                 local_list = dict[Sections.RETROSPECTIVE_GLUCOSE_DISCREPANCIES]
-                df = pd.DataFrame(columns=['start_time', 'value'])
+                df = pd.DataFrame(columns=["start_time", "value"])
                 local_list.pop(0)
                 local_list.pop(len(local_list) - 1)
 
                 for items in local_list:
-                    start, value = items.split(',')
-                    df = df.append({'start_time': start, 'value': value}, ignore_index=True)
+                    start, value = items.split(",")
+                    df = df.append(
+                        {"start_time": start, "value": value}, ignore_index=True
+                    )
 
                 loop_report_dict["retrospective_glucose_discrepancies"] = df
 
             except:
                 print("handled error RETROSPECTIVE_GLUCOSE_DISCREPANCIES")
 
-
         if Sections.CARB_EFFECT in dict:
             try:
                 local_list = dict[Sections.CARB_EFFECT]
-                df = pd.DataFrame(columns=['start_time', 'value'])
+                df = pd.DataFrame(columns=["start_time", "value"])
                 local_list.pop(0)
                 local_list.pop(len(local_list) - 1)
 
                 for items in local_list:
-                    start, value = items.split(',')
-                    df = df.append({'start_time': start, 'value': value}, ignore_index=True)
+                    start, value = items.split(",")
+                    df = df.append(
+                        {"start_time": start, "value": value}, ignore_index=True
+                    )
 
                 loop_report_dict["carb_effect"] = df
 
@@ -399,13 +412,15 @@ class LoopReport:
         if Sections.INSULIN_EFFECT in dict:
             try:
                 local_list = dict[Sections.INSULIN_EFFECT]
-                df = pd.DataFrame(columns=['start_time', 'value'])
+                df = pd.DataFrame(columns=["start_time", "value"])
                 local_list.pop(0)
                 local_list.pop(len(local_list) - 1)
 
                 for item in local_list:
-                    start, value = item.split(',')
-                    df = df.append({'start_time': start, 'value': value}, ignore_index=True)
+                    start, value = item.split(",")
+                    df = df.append(
+                        {"start_time": start, "value": value}, ignore_index=True
+                    )
 
                 loop_report_dict["insulin_effect"] = df
 
@@ -418,8 +433,8 @@ class LoopReport:
                 complete_df = pd.DataFrame()
                 for item in local_list:
                     record_dict = {}
-                    item = item.replace('DoseEntry(', '')
-                    item = item.replace(item[len(item) - 1], '')
+                    item = item.replace("DoseEntry(", "")
+                    item = item.replace(item[len(item) - 1], "")
                     key_value = item.split(", ")
 
                     for v in key_value:
@@ -439,14 +454,14 @@ class LoopReport:
                 complete_df = pd.DataFrame()
                 for item in local_list:
                     record_dict = {}
-                    item = item.replace('DoseEntry(', '')
-                    item = item.replace(item[len(item)-1], '')
+                    item = item.replace("DoseEntry(", "")
+                    item = item.replace(item[len(item) - 1], "")
                     key_value = item.split(", ")
 
                     for v in key_value:
                         aux = v.split(": ")
                         record_dict[aux[0]] = aux[1]
-                    #if complete_df:
+                    # if complete_df:
                     df = pd.DataFrame([record_dict], columns=record_dict.keys())
                     complete_df = pd.concat([complete_df, df], axis=0)
 
@@ -454,15 +469,14 @@ class LoopReport:
             except:
                 print("handled error GET_NORMALIZED_DOSE_ENTRIES")
 
-
         if Sections.CACHED_DOSE_ENTRIES in dict:
             try:
                 local_list = dict[Sections.CACHED_DOSE_ENTRIES]
                 complete_df = pd.DataFrame()
                 for item in local_list:
                     record_dict = {}
-                    item = item.replace('DoseEntry(', '')
-                    item = item.replace(item[len(item) - 1], '')
+                    item = item.replace("DoseEntry(", "")
+                    item = item.replace(item[len(item) - 1], "")
                     key_value = item.split(", ")
 
                     for v in key_value:
@@ -482,8 +496,8 @@ class LoopReport:
                 complete_df = pd.DataFrame()
                 for item in local_list:
                     record_dict = {}
-                    item = item.replace('PersistedPumpEvent(', '')
-                    item = item.replace(item[len(item) - 1], '')
+                    item = item.replace("PersistedPumpEvent(", "")
+                    item = item.replace(item[len(item) - 1], "")
                     key_value = item.split(", ")
 
                     for v in key_value:
@@ -515,25 +529,33 @@ class LoopReport:
 
         if Sections.RILEY_LINK_PUMP_MANAGER in dict:
             try:
-                loop_report_dict["riley_link_pump_manager"] = dict[Sections.RILEY_LINK_PUMP_MANAGER]
+                loop_report_dict["riley_link_pump_manager"] = dict[
+                    Sections.RILEY_LINK_PUMP_MANAGER
+                ]
             except:
                 print("handled error RILEY_LINK_PUMP_MANAGER")
 
         if Sections.RILEY_LINK_DEVICE_MANAGER in dict:
             try:
-                loop_report_dict["riley_link_device_manager"] = dict[Sections.RILEY_LINK_DEVICE_MANAGER]
+                loop_report_dict["riley_link_device_manager"] = dict[
+                    Sections.RILEY_LINK_DEVICE_MANAGER
+                ]
             except:
                 print("handled error RILEY_LINK_DEVICE_MANAGER")
 
         if Sections.PERSISTENCE_CONTROLLER in dict:
             try:
-                loop_report_dict["persistence_controller"] = dict[Sections.PERSISTENCE_CONTROLLER]
+                loop_report_dict["persistence_controller"] = dict[
+                    Sections.PERSISTENCE_CONTROLLER
+                ]
             except:
                 print("handled error PERSISTENCE_CONTROLLER")
 
         if Sections.INSULIN_DELIVERY_STORE in dict:
             try:
-                loop_report_dict["insulin_delivery_store"] = dict[Sections.INSULIN_DELIVERY_STORE]
+                loop_report_dict["insulin_delivery_store"] = dict[
+                    Sections.INSULIN_DELIVERY_STORE
+                ]
             except:
                 print("handled error INSULIN_DELIVERY_STORE")
 
@@ -543,25 +565,47 @@ class LoopReport:
                 items = dict[Sections.CACHED_CARB_ENTRIES]
                 items.pop(0)
                 items.pop(len(items) - 1)
-                columns = ['sampleUUID', 'syncIdentifier', 'syncVersion', 'startDate', 'quantity', 'foodType', 'absorptionTime', 'createdByCurrentApp', 'externalID', 'isUploaded']
+                columns = [
+                    "sampleUUID",
+                    "syncIdentifier",
+                    "syncVersion",
+                    "startDate",
+                    "quantity",
+                    "foodType",
+                    "absorptionTime",
+                    "createdByCurrentApp",
+                    "externalID",
+                    "isUploaded",
+                ]
                 for item in items:
-                    empty, sampleUUID, syncIdentifier, syncVersion, startDate, quantity, foodType, absorptionTime, createdByCurrentApp, externalID, isUploaded = item.split(',')
-                    record_dict = {'sampleUUID' : sampleUUID, 'syncIdentifier' : syncIdentifier, 'syncVersion' : syncVersion, 'startDate' : startDate, 'quantity' : quantity, 'foodType' : foodType, 'absorptionTime' : absorptionTime, 'createdByCurrentApp' : createdByCurrentApp, 'externalID' : externalID, 'isUploaded' : isUploaded}
+                    empty, sampleUUID, syncIdentifier, syncVersion, startDate, quantity, foodType, absorptionTime, createdByCurrentApp, externalID, isUploaded = item.split(
+                        ","
+                    )
+                    record_dict = {
+                        "sampleUUID": sampleUUID,
+                        "syncIdentifier": syncIdentifier,
+                        "syncVersion": syncVersion,
+                        "startDate": startDate,
+                        "quantity": quantity,
+                        "foodType": foodType,
+                        "absorptionTime": absorptionTime,
+                        "createdByCurrentApp": createdByCurrentApp,
+                        "externalID": externalID,
+                        "isUploaded": isUploaded,
+                    }
                     df = pd.DataFrame([record_dict], columns=columns)
                     complete_df = pd.concat([complete_df, df], axis=0)
                 loop_report_dict["cached_carb_entries"] = complete_df
             except:
                 print("handled error CACHED_CARB_ENTRIES")
 
-
-
-        #todo: still need to parse out section further
+        # todo: still need to parse out section further
         if Sections.GLUCOSE_STORE in dict:
-                            try:
-                                loop_report_dict["glucose_store"] = dict[Sections.GLUCOSE_STORE]
+            try:
+                loop_report_dict["glucose_store"] = dict[Sections.GLUCOSE_STORE]
 
-                            except:
-                                print("handled error GLUCOSE_STORE")
+            except:
+                print("handled error GLUCOSE_STORE")
 
         if Sections.CACHED_GLUCOSE_SAMPLES in dict:
             try:
@@ -569,8 +613,8 @@ class LoopReport:
                 complete_df = pd.DataFrame()
                 for item in local_list:
                     record_dict = {}
-                    item = item.replace('StoredGlucoseSample(', '')
-                    item = item.replace(item[len(item) - 1], '')
+                    item = item.replace("StoredGlucoseSample(", "")
+                    item = item.replace(item[len(item) - 1], "")
                     key_value = item.split(", ")
 
                     for v in key_value:
@@ -584,8 +628,6 @@ class LoopReport:
             except:
                 print("handled error CACHED_GLUCOSE_SAMPLES")
 
-
-
         return loop_report_dict
 
     def __set_pump_manager_type(
@@ -594,20 +636,25 @@ class LoopReport:
         if minimed_pump_manager:
             loop_report_dict["pump_manager_type"] = "minimed"
             try:
-                loop_report_dict["pump_model"] = minimed_pump_manager["pumpModel"].strip()
+                loop_report_dict["pump_model"] = minimed_pump_manager[
+                    "pumpModel"
+                ].strip()
             except:
                 print("pump model in minimed_pump_manager is not available")
 
         elif omnipod_pump_manager:
             loop_report_dict["pump_manager_type"] = "omnipod"
             try:
-                loop_report_dict["pm_version"] = omnipod_pump_manager["pmVersion"].strip()
-                loop_report_dict["pi_version"] = omnipod_pump_manager["piVersion"].strip()
+                loop_report_dict["pm_version"] = omnipod_pump_manager[
+                    "pmVersion"
+                ].strip()
+                loop_report_dict["pi_version"] = omnipod_pump_manager[
+                    "piVersion"
+                ].strip()
             except:
-                print("pm version or pi version in omnipod_pump_manager is not available")
-
-
-
+                print(
+                    "pm version or pi version in omnipod_pump_manager is not available"
+                )
 
         else:
             loop_report_dict["pump_manager_type"] = "unknown"

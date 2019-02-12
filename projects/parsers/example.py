@@ -21,7 +21,7 @@ lr = LoopReport()
 loop_dict = lr.parse_by_file(path=file_path, file_name="%s.md" % file_name)
 
 # %% save parsed file
-#with open(file_path + file_name + "-data.json", "w") as fp:
+# with open(file_path + file_name + "-data.json", "w") as fp:
 #    json.dump(loop_dict, fp, sort_keys=True, indent=4)
 
 # %% put data into a dataframe and save
@@ -32,5 +32,6 @@ for k in loop_dict.keys():
 
 loop_df.to_csv(file_path + file_name + "-data-in-columns.csv", index_label="index")
 loop_df.T.to_csv(file_path + file_name + "-data-in-rows.csv", index_label="index")
-loop_df.to_json(file_path + file_name + "-data-in-columns.json", orient='records', lines=True)
-
+loop_df.to_json(
+    file_path + file_name + "-data-in-columns.json", orient="records", lines=True
+)

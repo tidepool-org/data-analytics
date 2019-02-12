@@ -38,13 +38,15 @@ class Sections:
     OMNIPOD_PUMP_MANAGER_STATE = "omnipod_pump_manager_state"
     POD_STATE = "pod_state"
     INSULIN_COUNTERACTION_EFFECTS = "insulin_counteraction_effects"
-    RETROSPECTIVE_GLUCOSE_DISCREPANCIES_SUMMED = 'retrospective_glucose_discrepancies_summed'
-    RETROSPECTIVE_GLUCOSE_DISCREPANCIES = 'retrospective_glucose_discrepancies'
-    CARB_EFFECT = 'carb_effect'
-    INSULIN_EFFECT = 'insulin_effect'
-    GET_NORMALIZED_PUMP_EVENT_DOSE = 'get_normalized_pump_event_dose'
+    RETROSPECTIVE_GLUCOSE_DISCREPANCIES_SUMMED = (
+        "retrospective_glucose_discrepancies_summed"
+    )
+    RETROSPECTIVE_GLUCOSE_DISCREPANCIES = "retrospective_glucose_discrepancies"
+    CARB_EFFECT = "carb_effect"
+    INSULIN_EFFECT = "insulin_effect"
+    GET_NORMALIZED_PUMP_EVENT_DOSE = "get_normalized_pump_event_dose"
     GET_NORMALIZED_DOSE_ENTRIES = "get_normalized_dose_entries"
-    CACHED_DOSE_ENTRIES = 'cached_dose_entries'
+    CACHED_DOSE_ENTRIES = "cached_dose_entries"
 
     """ 
         #this is complex 
@@ -174,9 +176,6 @@ def parse_loop_report(path: str, file_name: str):
             elif line.startswith("error"):
                 parse_key_value(all_sections, line)
 
-
-
-
             elif line.startswith("insulinCounteractionEffects:"):
                 insulin_counteraction_effects = []
                 current_section = "insulin_counteraction_effects"
@@ -188,17 +187,13 @@ def parse_loop_report(path: str, file_name: str):
             elif line.startswith("carbEffect:"):
                 carb_effect = []
                 current_section = "carb_effect"
-                all_sections[
-                    "carb_effect"
-                ] = carb_effect
+                all_sections["carb_effect"] = carb_effect
                 new_line = False
 
             elif line.startswith("insulinEffect:"):
                 insulin_effect = []
                 current_section = "insulin_effect"
-                all_sections[
-                    "insulin_effect"
-                ] = insulin_effect
+                all_sections["insulin_effect"] = insulin_effect
                 new_line = False
 
             elif line.startswith("predictedGlucose:"):
@@ -210,13 +205,17 @@ def parse_loop_report(path: str, file_name: str):
             elif line.startswith("retrospectiveGlucoseDiscrepancies:"):
                 retrospective_glucose_discrepancies = []
                 current_section = "retrospective_glucose_discrepancies"
-                all_sections["retrospective_glucose_discrepancies"] = retrospective_glucose_discrepancies
+                all_sections[
+                    "retrospective_glucose_discrepancies"
+                ] = retrospective_glucose_discrepancies
                 new_line = False
 
             elif line.startswith("retrospectiveGlucoseDiscrepanciesSummed:"):
                 retrospective_glucose_discrepancies_summed = []
                 current_section = "retrospective_glucose_discrepancies_summed"
-                all_sections["retrospective_glucose_discrepancies_summed"] = retrospective_glucose_discrepancies_summed
+                all_sections[
+                    "retrospective_glucose_discrepancies_summed"
+                ] = retrospective_glucose_discrepancies_summed
                 new_line = False
 
             elif line.startswith("retrospectivePredictedGlucose"):
@@ -284,7 +283,9 @@ def parse_loop_report(path: str, file_name: str):
             elif line.startswith("### getNormalizedDoseEntries"):
                 get_normalized_dose_entries = []
                 current_section = "get_normalized_dose_entries"
-                all_sections["get_normalized_dose_entries"] = get_normalized_dose_entries
+                all_sections[
+                    "get_normalized_dose_entries"
+                ] = get_normalized_dose_entries
                 new_line = False
 
             elif line.startswith(
@@ -292,7 +293,9 @@ def parse_loop_report(path: str, file_name: str):
             ):
                 get_normalized_pump_event_dose = []
                 current_section = "get_normalized_pump_event_dose"
-                all_sections["get_normalized_pump_event_dose"] = get_normalized_pump_event_dose
+                all_sections[
+                    "get_normalized_pump_event_dose"
+                ] = get_normalized_pump_event_dose
                 new_line = False
 
             elif line.startswith("### InsulinDeliveryStore"):
@@ -398,8 +401,11 @@ def parse_loop_report(path: str, file_name: str):
 
                     i_list.append(line)
 
-                elif not line.startswith("settings") and current_section == Sections.LOOP_DATA_MANAGER:
-                    one="one"
+                elif (
+                    not line.startswith("settings")
+                    and current_section == Sections.LOOP_DATA_MANAGER
+                ):
+                    one = "one"
                 elif current_section:
                     new_line = False
                     dict = all_sections[current_section]
