@@ -24,6 +24,7 @@ data
 figures
 isf-basal-figures
 fonts
+wip
 
 # Test
 htmlcov
