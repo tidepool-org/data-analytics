@@ -505,7 +505,7 @@ class LoopReport:
                         record_dict[aux[0]] = aux[1]
                     # if complete_df:
                     df = pd.DataFrame([record_dict], columns=record_dict.keys())
-                    complete_df = pd.concat([complete_df, df], axis=0)
+                    complete_df = pd.concat([complete_df, df], axis=0, sort=False)
 
                 loop_report_dict["get_pump_event_values"] = complete_df
             except:
