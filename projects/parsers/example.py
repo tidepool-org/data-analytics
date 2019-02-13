@@ -7,22 +7,26 @@ Created on Fri Jan 25 06:55:48 2019
 @author: ed
 """
 
-from projects.parsers.loop_report import LoopReport
+from loop_report import LoopReport
 import pandas as pd
 import json
 import os
+
 
 # %% file name and path
 file_path = os.path.join("..", "tests", "parsers", "files")
 file_name = "LoopReport"
 
+output_path = os.path.join(".", "output")
+# make an output folder if it does not exist
+if not os.path.exists(output_path):
+    os.makedirs(output_path)
+
+
 # %% parse file
 lr = LoopReport()
 loop_dict = lr.parse_by_file(path=file_path, file_name="%s.md" % file_name)
 
-# %% save parsed file
-# with open(file_path + file_name + "-data.json", "w") as fp:
-#    json.dump(loop_dict, fp, sort_keys=True, indent=4)
 
 # %% put data into a dataframe and save
 loop_df = pd.DataFrame(columns=loop_dict.keys(), index=[0])
