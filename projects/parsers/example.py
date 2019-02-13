@@ -34,8 +34,17 @@ loop_df = loop_df.astype("object")
 for k in loop_dict.keys():
     loop_df[k][0] = loop_dict[k]
 
-loop_df.to_csv(file_path + file_name + "-data-in-columns.csv", index_label="index")
-loop_df.T.to_csv(file_path + file_name + "-data-in-rows.csv", index_label="index")
-loop_df.to_json(
-    file_path + file_name + "-data-in-columns.json", orient="records", lines=True
+loop_df.to_csv(
+    os.path.join(output_path, file_name + "-data-in-columns.csv"), index_label="index"
 )
+loop_df.T.to_csv(
+    os.path.join(output_path, file_name + "-data-in-rows.csv"), index_label="index"
+)
+loop_df.to_json(
+    os.path.join(output_path, file_name + "-data.json"), orient="records", lines=True
+)
+
+
+# %% if we remove the embedded data frames, we can save a pretty json
+#with open(output_path + file_name + "-data.json", "w") as fp:
+#    json.dump(loop_dict, fp, sort_keys=True, indent=4)
