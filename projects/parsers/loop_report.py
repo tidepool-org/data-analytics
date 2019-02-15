@@ -7,7 +7,7 @@ dependencies: loop_report_parser.py
 license: BSD-2-Clause
 """
 
-from projects.parsers.loop_report_parser import parse_loop_report, Sections
+from loop_report_parser import parse_loop_report, Sections
 import os
 import re
 import json
@@ -505,7 +505,7 @@ class LoopReport:
                         record_dict[aux[0]] = aux[1]
                     # if complete_df:
                     df = pd.DataFrame([record_dict], columns=record_dict.keys())
-                    complete_df = pd.concat([complete_df, df], axis=0)
+                    complete_df = pd.concat([complete_df, df], axis=0, sort=False)
 
                 loop_report_dict["get_pump_event_values"] = complete_df
             except:
@@ -754,7 +754,7 @@ class LoopReport:
                         record_dict[aux[0]] = aux[1]
                     # if complete_df:
                     df = pd.DataFrame([record_dict], columns=record_dict.keys())
-                    complete_df = pd.concat([complete_df, df], axis=0)
+                    complete_df = pd.concat([complete_df, df], axis=0, ignore_index=True)
 
                 loop_report_dict["cached_glucose_samples"] = complete_df
             except:
