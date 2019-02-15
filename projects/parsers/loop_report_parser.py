@@ -47,10 +47,9 @@ class Sections:
     GET_NORMALIZED_PUMP_EVENT_DOSE = "get_normalized_pump_event_dose"
     GET_NORMALIZED_DOSE_ENTRIES = "get_normalized_dose_entries"
     CACHED_DOSE_ENTRIES = "cached_dose_entries"
+    STATUS_EXTENSION_DATA_MANAGER = "status_extension_data_manager"
 
     """ 
-        #this is complex 
-        status_extension_data_manager
         #not sure this one is used
         deleted_carb_entries
     """

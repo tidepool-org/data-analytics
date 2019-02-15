@@ -283,14 +283,14 @@ class LoopReport:
         if Sections.INSULIN_COUNTERACTION_EFFECTS in dict:
             try:
                 ice_list = dict[Sections.INSULIN_COUNTERACTION_EFFECTS]
-                df = pd.DataFrame(columns=["start_time", "end_time", "value"])
+                df = pd.DataFrame(columns=["start_time", "end_time", "value", 'units'])
                 ice_list.pop(0)
                 ice_list.pop(len(ice_list) - 1)
 
                 for items in ice_list:
                     start, end, value = items.split(",")
                     df = df.append(
-                        {"start_time": start, "end_time": end, "value": value},
+                        {"start_time": start, "end_time": end, "value": value, "units": "mg/dL/min"},
                         ignore_index=True,
                     )
 
@@ -302,14 +302,14 @@ class LoopReport:
         if Sections.RETROSPECTIVE_GLUCOSE_DISCREPANCIES_SUMMED in dict:
             try:
                 local_list = dict[Sections.RETROSPECTIVE_GLUCOSE_DISCREPANCIES_SUMMED]
-                df = pd.DataFrame(columns=["start_time", "end_time", "value"])
+                df = pd.DataFrame(columns=["start_time", "end_time", "value", "units"])
                 local_list.pop(0)
                 local_list.pop(len(local_list) - 1)
 
                 for items in local_list:
                     start, end, value = items.split(",")
                     df = df.append(
-                        {"start_time": start, "end_time": end, "value": value},
+                        {"start_time": start, "end_time": end, "value": value, "units": "mg/dL"},
                         ignore_index=True,
                     )
 
@@ -321,14 +321,14 @@ class LoopReport:
         if Sections.INSULIN_COUNTERACTION_EFFECTS in dict:
             try:
                 local_list = dict[Sections.INSULIN_COUNTERACTION_EFFECTS]
-                df = pd.DataFrame(columns=["start_time", "end_time", "value"])
+                df = pd.DataFrame(columns=["start_time", "end_time", "value", "units"])
                 local_list.pop(0)
                 local_list.pop(len(local_list) - 1)
 
                 for items in local_list:
                     start, end, value = items.split(",")
                     df = df.append(
-                        {"start_time": start, "end_time": end, "value": value},
+                        {"start_time": start, "end_time": end, "value": value, "units": "mg/dL/min"},
                         ignore_index=True,
                     )
 
@@ -340,14 +340,14 @@ class LoopReport:
         if Sections.GET_RESERVOIR_VALUES in dict:
             try:
                 local_list = dict[Sections.GET_RESERVOIR_VALUES]
-                df = pd.DataFrame(columns=["start_time", "value"])
+                df = pd.DataFrame(columns=["start_time", "value", "units"])
                 local_list.pop(0)
                 local_list.pop(len(local_list) - 1)
 
                 for items in local_list:
                     start, value = items.split(",")
                     df = df.append(
-                        {"start_time": start, "value": value}, ignore_index=True
+                        {"start_time": start, "value": value, "units": "unitVolume"}, ignore_index=True
                     )
 
                 loop_report_dict["get_reservoir_values"] = df
@@ -358,14 +358,14 @@ class LoopReport:
         if Sections.PREDICTED_GLUCOSE in dict:
             try:
                 local_list = dict[Sections.PREDICTED_GLUCOSE]
-                df = pd.DataFrame(columns=["start_time", "value"])
+                df = pd.DataFrame(columns=["start_time", "value", "units"])
                 local_list.pop(0)
                 local_list.pop(len(local_list) - 1)
 
                 for items in local_list:
                     start, value = items.split(",")
                     df = df.append(
-                        {"start_time": start, "value": value}, ignore_index=True
+                        {"start_time": start, "value": value, "units": "mg/dL"}, ignore_index=True
                     )
 
                 loop_report_dict["predicted_glucose"] = df
@@ -376,14 +376,14 @@ class LoopReport:
         if Sections.RETROSPECTIVE_GLUCOSE_DISCREPANCIES in dict:
             try:
                 local_list = dict[Sections.RETROSPECTIVE_GLUCOSE_DISCREPANCIES]
-                df = pd.DataFrame(columns=["start_time", "value"])
+                df = pd.DataFrame(columns=["start_time", "value", "units"])
                 local_list.pop(0)
                 local_list.pop(len(local_list) - 1)
 
                 for items in local_list:
                     start, value = items.split(",")
                     df = df.append(
-                        {"start_time": start, "value": value}, ignore_index=True
+                        {"start_time": start, "value": value, "units": "mg/dL"}, ignore_index=True
                     )
 
                 loop_report_dict["retrospective_glucose_discrepancies"] = df
@@ -394,14 +394,14 @@ class LoopReport:
         if Sections.CARB_EFFECT in dict:
             try:
                 local_list = dict[Sections.CARB_EFFECT]
-                df = pd.DataFrame(columns=["start_time", "value"])
+                df = pd.DataFrame(columns=["start_time", "value", "units"])
                 local_list.pop(0)
                 local_list.pop(len(local_list) - 1)
 
                 for items in local_list:
                     start, value = items.split(",")
                     df = df.append(
-                        {"start_time": start, "value": value}, ignore_index=True
+                        {"start_time": start, "value": value, "units": "mg/dL"}, ignore_index=True
                     )
 
                 loop_report_dict["carb_effect"] = df
@@ -412,14 +412,14 @@ class LoopReport:
         if Sections.INSULIN_EFFECT in dict:
             try:
                 local_list = dict[Sections.INSULIN_EFFECT]
-                df = pd.DataFrame(columns=["start_time", "value"])
+                df = pd.DataFrame(columns=["start_time", "value", "units"])
                 local_list.pop(0)
                 local_list.pop(len(local_list) - 1)
 
                 for item in local_list:
                     start, value = item.split(",")
                     df = df.append(
-                        {"start_time": start, "value": value}, ignore_index=True
+                        {"start_time": start, "value": value, "units": "mg/dL"}, ignore_index=True
                     )
 
                 loop_report_dict["insulin_effect"] = df
@@ -517,7 +517,58 @@ class LoopReport:
 
         if Sections.G5_CGM_MANAGER in dict:
             try:
-                loop_report_dict["g5_cgm_manager"] = dict[Sections.G5_CGM_MANAGER]
+                temp_dict = dict[Sections.G5_CGM_MANAGER]
+                cgmblekit = temp_dict['latestReading']
+                cgmblekit= cgmblekit.replace("Optional(CGMBLEKit.Glucose(glucoseMessage: CGMBLEKit.GlucoseSubMessage(", "")
+                cgmblekit = cgmblekit.replace("))", "")
+
+                split_list = cgmblekit.split(",")
+
+                dictionary_complete = {}
+
+                if 'transmitter' in temp_dict:
+                    dictionary_complete['transmitter'] = temp_dict['transmitter']
+
+                if 'providesBLEHeartbeat' in temp_dict:
+                    dictionary_complete['providesBLEHeartbeat'] = temp_dict['providesBLEHeartbeat']
+                dictionary = {}
+                timeMessage = {}
+                glucoseMessage = {}
+                latestReading = {}
+                for item in split_list:
+                    if "timeMessage:" in item:
+                        item = item.replace("timeMessage: CGMBLEKit.TransmitterTimeRxMessage(", "")
+                        keyvalue = item.split(":")
+                        timeMessage['status'] = keyvalue[1].strip('"\'')
+
+                    else:
+                        item = item.replace(")", "")
+                        keyvalue = item.split(":")
+                        m = keyvalue[0].strip('\'')
+                        m = m.replace("\"", "").strip()
+                        dictionary[m] = keyvalue[1].strip('"\'')
+
+
+                glucoseMessage['timestamp'] = dictionary['timestamp']
+                glucoseMessage['glucoseIsDisplayOnly'] = dictionary['glucoseIsDisplayOnly']
+                glucoseMessage['glucose'] = dictionary['glucose']
+                glucoseMessage['trend'] = dictionary['trend']
+
+
+                timeMessage['currentTime'] = dictionary['currentTime']
+                timeMessage['sessionStartTime'] = dictionary['sessionStartTime']
+
+                latestReading['glucoseMessage'] = glucoseMessage
+                latestReading['timeMessage'] = timeMessage
+                latestReading['transmitterID'] = dictionary['transmitterID']
+                latestReading['status'] = dictionary['status']
+                latestReading['sessionStartDate'] = dictionary['sessionStartDate']
+                latestReading['lastCalibration'] = dictionary['lastCalibration']
+                latestReading['readDate'] = dictionary['readDate']
+
+                dictionary_complete['latestReading'] = latestReading
+
+                loop_report_dict["g5_cgm_manager"] = dictionary_complete
             except:
                 print("handled error G5_CGM_MANAGER")
 
@@ -526,6 +577,87 @@ class LoopReport:
                 loop_report_dict["dex_cgm_manager"] = dict[Sections.DEX_CGM_MANAGER]
             except:
                 print("handled error DEX_CGM_MANAGER")
+
+        if Sections.STATUS_EXTENSION_DATA_MANAGER in dict:
+            try:
+                status_extension_data_manager = dict[Sections.STATUS_EXTENSION_DATA_MANAGER]
+                temp = status_extension_data_manager['statusExtensionContext']
+                temp = temp.replace("Optional([", "")
+                values_index = temp.index("values")
+                unit_index = temp.index("unit")
+                values = temp[values_index: unit_index]
+                values = values.replace(": [", "")
+                values = values.replace("values", "")
+                values = values.replace("]", "")
+                values = values.replace(', "', '')
+                values_list = values.split(",")
+
+                newstr = temp[:values_index] + temp[unit_index:]
+                newstr = newstr.replace('"', '')
+                newstr = newstr.strip()
+                temp_list = newstr.split(",")
+
+                statusExtensionContext = {}
+
+                dictionary = {}
+                for item in temp_list:
+                    if 'sensor' in item:
+                        item = "isStateValid: " + item.replace(' sensor: [isStateValid: ', '')
+                        self.add_to_dictionary(dictionary, item)
+
+                    elif 'lastLoopCompleted' in item:
+                        dictionary["lastLoopCompleted"] = item.replace('lastLoopCompleted: ', '')
+
+                    elif 'predictedGlucose' in item:
+                        dictionary["startDate"] = item.replace(' predictedGlucose: [startDate: ', '')
+
+                    elif 'start:' in item:
+                        dictionary["start"] = item.replace('start: ', '')
+
+                    elif 'end:' in item:
+                        dictionary["end"] = item.replace('end: ', '').replace("]", "")
+
+                    elif 'percentage' in item:
+                        item = "percentage: " + item.replace(' netBasal: [percentage: ', '')
+                        self.add_to_dictionary(dictionary, item)
+
+                    elif 'reservoirCapacity' in item:
+                        item = item.replace("])", "")
+                        self.add_to_dictionary(dictionary, item)
+                    else:
+                        self.add_to_dictionary(dictionary, item)
+
+                sensor = {}
+                sensor["isStateValid"] = dictionary["isStateValid"]
+                sensor["stateDescription"] = dictionary["stateDescription"]
+                sensor["trendType"] = dictionary["trendType"]
+                sensor["isLocal"] = dictionary["isLocal"]
+
+                predictedGlucose = {}
+                predictedGlucose["startDate"] = dictionary["startDate"]
+                predictedGlucose["values"] = values_list
+                predictedGlucose["unit"] = dictionary["unit"]
+                predictedGlucose["interval"] = dictionary["interval"]
+
+                netBasal = {}
+                netBasal["percentage"] = dictionary["percentage"]
+                netBasal["start"] = dictionary["start"]
+                netBasal["rate"] = dictionary["rate"]
+                netBasal["end"] = dictionary["end"]
+
+                statusExtensionContext['lastLoopCompleted'] = dictionary['lastLoopCompleted']
+                statusExtensionContext['sensor'] = sensor
+                statusExtensionContext['predictedGlucose'] = predictedGlucose
+                statusExtensionContext['netBasal'] = netBasal
+                statusExtensionContext['batteryPercentage'] = dictionary['batteryPercentage']
+                statusExtensionContext['version'] = dictionary['version']
+                statusExtensionContext['reservoirCapacity'] = dictionary['reservoirCapacity']
+
+                status_extension_data_manager['statusExtensionContext'] = statusExtensionContext
+
+                loop_report_dict["status_extension_data_manager"] = status_extension_data_manager
+            except:
+                print("handled error STATUS_EXTENSION_DATA_MANAGER")
 
         if Sections.RILEY_LINK_PUMP_MANAGER in dict:
             try:
@@ -629,6 +761,12 @@ class LoopReport:
                 print("handled error CACHED_GLUCOSE_SAMPLES")
 
         return loop_report_dict
+
+    def add_to_dictionary(self, dictionary, item):
+        keyvalue = item.split(":")
+        m = keyvalue[0].strip('\'')
+        m = m.replace("]", "").strip()
+        dictionary[m] = keyvalue[1].strip('"\'').replace("]", "")
 
     def __set_pump_manager_type(
         self, loop_report_dict, minimed_pump_manager, omnipod_pump_manager
