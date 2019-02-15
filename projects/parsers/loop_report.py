@@ -731,10 +731,20 @@ class LoopReport:
             except:
                 print("handled error CACHED_CARB_ENTRIES")
 
-        # todo: still need to parse out section further
         if Sections.GLUCOSE_STORE in dict:
             try:
-                loop_report_dict["glucose_store"] = dict[Sections.GLUCOSE_STORE]
+                temp_dict = dict[Sections.GLUCOSE_STORE]
+                latestGlucoseValue = temp_dict['latestGlucoseValue']
+                latestGlucoseValue = latestGlucoseValue.replace("Optional(LoopKit.StoredGlucoseSample(", "")
+                latestGlucoseValue = latestGlucoseValue.replace("))", "")
+                latestGlucoseValue_list = latestGlucoseValue.split(",")
+
+                dictionary = {}
+                for item in latestGlucoseValue_list:
+                    self.add_to_dictionary(dictionary, item)
+
+                temp_dict['latestGlucoseValue'] = dictionary
+                loop_report_dict["glucose_store"] = temp_dict
 
             except:
                 print("handled error GLUCOSE_STORE")
