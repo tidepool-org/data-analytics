@@ -734,16 +734,16 @@ class LoopReport:
         if Sections.GLUCOSE_STORE in dict:
             try:
                 temp_dict = dict[Sections.GLUCOSE_STORE]
-                latestGlucoseValue = temp_dict['latestGlucoseValue']
-                latestGlucoseValue = latestGlucoseValue.replace("Optional(LoopKit.StoredGlucoseSample(", "")
-                latestGlucoseValue = latestGlucoseValue.replace("))", "")
-                latestGlucoseValue_list = latestGlucoseValue.split(",")
+                latest_glucose_value = temp_dict['latestGlucoseValue']
+                latest_glucose_value = latest_glucose_value.replace("Optional(LoopKit.StoredGlucoseSample(", "")
+                latest_glucose_value = latest_glucose_value.replace("))", "")
+                latest_glucose_value = latest_glucose_value.split(",")
 
                 dictionary = {}
-                for item in latestGlucoseValue_list:
+                for item in latest_glucose_value:
                     self.add_to_dictionary(dictionary, item)
 
-                temp_dict['latestGlucoseValue'] = dictionary
+                temp_dict['latest_glucose_value'] = dictionary
                 loop_report_dict["glucose_store"] = temp_dict
 
             except:
