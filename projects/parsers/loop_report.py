@@ -11,7 +11,7 @@ from loop_report_parser import parse_loop_report, Sections
 import os
 import re
 import json
-import pandas as pd
+import sys
 
 
 class LoopReport:
@@ -283,18 +283,14 @@ class LoopReport:
         if Sections.INSULIN_COUNTERACTION_EFFECTS in dict:
             try:
                 ice_list = dict[Sections.INSULIN_COUNTERACTION_EFFECTS]
-                df = pd.DataFrame(columns=["start_time", "end_time", "value", 'units'])
                 ice_list.pop(0)
                 ice_list.pop(len(ice_list) - 1)
-
+                temp_list = []
                 for items in ice_list:
                     start, end, value = items.split(",")
-                    df = df.append(
-                        {"start_time": start, "end_time": end, "value": value, "units": "mg/dL/min"},
-                        ignore_index=True,
-                    )
-
-                loop_report_dict["insulin_counteration_effects"] = df
+                    temp_dict =  {"start_time": start, "end_time": end, "value": value, "units": "mg/dL/min"}
+                    temp_list.append(temp_dict)
+                loop_report_dict["insulin_counteration_effects"] = temp_list
 
             except:
                 print("handled error INSULIN_COUNTERACTION_EFFECTS")
@@ -303,18 +299,15 @@ class LoopReport:
         if Sections.RETROSPECTIVE_GLUCOSE_DISCREPANCIES_SUMMED in dict:
             try:
                 local_list = dict[Sections.RETROSPECTIVE_GLUCOSE_DISCREPANCIES_SUMMED]
-                df = pd.DataFrame(columns=["start_time", "end_time", "value", "units"])
                 local_list.pop(0)
                 local_list.pop(len(local_list) - 1)
-
+                temp_list = []
                 for items in local_list:
                     start, end, value = items.split(",")
-                    df = df.append(
-                        {"start_time": start, "end_time": end, "value": value, "units": "mg/dL"},
-                        ignore_index=True,
-                    )
+                    temp_dict = {"start_time": start, "end_time": end, "value": value, "units": "mg/dL"}
+                    temp_list.append(temp_dict)
 
-                loop_report_dict["retrospective_glucose_discrepancies_summed"] = df
+                loop_report_dict["retrospective_glucose_discrepancies_summed"] = temp_list
 
             except:
                 print("handled error RETROSPECTIVE_GLUCOSE_DISCREPANCIES")
@@ -323,17 +316,15 @@ class LoopReport:
         if Sections.GET_RESERVOIR_VALUES in dict:
             try:
                 local_list = dict[Sections.GET_RESERVOIR_VALUES]
-                df = pd.DataFrame(columns=["start_time", "value", "units"])
                 local_list.pop(0)
                 local_list.pop(len(local_list) - 1)
-
+                temp_list = []
                 for items in local_list:
                     start, value = items.split(",")
-                    df = df.append(
-                        {"start_time": start, "value": value, "units": "unitVolume"}, ignore_index=True
-                    )
+                    temp_dict  = {"start_time": start, "value": value, "units": "unitVolume"}
+                    temp_list.append(temp_dict)
 
-                loop_report_dict["get_reservoir_values"] = df
+                loop_report_dict["get_reservoir_values"] = temp_list
 
             except:
                 print("handled error GET_RESERVOIR_VALUES")
@@ -341,17 +332,15 @@ class LoopReport:
         if Sections.PREDICTED_GLUCOSE in dict:
             try:
                 local_list = dict[Sections.PREDICTED_GLUCOSE]
-                df = pd.DataFrame(columns=["start_time", "value", "units"])
                 local_list.pop(0)
                 local_list.pop(len(local_list) - 1)
-
+                temp_list = []
                 for items in local_list:
                     start, value = items.split(",")
-                    df = df.append(
-                        {"start_time": start, "value": value, "units": "mg/dL"}, ignore_index=True
-                    )
+                    temp_dict =  {"start_time": start, "value": value, "units": "mg/dL"}
+                    temp_list.append(temp_dict)
 
-                loop_report_dict["predicted_glucose"] = df
+                loop_report_dict["predicted_glucose"] = temp_list
 
             except:
                 print("handled error PREDICTED_GLUCOSE")
@@ -359,17 +348,16 @@ class LoopReport:
         if Sections.RETROSPECTIVE_GLUCOSE_DISCREPANCIES in dict:
             try:
                 local_list = dict[Sections.RETROSPECTIVE_GLUCOSE_DISCREPANCIES]
-                df = pd.DataFrame(columns=["start_time", "value", "units"])
                 local_list.pop(0)
                 local_list.pop(len(local_list) - 1)
+                temp_list = []
 
                 for items in local_list:
                     start, value = items.split(",")
-                    df = df.append(
-                        {"start_time": start, "value": value, "units": "mg/dL"}, ignore_index=True
-                    )
+                    temp_dict = {"start_time": start, "value": value, "units": "mg/dL"}
+                    temp_list.append(temp_dict)
 
-                loop_report_dict["retrospective_glucose_discrepancies"] = df
+                loop_report_dict["retrospective_glucose_discrepancies"] = temp_list
 
             except:
                 print("handled error RETROSPECTIVE_GLUCOSE_DISCREPANCIES")
@@ -377,17 +365,14 @@ class LoopReport:
         if Sections.CARB_EFFECT in dict:
             try:
                 local_list = dict[Sections.CARB_EFFECT]
-                df = pd.DataFrame(columns=["start_time", "value", "units"])
                 local_list.pop(0)
                 local_list.pop(len(local_list) - 1)
-
+                temp_list = []
                 for items in local_list:
                     start, value = items.split(",")
-                    df = df.append(
-                        {"start_time": start, "value": value, "units": "mg/dL"}, ignore_index=True
-                    )
-
-                loop_report_dict["carb_effect"] = df
+                    temp_dict = {"start_time": start, "value": value, "units": "mg/dL"}
+                    temp_list.append(temp_dict)
+                loop_report_dict["carb_effect"] = temp_list
 
             except:
                 print("handled error CARB_EFFECT")
@@ -395,17 +380,15 @@ class LoopReport:
         if Sections.INSULIN_EFFECT in dict:
             try:
                 local_list = dict[Sections.INSULIN_EFFECT]
-                df = pd.DataFrame(columns=["start_time", "value", "units"])
                 local_list.pop(0)
                 local_list.pop(len(local_list) - 1)
-
+                temp_list = []
                 for item in local_list:
                     start, value = item.split(",")
-                    df = df.append(
-                        {"start_time": start, "value": value, "units": "mg/dL"}, ignore_index=True
-                    )
+                    temp_dict = {"start_time": start, "value": value, "units": "mg/dL"}
+                    temp_list.append(temp_dict)
 
-                loop_report_dict["insulin_effect"] = df
+                loop_report_dict["insulin_effect"] = temp_list
 
             except:
                 print("handled error INSULIN_EFFECT")
@@ -413,7 +396,7 @@ class LoopReport:
         if Sections.GET_NORMALIZED_PUMP_EVENT_DOSE in dict:
             try:
                 local_list = dict[Sections.GET_NORMALIZED_PUMP_EVENT_DOSE]
-                complete_df = pd.DataFrame()
+                temp_list = []
                 for item in local_list:
                     record_dict = {}
                     item = item.replace("DoseEntry(", "")
@@ -423,18 +406,16 @@ class LoopReport:
                     for v in key_value:
                         aux = v.split(": ")
                         record_dict[aux[0]] = aux[1]
-                    # if complete_df:
-                    df = pd.DataFrame([record_dict], columns=record_dict.keys())
-                    complete_df = pd.concat([complete_df, df], axis=0, ignore_index=True)
+                    temp_list.append(record_dict)
 
-                loop_report_dict["get_normalized_pump_event_dose"] = complete_df
+                loop_report_dict["get_normalized_pump_event_dose"] = temp_list
             except:
                 print("handled error GET_NORMALIZED_PUMP_EVENT_DOSE")
 
         if Sections.GET_NORMALIZED_DOSE_ENTRIES in dict:
             try:
                 local_list = dict[Sections.GET_NORMALIZED_DOSE_ENTRIES]
-                complete_df = pd.DataFrame()
+                temp_list = []
                 for item in local_list:
                     record_dict = {}
                     item = item.replace("DoseEntry(", "")
@@ -444,18 +425,16 @@ class LoopReport:
                     for v in key_value:
                         aux = v.split(": ")
                         record_dict[aux[0]] = aux[1]
-                    # if complete_df:
-                    df = pd.DataFrame([record_dict], columns=record_dict.keys())
-                    complete_df = pd.concat([complete_df, df], axis=0, ignore_index=True)
+                    temp_list.append(record_dict)
 
-                loop_report_dict["get_normalized_dose_entries"] = complete_df
+                loop_report_dict["get_normalized_dose_entries"] = temp_list
             except:
                 print("handled error GET_NORMALIZED_DOSE_ENTRIES")
 
         if Sections.CACHED_DOSE_ENTRIES in dict:
             try:
                 local_list = dict[Sections.CACHED_DOSE_ENTRIES]
-                complete_df = pd.DataFrame()
+                temp_list = []
                 for item in local_list:
                     record_dict = {}
                     item = item.replace("DoseEntry(", "")
@@ -465,18 +444,16 @@ class LoopReport:
                     for v in key_value:
                         aux = v.split(": ")
                         record_dict[aux[0]] = aux[1]
-                    # if complete_df:
-                    df = pd.DataFrame([record_dict], columns=record_dict.keys())
-                    complete_df = pd.concat([complete_df, df], axis=0, ignore_index=True)
+                    temp_list.append(record_dict)
 
-                loop_report_dict["cached_dose_entries"] = complete_df
+                loop_report_dict["cached_dose_entries"] = temp_list
             except:
                 print("handled error CACHED_DOSE_ENTRIES")
 
         if Sections.GET_PUMP_EVENT_VALUES in dict:
             try:
                 local_list = dict[Sections.GET_PUMP_EVENT_VALUES]
-                complete_df = pd.DataFrame()
+                temp_list = []
                 for item in local_list:
                     record_dict = {}
                     item = item.replace("PersistedPumpEvent(", "")
@@ -486,11 +463,9 @@ class LoopReport:
                     for v in key_value:
                         aux = v.split(": ")
                         record_dict[aux[0]] = aux[1].replace('"', '')
-                    # if complete_df:
-                    df = pd.DataFrame([record_dict], columns=record_dict.keys())
-                    complete_df = pd.concat([complete_df, df], axis=0, ignore_index=True)
+                    temp_list.append(record_dict)
 
-                loop_report_dict["get_pump_event_values"] = complete_df
+                loop_report_dict["get_pump_event_values"] = temp_list
             except:
                 print("handled error GET_PUMP_EVENT_VALUES")
 
@@ -689,7 +664,7 @@ class LoopReport:
 
         if Sections.CACHED_CARB_ENTRIES in dict:
             try:
-                complete_df = pd.DataFrame()
+                temp_list = []
                 items = dict[Sections.CACHED_CARB_ENTRIES]
                 items.pop(0)
                 items.pop(len(items) - 1)
@@ -720,9 +695,8 @@ class LoopReport:
                         "externalID": externalID,
                         "isUploaded": isUploaded,
                     }
-                    df = pd.DataFrame([record_dict], columns=columns)
-                    complete_df = pd.concat([complete_df, df], axis=0, ignore_index=True)
-                loop_report_dict["cached_carb_entries"] = complete_df
+                    temp_list.append(record_dict)
+                loop_report_dict["cached_carb_entries"] = temp_list
             except:
                 print("handled error CACHED_CARB_ENTRIES")
 
@@ -747,7 +721,7 @@ class LoopReport:
         if Sections.CACHED_GLUCOSE_SAMPLES in dict:
             try:
                 local_list = dict[Sections.CACHED_GLUCOSE_SAMPLES]
-                complete_df = pd.DataFrame()
+                temp_list = []
                 for item in local_list:
                     record_dict = {}
                     item = item.replace("StoredGlucoseSample(", "")
@@ -757,11 +731,9 @@ class LoopReport:
                     for v in key_value:
                         aux = v.split(": ")
                         record_dict[aux[0]] = aux[1]
-                    # if complete_df:
-                    df = pd.DataFrame([record_dict], columns=record_dict.keys())
-                    complete_df = pd.concat([complete_df, df], axis=0, ignore_index=True)
+                    temp_list.append(record_dict)
 
-                loop_report_dict["cached_glucose_samples"] = complete_df
+                loop_report_dict["cached_glucose_samples"] = temp_list
             except:
                 print("handled error CACHED_GLUCOSE_SAMPLES")
 
@@ -801,3 +773,15 @@ class LoopReport:
 
         else:
             loop_report_dict["pump_manager_type"] = "unknown"
+
+def main(self):
+    path = sys.argv[0]
+    file = sys.argv[1]
+    if path and file:
+        self.parse_by_file(path, file)
+    else:
+        self.parse_by_directory(path)
+
+
+if __name__ == '__main__':
+    main()
