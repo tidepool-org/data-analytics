@@ -11,7 +11,6 @@ from loop_report_parser import parse_loop_report, Sections
 import os
 import re
 import json
-import sys
 
 
 class LoopReport:
@@ -288,13 +287,17 @@ class LoopReport:
                 temp_list = []
                 for items in ice_list:
                     start, end, value = items.split(",")
-                    temp_dict = {"start_time": start, "end_time": end, "value": value, "units": "mg/dL/min"}
+                    temp_dict = {
+                        "start_time": start,
+                        "end_time": end,
+                        "value": value,
+                        "units": "mg/dL/min",
+                    }
                     temp_list.append(temp_dict)
                 loop_report_dict["insulin_counteraction_effects"] = temp_list
 
             except:
                 print("handled error INSULIN_COUNTERACTION_EFFECTS")
-
 
         if Sections.RETROSPECTIVE_GLUCOSE_DISCREPANCIES_SUMMED in dict:
             try:
@@ -304,14 +307,20 @@ class LoopReport:
                 temp_list = []
                 for items in local_list:
                     start, end, value = items.split(",")
-                    temp_dict = {"start_time": start, "end_time": end, "value": value, "units": "mg/dL"}
+                    temp_dict = {
+                        "start_time": start,
+                        "end_time": end,
+                        "value": value,
+                        "units": "mg/dL",
+                    }
                     temp_list.append(temp_dict)
 
-                loop_report_dict["retrospective_glucose_discrepancies_summed"] = temp_list
+                loop_report_dict[
+                    "retrospective_glucose_discrepancies_summed"
+                ] = temp_list
 
             except:
                 print("handled error RETROSPECTIVE_GLUCOSE_DISCREPANCIES")
-
 
         if Sections.GET_RESERVOIR_VALUES in dict:
             try:
@@ -321,7 +330,11 @@ class LoopReport:
                 temp_list = []
                 for items in local_list:
                     start, value = items.split(",")
-                    temp_dict  = {"start_time": start, "value": value, "units": "unitVolume"}
+                    temp_dict = {
+                        "start_time": start,
+                        "value": value,
+                        "units": "unitVolume",
+                    }
                     temp_list.append(temp_dict)
 
                 loop_report_dict["get_reservoir_values"] = temp_list
@@ -337,7 +350,7 @@ class LoopReport:
                 temp_list = []
                 for items in local_list:
                     start, value = items.split(",")
-                    temp_dict =  {"start_time": start, "value": value, "units": "mg/dL"}
+                    temp_dict = {"start_time": start, "value": value, "units": "mg/dL"}
                     temp_list.append(temp_dict)
 
                 loop_report_dict["predicted_glucose"] = temp_list
@@ -462,7 +475,7 @@ class LoopReport:
 
                     for v in key_value:
                         aux = v.split(": ")
-                        record_dict[aux[0]] = aux[1].replace('"', '')
+                        record_dict[aux[0]] = aux[1].replace('"', "")
                     temp_list.append(record_dict)
 
                 loop_report_dict["get_pump_event_values"] = temp_list
@@ -476,55 +489,62 @@ class LoopReport:
         if Sections.G5_CGM_MANAGER in dict:
             try:
                 temp_dict = dict[Sections.G5_CGM_MANAGER]
-                cgmblekit = temp_dict['latestReading']
-                cgmblekit= cgmblekit.replace("Optional(CGMBLEKit.Glucose(glucoseMessage: CGMBLEKit.GlucoseSubMessage(", "")
+                cgmblekit = temp_dict["latestReading"]
+                cgmblekit = cgmblekit.replace(
+                    "Optional(CGMBLEKit.Glucose(glucoseMessage: CGMBLEKit.GlucoseSubMessage(",
+                    "",
+                )
                 cgmblekit = cgmblekit.replace("))", "")
 
                 split_list = cgmblekit.split(",")
 
                 dictionary_complete = {}
 
-                if 'transmitter' in temp_dict:
-                    dictionary_complete['transmitter'] = temp_dict['transmitter']
+                if "transmitter" in temp_dict:
+                    dictionary_complete["transmitter"] = temp_dict["transmitter"]
 
-                if 'providesBLEHeartbeat' in temp_dict:
-                    dictionary_complete['providesBLEHeartbeat'] = temp_dict['providesBLEHeartbeat']
+                if "providesBLEHeartbeat" in temp_dict:
+                    dictionary_complete["providesBLEHeartbeat"] = temp_dict[
+                        "providesBLEHeartbeat"
+                    ]
                 dictionary = {}
                 timeMessage = {}
                 glucoseMessage = {}
                 latestReading = {}
                 for item in split_list:
                     if "timeMessage:" in item:
-                        item = item.replace("timeMessage: CGMBLEKit.TransmitterTimeRxMessage(", "")
+                        item = item.replace(
+                            "timeMessage: CGMBLEKit.TransmitterTimeRxMessage(", ""
+                        )
                         keyvalue = item.split(":")
-                        timeMessage['status'] = keyvalue[1].strip('"\'')
+                        timeMessage["status"] = keyvalue[1].strip("\"'")
 
                     else:
                         item = item.replace(")", "")
                         keyvalue = item.split(":")
-                        m = keyvalue[0].strip('\'')
-                        m = m.replace("\"", "").strip()
-                        dictionary[m] = keyvalue[1].strip('"\'')
+                        m = keyvalue[0].strip("'")
+                        m = m.replace('"', "").strip()
+                        dictionary[m] = keyvalue[1].strip("\"'")
 
+                glucoseMessage["timestamp"] = dictionary["timestamp"]
+                glucoseMessage["glucoseIsDisplayOnly"] = dictionary[
+                    "glucoseIsDisplayOnly"
+                ]
+                glucoseMessage["glucose"] = dictionary["glucose"]
+                glucoseMessage["trend"] = dictionary["trend"]
 
-                glucoseMessage['timestamp'] = dictionary['timestamp']
-                glucoseMessage['glucoseIsDisplayOnly'] = dictionary['glucoseIsDisplayOnly']
-                glucoseMessage['glucose'] = dictionary['glucose']
-                glucoseMessage['trend'] = dictionary['trend']
+                timeMessage["currentTime"] = dictionary["currentTime"]
+                timeMessage["sessionStartTime"] = dictionary["sessionStartTime"]
 
+                latestReading["glucoseMessage"] = glucoseMessage
+                latestReading["timeMessage"] = timeMessage
+                latestReading["transmitterID"] = dictionary["transmitterID"]
+                latestReading["status"] = dictionary["status"]
+                latestReading["sessionStartDate"] = dictionary["sessionStartDate"]
+                latestReading["lastCalibration"] = dictionary["lastCalibration"]
+                latestReading["readDate"] = dictionary["readDate"]
 
-                timeMessage['currentTime'] = dictionary['currentTime']
-                timeMessage['sessionStartTime'] = dictionary['sessionStartTime']
-
-                latestReading['glucoseMessage'] = glucoseMessage
-                latestReading['timeMessage'] = timeMessage
-                latestReading['transmitterID'] = dictionary['transmitterID']
-                latestReading['status'] = dictionary['status']
-                latestReading['sessionStartDate'] = dictionary['sessionStartDate']
-                latestReading['lastCalibration'] = dictionary['lastCalibration']
-                latestReading['readDate'] = dictionary['readDate']
-
-                dictionary_complete['latestReading'] = latestReading
+                dictionary_complete["latestReading"] = latestReading
 
                 loop_report_dict["g5_cgm_manager"] = dictionary_complete
             except:
@@ -533,16 +553,18 @@ class LoopReport:
         if Sections.DEX_CGM_MANAGER in dict:
             try:
                 temp_dict = dict[Sections.DEX_CGM_MANAGER]
-                temp_string = temp_dict['latestBackfill']
-                temp_string = temp_string.replace(' Optional(ShareClient.ShareGlucose(', '')
-                temp_string = temp_string.replace('))', '')
-                temp_list = temp_string.split(',')
+                temp_string = temp_dict["latestBackfill"]
+                temp_string = temp_string.replace(
+                    " Optional(ShareClient.ShareGlucose(", ""
+                )
+                temp_string = temp_string.replace("))", "")
+                temp_list = temp_string.split(",")
                 dictionary = {}
                 for item in temp_list:
                     self.add_to_dictionary(dictionary, item)
 
                 latestBackfill = {}
-                latestBackfill['latestBackfill'] = dictionary
+                latestBackfill["latestBackfill"] = dictionary
 
                 loop_report_dict["dex_cgm_manager"] = latestBackfill
 
@@ -551,20 +573,22 @@ class LoopReport:
 
         if Sections.STATUS_EXTENSION_DATA_MANAGER in dict:
             try:
-                status_extension_data_manager = dict[Sections.STATUS_EXTENSION_DATA_MANAGER]
-                temp = status_extension_data_manager['statusExtensionContext']
+                status_extension_data_manager = dict[
+                    Sections.STATUS_EXTENSION_DATA_MANAGER
+                ]
+                temp = status_extension_data_manager["statusExtensionContext"]
                 temp = temp.replace("Optional([", "")
                 values_index = temp.index("values")
                 unit_index = temp.index("unit")
-                values = temp[values_index: unit_index]
+                values = temp[values_index:unit_index]
                 values = values.replace(": [", "")
                 values = values.replace("values", "")
                 values = values.replace("]", "")
-                values = values.replace(', "', '')
+                values = values.replace(', "', "")
                 values_list = values.split(",")
 
                 newstr = temp[:values_index] + temp[unit_index:]
-                newstr = newstr.replace('"', '')
+                newstr = newstr.replace('"', "")
                 newstr = newstr.strip()
                 temp_list = newstr.split(",")
 
@@ -572,27 +596,35 @@ class LoopReport:
 
                 dictionary = {}
                 for item in temp_list:
-                    if 'sensor' in item:
-                        item = "isStateValid: " + item.replace(' sensor: [isStateValid: ', '')
+                    if "sensor" in item:
+                        item = "isStateValid: " + item.replace(
+                            " sensor: [isStateValid: ", ""
+                        )
                         self.add_to_dictionary(dictionary, item)
 
-                    elif 'lastLoopCompleted' in item:
-                        dictionary["lastLoopCompleted"] = item.replace('lastLoopCompleted: ', '')
+                    elif "lastLoopCompleted" in item:
+                        dictionary["lastLoopCompleted"] = item.replace(
+                            "lastLoopCompleted: ", ""
+                        )
 
-                    elif 'predictedGlucose' in item:
-                        dictionary["startDate"] = item.replace(' predictedGlucose: [startDate: ', '')
+                    elif "predictedGlucose" in item:
+                        dictionary["startDate"] = item.replace(
+                            " predictedGlucose: [startDate: ", ""
+                        )
 
-                    elif 'start:' in item:
-                        dictionary["start"] = item.replace('start: ', '')
+                    elif "start:" in item:
+                        dictionary["start"] = item.replace("start: ", "")
 
-                    elif 'end:' in item:
-                        dictionary["end"] = item.replace('end: ', '').replace("]", "")
+                    elif "end:" in item:
+                        dictionary["end"] = item.replace("end: ", "").replace("]", "")
 
-                    elif 'percentage' in item:
-                        item = "percentage: " + item.replace(' netBasal: [percentage: ', '')
+                    elif "percentage" in item:
+                        item = "percentage: " + item.replace(
+                            " netBasal: [percentage: ", ""
+                        )
                         self.add_to_dictionary(dictionary, item)
 
-                    elif 'reservoirCapacity' in item:
+                    elif "reservoirCapacity" in item:
                         item = item.replace("])", "")
                         self.add_to_dictionary(dictionary, item)
                     else:
@@ -616,17 +648,27 @@ class LoopReport:
                 netBasal["rate"] = dictionary["rate"]
                 netBasal["end"] = dictionary["end"]
 
-                statusExtensionContext['lastLoopCompleted'] = dictionary['lastLoopCompleted']
-                statusExtensionContext['sensor'] = sensor
-                statusExtensionContext['predictedGlucose'] = predictedGlucose
-                statusExtensionContext['netBasal'] = netBasal
-                statusExtensionContext['batteryPercentage'] = dictionary['batteryPercentage']
-                statusExtensionContext['version'] = dictionary['version']
-                statusExtensionContext['reservoirCapacity'] = dictionary['reservoirCapacity']
+                statusExtensionContext["lastLoopCompleted"] = dictionary[
+                    "lastLoopCompleted"
+                ]
+                statusExtensionContext["sensor"] = sensor
+                statusExtensionContext["predictedGlucose"] = predictedGlucose
+                statusExtensionContext["netBasal"] = netBasal
+                statusExtensionContext["batteryPercentage"] = dictionary[
+                    "batteryPercentage"
+                ]
+                statusExtensionContext["version"] = dictionary["version"]
+                statusExtensionContext["reservoirCapacity"] = dictionary[
+                    "reservoirCapacity"
+                ]
 
-                status_extension_data_manager['statusExtensionContext'] = statusExtensionContext
+                status_extension_data_manager[
+                    "statusExtensionContext"
+                ] = statusExtensionContext
 
-                loop_report_dict["status_extension_data_manager"] = status_extension_data_manager
+                loop_report_dict[
+                    "status_extension_data_manager"
+                ] = status_extension_data_manager
             except:
                 print("handled error STATUS_EXTENSION_DATA_MANAGER")
 
@@ -682,7 +724,8 @@ class LoopReport:
                 ]
                 for item in items:
                     empty, sampleUUID, syncIdentifier, syncVersion, startDate, quantity, foodType, absorptionTime, createdByCurrentApp, externalID, isUploaded = item.split(
-                        ",")
+                        ","
+                    )
                     record_dict = {
                         "sampleUUID": sampleUUID,
                         "syncIdentifier": syncIdentifier,
@@ -703,8 +746,10 @@ class LoopReport:
         if Sections.GLUCOSE_STORE in dict:
             try:
                 temp_dict = dict[Sections.GLUCOSE_STORE]
-                latest_glucose_value = temp_dict['latestGlucoseValue']
-                latest_glucose_value = latest_glucose_value.replace("Optional(LoopKit.StoredGlucoseSample(", "")
+                latest_glucose_value = temp_dict["latestGlucoseValue"]
+                latest_glucose_value = latest_glucose_value.replace(
+                    "Optional(LoopKit.StoredGlucoseSample(", ""
+                )
                 latest_glucose_value = latest_glucose_value.replace("))", "")
                 latest_glucose_value = latest_glucose_value.split(",")
 
@@ -712,7 +757,7 @@ class LoopReport:
                 for item in latest_glucose_value:
                     self.add_to_dictionary(dictionary, item)
 
-                temp_dict['latest_glucose_value'] = dictionary
+                temp_dict["latest_glucose_value"] = dictionary
                 loop_report_dict["glucose_store"] = temp_dict
 
             except:
@@ -741,9 +786,9 @@ class LoopReport:
 
     def add_to_dictionary(self, dictionary, item):
         keyvalue = item.split(":")
-        m = keyvalue[0].strip('\'')
+        m = keyvalue[0].strip("'")
         m = m.replace("]", "").strip()
-        dictionary[m] = keyvalue[1].strip('"\'').replace("]", "")
+        dictionary[m] = keyvalue[1].strip("\"'").replace("]", "")
 
     def __set_pump_manager_type(
         self, loop_report_dict, minimed_pump_manager, omnipod_pump_manager
@@ -774,14 +819,5 @@ class LoopReport:
         else:
             loop_report_dict["pump_manager_type"] = "unknown"
 
-def main(self):
-    path = sys.argv[0]
-    file = sys.argv[1]
-    if path and file:
-        self.parse_by_file(path, file)
-    else:
-        self.parse_by_directory(path)
 
 
-if __name__ == '__main__':
-    main()
