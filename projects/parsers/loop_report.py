@@ -597,8 +597,9 @@ class LoopReport:
                 dictionary = {}
                 for item in temp_list:
                     if "sensor" in item:
-                        item = "isStateValid: " + item.replace(
-                            " sensor: [isStateValid: ", ""
+                        ' sensor: [stateDescription: ok '
+                        item = item.replace(
+                            " sensor: [", ""
                         )
                         self.add_to_dictionary(dictionary, item)
 
