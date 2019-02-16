@@ -18,9 +18,8 @@ transmitter: Optional(CGMBLEKit.Transmitter)
 providesBLEHeartbeat: true
 ## DexCGMManager
 shareManager: Optional(## ShareClientManager
-latestBackfill: nil
+latestBackfill: Optional(ShareClient.ShareGlucose(glucose: 98, trend: 5, timestamp: 2018-12-13 21:55:17 +0000))
 )
-
 
 
 ## MinimedPumpManager
