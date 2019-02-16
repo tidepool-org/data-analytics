@@ -299,6 +299,7 @@ class LoopReport:
             except:
                 print("handled error INSULIN_COUNTERACTION_EFFECTS")
 
+
         if Sections.RETROSPECTIVE_GLUCOSE_DISCREPANCIES_SUMMED in dict:
             try:
                 local_list = dict[Sections.RETROSPECTIVE_GLUCOSE_DISCREPANCIES_SUMMED]
@@ -318,24 +319,6 @@ class LoopReport:
             except:
                 print("handled error RETROSPECTIVE_GLUCOSE_DISCREPANCIES")
 
-        if Sections.INSULIN_COUNTERACTION_EFFECTS in dict:
-            try:
-                local_list = dict[Sections.INSULIN_COUNTERACTION_EFFECTS]
-                df = pd.DataFrame(columns=["start_time", "end_time", "value", "units"])
-                local_list.pop(0)
-                local_list.pop(len(local_list) - 1)
-
-                for items in local_list:
-                    start, end, value = items.split(",")
-                    df = df.append(
-                        {"start_time": start, "end_time": end, "value": value, "units": "mg/dL/min"},
-                        ignore_index=True,
-                    )
-
-                loop_report_dict["insulin_counteraction_effects"] = df
-
-            except:
-                print("handled error INSULIN_COUNTERACTION_EFFECTS")
 
         if Sections.GET_RESERVOIR_VALUES in dict:
             try:
@@ -442,9 +425,9 @@ class LoopReport:
                         record_dict[aux[0]] = aux[1]
                     # if complete_df:
                     df = pd.DataFrame([record_dict], columns=record_dict.keys())
-                    complete_df = pd.concat([complete_df, df], axis=0)
+                    complete_df = pd.concat([complete_df, df], axis=0, ignore_index=True)
 
-                loop_report_dict["get_normalized_pump_even_dose"] = complete_df
+                loop_report_dict["get_normalized_pump_event_dose"] = complete_df
             except:
                 print("handled error GET_NORMALIZED_PUMP_EVENT_DOSE")
 
@@ -463,7 +446,7 @@ class LoopReport:
                         record_dict[aux[0]] = aux[1]
                     # if complete_df:
                     df = pd.DataFrame([record_dict], columns=record_dict.keys())
-                    complete_df = pd.concat([complete_df, df], axis=0)
+                    complete_df = pd.concat([complete_df, df], axis=0, ignore_index=True)
 
                 loop_report_dict["get_normalized_dose_entries"] = complete_df
             except:
@@ -484,7 +467,7 @@ class LoopReport:
                         record_dict[aux[0]] = aux[1]
                     # if complete_df:
                     df = pd.DataFrame([record_dict], columns=record_dict.keys())
-                    complete_df = pd.concat([complete_df, df], axis=0)
+                    complete_df = pd.concat([complete_df, df], axis=0, ignore_index=True)
 
                 loop_report_dict["cached_dose_entries"] = complete_df
             except:
@@ -502,10 +485,10 @@ class LoopReport:
 
                     for v in key_value:
                         aux = v.split(": ")
-                        record_dict[aux[0]] = aux[1]
+                        record_dict[aux[0]] = aux[1].replace('"', '')
                     # if complete_df:
                     df = pd.DataFrame([record_dict], columns=record_dict.keys())
-                    complete_df = pd.concat([complete_df, df], axis=0, sort=False)
+                    complete_df = pd.concat([complete_df, df], axis=0, ignore_index=True)
 
                 loop_report_dict["get_pump_event_values"] = complete_df
             except:
@@ -574,7 +557,20 @@ class LoopReport:
 
         if Sections.DEX_CGM_MANAGER in dict:
             try:
-                loop_report_dict["dex_cgm_manager"] = dict[Sections.DEX_CGM_MANAGER]
+                temp_dict = dict[Sections.DEX_CGM_MANAGER]
+                temp_string = temp_dict['latestBackfill']
+                temp_string = temp_string.replace(' Optional(ShareClient.ShareGlucose(', '')
+                temp_string = temp_string.replace('))', '')
+                temp_list = temp_string.split(',')
+                dictionary = {}
+                for item in temp_list:
+                    self.add_to_dictionary(dictionary, item)
+
+                latestBackfill = {}
+                latestBackfill['latestBackfill'] = dictionary
+
+                loop_report_dict["dex_cgm_manager"] = latestBackfill
+
             except:
                 print("handled error DEX_CGM_MANAGER")
 
@@ -711,8 +707,7 @@ class LoopReport:
                 ]
                 for item in items:
                     empty, sampleUUID, syncIdentifier, syncVersion, startDate, quantity, foodType, absorptionTime, createdByCurrentApp, externalID, isUploaded = item.split(
-                        ","
-                    )
+                        ",")
                     record_dict = {
                         "sampleUUID": sampleUUID,
                         "syncIdentifier": syncIdentifier,
@@ -726,7 +721,7 @@ class LoopReport:
                         "isUploaded": isUploaded,
                     }
                     df = pd.DataFrame([record_dict], columns=columns)
-                    complete_df = pd.concat([complete_df, df], axis=0)
+                    complete_df = pd.concat([complete_df, df], axis=0, ignore_index=True)
                 loop_report_dict["cached_carb_entries"] = complete_df
             except:
                 print("handled error CACHED_CARB_ENTRIES")
