@@ -597,7 +597,6 @@ class LoopReport:
                 dictionary = {}
                 for item in temp_list:
                     if "sensor" in item:
-                        ' sensor: [stateDescription: ok '
                         item = item.replace(
                             " sensor: [", ""
                         )
@@ -609,9 +608,10 @@ class LoopReport:
                         )
 
                     elif "predictedGlucose" in item:
-                        dictionary["startDate"] = item.replace(
-                            " predictedGlucose: [startDate: ", ""
+                        item = item.replace(
+                            " predictedGlucose: [", ""
                         )
+                        self.add_to_dictionary(dictionary, item)
 
                     elif "start:" in item:
                         dictionary["start"] = item.replace("start: ", "")
@@ -620,8 +620,8 @@ class LoopReport:
                         dictionary["end"] = item.replace("end: ", "").replace("]", "")
 
                     elif "percentage" in item:
-                        item = "percentage: " + item.replace(
-                            " netBasal: [percentage: ", ""
+                        item = item.replace(
+                            " netBasal: [", ""
                         )
                         self.add_to_dictionary(dictionary, item)
 
