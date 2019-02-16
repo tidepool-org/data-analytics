@@ -7,7 +7,7 @@ dependencies: loop_report_parser.py
 license: BSD-2-Clause
 """
 
-from loop_report_parser import parse_loop_report, Sections
+from .loop_report_parser import parse_loop_report, Sections
 import os
 import re
 import json
@@ -288,9 +288,9 @@ class LoopReport:
                 temp_list = []
                 for items in ice_list:
                     start, end, value = items.split(",")
-                    temp_dict =  {"start_time": start, "end_time": end, "value": value, "units": "mg/dL/min"}
+                    temp_dict = {"start_time": start, "end_time": end, "value": value, "units": "mg/dL/min"}
                     temp_list.append(temp_dict)
-                loop_report_dict["insulin_counteration_effects"] = temp_list
+                loop_report_dict["insulin_counteraction_effects"] = temp_list
 
             except:
                 print("handled error INSULIN_COUNTERACTION_EFFECTS")
