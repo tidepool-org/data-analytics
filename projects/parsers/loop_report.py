@@ -339,8 +339,11 @@ class LoopReport:
 
                 loop_report_dict["get_reservoir_values"] = temp_list
 
-            except:
+            except Exception as e:
                 print("handled error GET_RESERVOIR_VALUES")
+                print(e)
+
+
 
         if Sections.PREDICTED_GLUCOSE in dict:
             try:
@@ -355,8 +358,9 @@ class LoopReport:
 
                 loop_report_dict["predicted_glucose"] = temp_list
 
-            except:
+            except Exception as e:
                 print("handled error PREDICTED_GLUCOSE")
+                print(e)
 
         if Sections.RETROSPECTIVE_GLUCOSE_DISCREPANCIES in dict:
             try:
@@ -372,8 +376,9 @@ class LoopReport:
 
                 loop_report_dict["retrospective_glucose_discrepancies"] = temp_list
 
-            except:
+            except Exception as e:
                 print("handled error RETROSPECTIVE_GLUCOSE_DISCREPANCIES")
+                print(e)
 
         if Sections.CARB_EFFECT in dict:
             try:
@@ -387,8 +392,9 @@ class LoopReport:
                     temp_list.append(temp_dict)
                 loop_report_dict["carb_effect"] = temp_list
 
-            except:
+            except Exception as e:
                 print("handled error CARB_EFFECT")
+                print(e)
 
         if Sections.INSULIN_EFFECT in dict:
             try:
@@ -403,8 +409,9 @@ class LoopReport:
 
                 loop_report_dict["insulin_effect"] = temp_list
 
-            except:
+            except Exception as e:
                 print("handled error INSULIN_EFFECT")
+                print(e)
 
         if Sections.GET_NORMALIZED_PUMP_EVENT_DOSE in dict:
             try:
@@ -422,8 +429,9 @@ class LoopReport:
                     temp_list.append(record_dict)
 
                 loop_report_dict["get_normalized_pump_event_dose"] = temp_list
-            except:
+            except Exception as e:
                 print("handled error GET_NORMALIZED_PUMP_EVENT_DOSE")
+                print(e)
 
         if Sections.GET_NORMALIZED_DOSE_ENTRIES in dict:
             try:
@@ -441,8 +449,10 @@ class LoopReport:
                     temp_list.append(record_dict)
 
                 loop_report_dict["get_normalized_dose_entries"] = temp_list
-            except:
+
+            except Exception as e:
                 print("handled error GET_NORMALIZED_DOSE_ENTRIES")
+                print(e)
 
         if Sections.CACHED_DOSE_ENTRIES in dict:
             try:
@@ -460,8 +470,9 @@ class LoopReport:
                     temp_list.append(record_dict)
 
                 loop_report_dict["cached_dose_entries"] = temp_list
-            except:
+            except Exception as e:
                 print("handled error CACHED_DOSE_ENTRIES")
+                print(e)
 
         if Sections.GET_PUMP_EVENT_VALUES in dict:
             try:
@@ -479,8 +490,9 @@ class LoopReport:
                     temp_list.append(record_dict)
 
                 loop_report_dict["get_pump_event_values"] = temp_list
-            except:
+            except Exception as e:
                 print("handled error GET_PUMP_EVENT_VALUES")
+                print(e)
 
         if Sections.MESSAGE_LOG in dict:
             local_list = dict[Sections.MESSAGE_LOG]
@@ -547,8 +559,9 @@ class LoopReport:
                 dictionary_complete["latestReading"] = latestReading
 
                 loop_report_dict["g5_cgm_manager"] = dictionary_complete
-            except:
+            except Exception as e:
                 print("handled error G5_CGM_MANAGER")
+                print(e)
 
         if Sections.DEX_CGM_MANAGER in dict:
             try:
@@ -568,8 +581,9 @@ class LoopReport:
 
                 loop_report_dict["dex_cgm_manager"] = latestBackfill
 
-            except:
+            except Exception as e:
                 print("handled error DEX_CGM_MANAGER")
+                print(e)
 
         if Sections.STATUS_EXTENSION_DATA_MANAGER in dict:
             try:
@@ -670,40 +684,45 @@ class LoopReport:
                 loop_report_dict[
                     "status_extension_data_manager"
                 ] = status_extension_data_manager
-            except:
+            except Exception as e:
                 print("handled error STATUS_EXTENSION_DATA_MANAGER")
+                print(e)
 
         if Sections.RILEY_LINK_PUMP_MANAGER in dict:
             try:
                 loop_report_dict["riley_link_pump_manager"] = dict[
                     Sections.RILEY_LINK_PUMP_MANAGER
                 ]
-            except:
+            except Exception as e:
                 print("handled error RILEY_LINK_PUMP_MANAGER")
+                print(e)
 
         if Sections.RILEY_LINK_DEVICE_MANAGER in dict:
             try:
                 loop_report_dict["riley_link_device_manager"] = dict[
                     Sections.RILEY_LINK_DEVICE_MANAGER
                 ]
-            except:
+            except Exception as e:
                 print("handled error RILEY_LINK_DEVICE_MANAGER")
+                print(e)
 
         if Sections.PERSISTENCE_CONTROLLER in dict:
             try:
                 loop_report_dict["persistence_controller"] = dict[
                     Sections.PERSISTENCE_CONTROLLER
                 ]
-            except:
+            except Exception as e:
                 print("handled error PERSISTENCE_CONTROLLER")
+                print(e)
 
         if Sections.INSULIN_DELIVERY_STORE in dict:
             try:
                 loop_report_dict["insulin_delivery_store"] = dict[
                     Sections.INSULIN_DELIVERY_STORE
                 ]
-            except:
+            except Exception as e:
                 print("handled error INSULIN_DELIVERY_STORE")
+                print(e)
 
         if Sections.CACHED_CARB_ENTRIES in dict:
             try:
@@ -741,8 +760,9 @@ class LoopReport:
                     }
                     temp_list.append(record_dict)
                 loop_report_dict["cached_carb_entries"] = temp_list
-            except:
+            except Exception as e:
                 print("handled error CACHED_CARB_ENTRIES")
+                print(e)
 
         if Sections.GLUCOSE_STORE in dict:
             try:
@@ -761,8 +781,9 @@ class LoopReport:
                 temp_dict["latest_glucose_value"] = dictionary
                 loop_report_dict["glucose_store"] = temp_dict
 
-            except:
+            except Exception as e:
                 print("handled error GLUCOSE_STORE")
+                print(e)
 
         if Sections.CACHED_GLUCOSE_SAMPLES in dict:
             try:
@@ -780,8 +801,9 @@ class LoopReport:
                     temp_list.append(record_dict)
 
                 loop_report_dict["cached_glucose_samples"] = temp_list
-            except:
+            except Exception as e:
                 print("handled error CACHED_GLUCOSE_SAMPLES")
+                print(e)
 
         return loop_report_dict
 
@@ -800,8 +822,9 @@ class LoopReport:
                 loop_report_dict["pump_model"] = minimed_pump_manager[
                     "pumpModel"
                 ].strip()
-            except:
+            except Exception as e:
                 print("pump model in minimed_pump_manager is not available")
+                print(e)
 
         elif omnipod_pump_manager:
             loop_report_dict["pump_manager_type"] = "omnipod"
@@ -812,10 +835,11 @@ class LoopReport:
                 loop_report_dict["pi_version"] = omnipod_pump_manager[
                     "piVersion"
                 ].strip()
-            except:
+            except Exception as e:
                 print(
                     "pm version or pi version in omnipod_pump_manager is not available"
                 )
+                print(e)
 
         else:
             loop_report_dict["pump_manager_type"] = "unknown"
