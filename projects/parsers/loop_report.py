@@ -7,7 +7,7 @@ dependencies: loop_report_parser.py
 license: BSD-2-Clause
 """
 
-from loop_report_parser import parse_loop_report, Sections
+from .loop_report_parser import parse_loop_report, Sections
 import os
 import re
 import json
@@ -205,6 +205,73 @@ class LoopReport:
             try:
                 loop_data_manager = dict[Sections.LOOP_DATA_MANAGER]
 
+                glucose_momentum_effect = loop_data_manager['glucoseMomentumEffect']
+                glucose_momentum_effect = glucose_momentum_effect.replace("[", "").replace("]", "").replace("LoopKit.GlucoseEffect(", "")
+                values = glucose_momentum_effect.split(")")
+                values.pop(len(values) - 1)
+                glucose_momentum_effect_list = []
+                for value in values:
+                    items = value.split(",")
+                    dictionary = {}
+
+                    for item in items:
+                        if 'startDate' in item:
+                            item = item.replace("startDate:", "").strip()
+                            dictionary['startDate'] = item
+                        elif "quantity" in item:
+                            item = float(item.replace("quantity:", "").replace("mg/dL", "").strip())
+                            dictionary['quantity'] = item
+                            dictionary['quantity_units'] = "mg/dL"
+                    glucose_momentum_effect_list.append(dictionary)
+                loop_report_dict["glucose_momentum_effect"] = glucose_momentum_effect_list
+
+                retrospective_glucose_change = loop_data_manager['retrospectiveGlucoseChange']
+                retrospective_glucose_change = retrospective_glucose_change.replace("Optional((", "").replace("))", "")
+                split_index = retrospective_glucose_change.index('end')
+                start = retrospective_glucose_change[:split_index]
+                start = start.replace("start: LoopKit.StoredGlucoseSample(", "").replace(")", "")
+                start_list = start.split(",")
+                start_list.pop(len(start_list) - 1)
+                start_dict = {}
+                for v in start_list:
+                    aux = v.split(": ")
+                    start_dict[aux[0]] = aux[1]
+
+                end = retrospective_glucose_change[split_index:]
+                end = end.replace("end: LoopKit.StoredGlucoseSample(", "").replace(")", "")
+                end_list= end.split(",")
+                end_dict = {}
+                for v in end_list:
+                    aux = v.split(": ")
+                    end_dict[aux[0]] = aux[1]
+
+                retrospective_glucose_change_dict = {}
+                retrospective_glucose_change_dict['start_dict'] = start_dict
+                retrospective_glucose_change_dict['end_dict'] = end_dict
+                loop_report_dict["retrospective_glucose_change"] = retrospective_glucose_change_dict
+
+                retrospective_predicted_glucose = loop_data_manager['retrospectivePredictedGlucose']
+                retrospective_predicted_glucose = retrospective_predicted_glucose.replace("[", "").replace("]", "").replace("LoopKit.PredictedGlucoseValue(", "")
+                values = retrospective_predicted_glucose.split(")")
+                values.pop(len(values) - 1)
+                retrospective_predicted_glucose_list = []
+                for value in values:
+                    items = value.split(",")
+                    dictionary = {}
+
+                    for item in items:
+                        if 'startDate' in item:
+                            item = item.replace("startDate:", "").strip()
+                            dictionary['startDate'] = item
+                        elif "quantity" in item:
+                            item = float(item.replace("quantity:", "").replace("mg/dL", "").strip())
+                            dictionary['quantity'] = item
+                            dictionary['quantity_units'] = "mg/dL"
+                    retrospective_predicted_glucose_list.append(dictionary)
+
+                loop_report_dict["retrospective_predicted_glucose"] = retrospective_predicted_glucose_list
+
+
                 loop_report_dict["maximum_basal_rate"] = float(
                     re.search(
                         r"maximumBasalRatePerHour: Optional\((.+?)\), maximumBolus",
@@ -273,11 +340,13 @@ class LoopReport:
                     loop_report_dict["override_range_premeal"] = eval(
                         substr[start_index : premeal + 1]
                     )
-                except:
+                except Exception as e:
                     print("preMeal is not in loop data")
+                    print(e)
 
-            except:
+            except Exception as e:
                 print("handled error loop data manager")
+                print(e)
 
         if Sections.INSULIN_COUNTERACTION_EFFECTS in dict:
             try:
@@ -296,8 +365,9 @@ class LoopReport:
                     temp_list.append(temp_dict)
                 loop_report_dict["insulin_counteraction_effects"] = temp_list
 
-            except:
+            except Exception as e:
                 print("handled error INSULIN_COUNTERACTION_EFFECTS")
+                print(e)
 
         if Sections.RETROSPECTIVE_GLUCOSE_DISCREPANCIES_SUMMED in dict:
             try:
@@ -319,8 +389,9 @@ class LoopReport:
                     "retrospective_glucose_discrepancies_summed"
                 ] = temp_list
 
-            except:
+            except Exception as e:
                 print("handled error RETROSPECTIVE_GLUCOSE_DISCREPANCIES")
+                print(e)
 
         if Sections.GET_RESERVOIR_VALUES in dict:
             try:

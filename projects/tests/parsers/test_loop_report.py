@@ -95,6 +95,9 @@ def test_parse_by_file():
     assert loop_dict["cached_glucose_samples"] == get_cached_glucose_samples()
     assert loop_dict["cached_carb_entries"] == get_cached_carb_entries()
     assert loop_dict["insulin_delivery_store"] == get_insulin_delivery_store()
+    assert loop_dict["glucose_momentum_effect"] == get_glucose_momentum_effect()
+    assert loop_dict["retrospective_glucose_change"] == get_retrospective_glucose_change()
+    assert loop_dict["retrospective_predicted_glucose"] == get_retrospective_predicted_glucose()
 
 
 def test_parse_by_directory():
@@ -122,6 +125,33 @@ def test_parse_by_directory_invalid_directory():
         lr = loop_report.LoopReport()
         lr.parse_by_directory("")
     assert "The directory passed in is invalid." in str(excinfo.value)
+
+
+def get_retrospective_predicted_glucose():
+    return [{'startDate': '2019-01-28 14:51:19 +0000', 'quantity': 89.0, 'quantity_units': 'mg/dL'},
+     {'startDate': '2019-01-28 14:55:00 +0000', 'quantity': 89.0, 'quantity_units': 'mg/dL'},
+     {'startDate': '2019-01-28 15:00:00 +0000', 'quantity': 88.8429, 'quantity_units': 'mg/dL'},
+     {'startDate': '2019-01-28 15:05:00 +0000', 'quantity': 88.6718, 'quantity_units': 'mg/dL'},
+     {'startDate': '2019-01-28 15:10:00 +0000', 'quantity': 88.48, 'quantity_units': 'mg/dL'},
+     {'startDate': '2019-01-28 15:15:00 +0000', 'quantity': 88.2673, 'quantity_units': 'mg/dL'}]
+
+
+def get_retrospective_glucose_change():
+    return {
+        'start_dict': {' sampleUUID': '8B9AA1D2-E475-47E0-9612-76C01A438AD3', ' syncIdentifier': '"00AA0A 2594908"',
+                       ' syncVersion': '1', ' startDate': '2019-01-28 14:51:19 +0000', ' quantity': '89 mg/dL',
+                       ' isDisplayOnly': 'false', ' provenanceIdentifier': '"com.34SNZ39Q48.loopkit.Loop"'},
+        'end_dict': {'sampleUUID': '7ED3FC10-0E37-4243-86F1-6E187E62F2DF', ' syncIdentifier': '"00AA0A 2596408"',
+                     ' syncVersion': '1', ' startDate': '2019-01-28 15:16:20 +0000', ' quantity': '85 mg/dL',
+                     ' isDisplayOnly': 'false', ' provenanceIdentifier': '"com.34SNZ39Q48.loopkit.Loop"'}}
+
+
+def get_glucose_momentum_effect():
+    return [{'startDate': '2019-01-28 15:15:00 +0000', 'quantity': 0.0, 'quantity_units': 'mg/dL'},
+     {'startDate': '2019-01-28 15:20:00 +0000', 'quantity': 0.732079, 'quantity_units': 'mg/dL'},
+     {'startDate': '2019-01-28 15:25:00 +0000', 'quantity': 1.73202, 'quantity_units': 'mg/dL'},
+     {'startDate': '2019-01-28 15:30:00 +0000', 'quantity': 2.73197, 'quantity_units': 'mg/dL'},
+     {'startDate': '2019-01-28 15:35:00 +0000', 'quantity': 3.73191, 'quantity_units': 'mg/dL'}]
 
 
 def get_pump_event_values():
