@@ -290,7 +290,7 @@ class LoopReport:
                     temp_dict = {
                         "start_time": start,
                         "end_time": end,
-                        "value": value,
+                        "value": float(value),
                         "units": "mg/dL/min",
                     }
                     temp_list.append(temp_dict)
@@ -310,7 +310,7 @@ class LoopReport:
                     temp_dict = {
                         "start_time": start,
                         "end_time": end,
-                        "value": value,
+                        "value": float(value),
                         "units": "mg/dL",
                     }
                     temp_list.append(temp_dict)
@@ -330,9 +330,10 @@ class LoopReport:
                 temp_list = []
                 for items in local_list:
                     start, value = items.split(",")
+
                     temp_dict = {
                         "start_time": start,
-                        "value": value,
+                        "value": float(value),
                         "units": "unitVolume",
                     }
                     temp_list.append(temp_dict)
@@ -343,8 +344,6 @@ class LoopReport:
                 print("handled error GET_RESERVOIR_VALUES")
                 print(e)
 
-
-
         if Sections.PREDICTED_GLUCOSE in dict:
             try:
                 local_list = dict[Sections.PREDICTED_GLUCOSE]
@@ -353,7 +352,11 @@ class LoopReport:
                 temp_list = []
                 for items in local_list:
                     start, value = items.split(",")
-                    temp_dict = {"start_time": start, "value": value, "units": "mg/dL"}
+                    temp_dict = {
+                        "start_time": start,
+                        "value": float(value),
+                        "units": "mg/dL",
+                    }
                     temp_list.append(temp_dict)
 
                 loop_report_dict["predicted_glucose"] = temp_list
@@ -371,7 +374,11 @@ class LoopReport:
 
                 for items in local_list:
                     start, value = items.split(",")
-                    temp_dict = {"start_time": start, "value": value, "units": "mg/dL"}
+                    temp_dict = {
+                        "start_time": start,
+                        "value": float(value),
+                        "units": "mg/dL",
+                    }
                     temp_list.append(temp_dict)
 
                 loop_report_dict["retrospective_glucose_discrepancies"] = temp_list
@@ -388,7 +395,11 @@ class LoopReport:
                 temp_list = []
                 for items in local_list:
                     start, value = items.split(",")
-                    temp_dict = {"start_time": start, "value": value, "units": "mg/dL"}
+                    temp_dict = {
+                        "start_time": start,
+                        "value": float(value),
+                        "units": "mg/dL",
+                    }
                     temp_list.append(temp_dict)
                 loop_report_dict["carb_effect"] = temp_list
 
@@ -404,7 +415,11 @@ class LoopReport:
                 temp_list = []
                 for item in local_list:
                     start, value = item.split(",")
-                    temp_dict = {"start_time": start, "value": value, "units": "mg/dL"}
+                    temp_dict = {
+                        "start_time": start,
+                        "value": float(value),
+                        "units": "mg/dL",
+                    }
                     temp_list.append(temp_dict)
 
                 loop_report_dict["insulin_effect"] = temp_list
@@ -421,11 +436,17 @@ class LoopReport:
                     record_dict = {}
                     item = item.replace("DoseEntry(", "")
                     item = item.replace(item[len(item) - 1], "")
+                    item = item.replace("Optional(", "")
                     key_value = item.split(", ")
 
                     for v in key_value:
                         aux = v.split(": ")
+                        if "scheduledBasalRate" in v:
+                            if "IU/hr" in aux[1]:
+                                aux[1] = float(aux[1].replace("IU/hr", "").strip())
+
                         record_dict[aux[0]] = aux[1]
+                    record_dict["scheduledBasalRate"] = "IU/hr"
                     temp_list.append(record_dict)
 
                 loop_report_dict["get_normalized_pump_event_dose"] = temp_list
@@ -441,6 +462,7 @@ class LoopReport:
                     record_dict = {}
                     item = item.replace("DoseEntry(", "")
                     item = item.replace(item[len(item) - 1], "")
+                    item = item.replace("Optional(", "")
                     key_value = item.split(", ")
 
                     for v in key_value:
@@ -462,6 +484,7 @@ class LoopReport:
                     record_dict = {}
                     item = item.replace("DoseEntry(", "")
                     item = item.replace(item[len(item) - 1], "")
+                    item = item.replace("Optional(", "")
                     key_value = item.split(", ")
 
                     for v in key_value:
@@ -482,6 +505,7 @@ class LoopReport:
                     record_dict = {}
                     item = item.replace("PersistedPumpEvent(", "")
                     item = item.replace(item[len(item) - 1], "")
+                    item = item.replace("Optional(", "")
                     key_value = item.split(", ")
 
                     for v in key_value:
@@ -611,9 +635,7 @@ class LoopReport:
                 dictionary = {}
                 for item in temp_list:
                     if "sensor" in item:
-                        item = item.replace(
-                            " sensor: [", ""
-                        )
+                        item = item.replace(" sensor: [", "")
                         self.add_to_dictionary(dictionary, item)
 
                     elif "lastLoopCompleted" in item:
@@ -622,9 +644,7 @@ class LoopReport:
                         )
 
                     elif "predictedGlucose" in item:
-                        item = item.replace(
-                            " predictedGlucose: [", ""
-                        )
+                        item = item.replace(" predictedGlucose: [", "")
                         self.add_to_dictionary(dictionary, item)
 
                     elif "start:" in item:
@@ -634,9 +654,7 @@ class LoopReport:
                         dictionary["end"] = item.replace("end: ", "").replace("]", "")
 
                     elif "percentage" in item:
-                        item = item.replace(
-                            " netBasal: [", ""
-                        )
+                        item = item.replace(" netBasal: [", "")
                         self.add_to_dictionary(dictionary, item)
 
                     elif "reservoirCapacity" in item:
@@ -746,12 +764,16 @@ class LoopReport:
                     empty, sampleUUID, syncIdentifier, syncVersion, startDate, quantity, foodType, absorptionTime, createdByCurrentApp, externalID, isUploaded = item.split(
                         ","
                     )
+                    if isinstance(quantity, str):
+                        quantity = int(quantity.replace("g", ""))
+
                     record_dict = {
                         "sampleUUID": sampleUUID,
                         "syncIdentifier": syncIdentifier,
                         "syncVersion": syncVersion,
                         "startDate": startDate,
                         "quantity": quantity,
+                        "quantity_units": "g",
                         "foodType": foodType,
                         "absorptionTime": absorptionTime,
                         "createdByCurrentApp": createdByCurrentApp,
@@ -776,9 +798,19 @@ class LoopReport:
 
                 dictionary = {}
                 for item in latest_glucose_value:
-                    self.add_to_dictionary(dictionary, item)
+                    if "startDate" in item:
+                        value = item.replace("startDate: ", "")
+                        dictionary["startDate"] = value
+                    elif "quantity" in item:
+                        value = item.replace("quantity: ", "")
+                        if "mg/dL" in value:
+                            value = int(value.replace("mg/dL", "").strip())
+                        dictionary["quantity"] = value
+                        dictionary["quantity_units"] = "mg/dL"
+                    else:
+                        self.add_to_dictionary(dictionary, item)
 
-                temp_dict["latest_glucose_value"] = dictionary
+                temp_dict["latestGlucoseValue"] = dictionary
                 loop_report_dict["glucose_store"] = temp_dict
 
             except Exception as e:
@@ -797,7 +829,11 @@ class LoopReport:
 
                     for v in key_value:
                         aux = v.split(": ")
+                        if aux[0] == "quantity":
+                            if isinstance(aux[1], str) and "mg/dL" in aux[1]:
+                                aux[1] = int(aux[1].replace("mg/dL", ""))
                         record_dict[aux[0]] = aux[1]
+                    record_dict["quantity_units"] = "mg/dL"
                     temp_list.append(record_dict)
 
                 loop_report_dict["cached_glucose_samples"] = temp_list
@@ -810,6 +846,12 @@ class LoopReport:
     def add_to_dictionary(self, dictionary, item):
         keyvalue = item.split(":")
         m = keyvalue[0].strip("'")
+        if m.isdigit():
+            if "." in m:
+                m = float(m)
+            else:
+                m = int(m)
+
         m = m.replace("]", "").strip()
         dictionary[m] = keyvalue[1].strip("\"'").replace("]", "")
 
@@ -843,6 +885,3 @@ class LoopReport:
 
         else:
             loop_report_dict["pump_manager_type"] = "unknown"
-
-
-
