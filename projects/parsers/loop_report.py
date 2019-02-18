@@ -205,79 +205,191 @@ class LoopReport:
             try:
                 loop_data_manager = dict[Sections.LOOP_DATA_MANAGER]
 
-                glucose_momentum_effect = loop_data_manager['glucoseMomentumEffect']
-                glucose_momentum_effect = glucose_momentum_effect.replace("[", "").replace("]", "").replace("LoopKit.GlucoseEffect(", "")
-                values = glucose_momentum_effect.split(")")
-                values.pop(len(values) - 1)
-                glucose_momentum_effect_list = []
-                for value in values:
-                    items = value.split(",")
-                    dictionary = {}
+                try:
+                    carbs_on_board = loop_data_manager['carbsOnBoard']
+                    carbs_on_board = carbs_on_board.replace('Optional(LoopKit.CarbValue(', '').replace('))', '').replace(')', '')
+                    carbs_on_board_list = carbs_on_board.split(",")
+                    carbs_on_board_dict = {}
+                    for v in carbs_on_board_list:
+                        aux = v.split(": ")
+                        if 'quantity' in aux[0]:
+                            aux[1] = aux[1].replace('g', '')
+                            carbs_on_board_dict[aux[0]] = float(aux[1])
+                            carbs_on_board_dict["units"] = 'g'
+                        else:
+                            carbs_on_board_dict[aux[0]] = aux[1]
+                    loop_report_dict["carbs_on_board"] = carbs_on_board_dict
+                except Exception as e:
+                    print("handled error loop data manager - carbs_on_board")
+                    print(e)
 
-                    for item in items:
-                        if 'startDate' in item:
-                            item = item.replace("startDate:", "").strip()
-                            dictionary['startDate'] = item
-                        elif "quantity" in item:
-                            item = float(item.replace("quantity:", "").replace("mg/dL", "").strip())
-                            dictionary['quantity'] = item
-                            dictionary['quantity_units'] = "mg/dL"
-                    glucose_momentum_effect_list.append(dictionary)
-                loop_report_dict["glucose_momentum_effect"] = glucose_momentum_effect_list
+                try:
+                    last_temp_basal = loop_data_manager['lastTempBasal']
+                    if last_temp_basal != 'nil':
+                        last_temp_basal = last_temp_basal.replace('Optional(LoopKit.DoseEntry(','').replace('))', '').replace(')', '')
+                        last_temp_basal_list = last_temp_basal.split(",")
+                        last_temp_basal_dict = {}
+                        for v in last_temp_basal_list:
+                            aux = v.split(": ")
+                            if 'value' in aux[0]:
+                                last_temp_basal_dict[aux[0]] = float(aux[1])
+                            else:
+                                last_temp_basal_dict[aux[0]] = aux[1]
+                        loop_report_dict["last_temp_basal"] = last_temp_basal_dict
+                except Exception as e:
+                    print("handled error loop data manager - last_temp_basal")
+                    print(e)
 
-                retrospective_glucose_change = loop_data_manager['retrospectiveGlucoseChange']
-                retrospective_glucose_change = retrospective_glucose_change.replace("Optional((", "").replace("))", "")
-                split_index = retrospective_glucose_change.index('end')
-                start = retrospective_glucose_change[:split_index]
-                start = start.replace("start: LoopKit.StoredGlucoseSample(", "").replace(")", "")
-                start_list = start.split(",")
-                start_list.pop(len(start_list) - 1)
-                start_dict = {}
-                for v in start_list:
-                    aux = v.split(": ")
-                    start_dict[aux[0]] = aux[1]
+                try:
+                    recommended_bolus = loop_data_manager['recommendedBolus']
+                    recommended_bolus = recommended_bolus.replace('Optional((recommendation: Loop.BolusRecommendation(', '').replace('))', '').replace(')', '')
+                    recommended_bolus_list = recommended_bolus.split(",")
+                    recommended_bolus_dict = {}
+                    for v in recommended_bolus_list:
+                        aux = v.split(": ")
+                        if 'amount' in aux[0]:
+                            recommended_bolus_dict[aux[0]] = float(aux[1])
+                        elif 'pendingInsulin' in aux[0]:
+                            recommended_bolus_dict[aux[0]] = float(aux[1])
+                        else:
+                            recommended_bolus_dict[aux[0]] = aux[1]
+                    loop_report_dict["recommended_bolus"] = recommended_bolus_dict
+                except Exception as e:
+                    print("handled error loop data manager - recommended_bolus")
+                    print(e)
 
-                end = retrospective_glucose_change[split_index:]
-                end = end.replace("end: LoopKit.StoredGlucoseSample(", "").replace(")", "")
-                end_list= end.split(",")
-                end_dict = {}
-                for v in end_list:
-                    aux = v.split(": ")
-                    end_dict[aux[0]] = aux[1]
+                try:
+                    recommended_temp_basal = loop_data_manager['recommendedTempBasal']
+                    if recommended_temp_basal.strip() != 'nil':
+                        recommended_temp_basal = recommended_temp_basal.replace('Optional((recommendation: Loop.TempBasalRecommendation(', '').replace('))', '').replace(')', '')
+                        recommended_temp_basal_list = recommended_temp_basal.split(",")
+                        recommended_temp_basal_dict = {}
+                        for v in recommended_temp_basal_list:
+                            aux = v.split(": ")
+                            if 'unitsPerHour' in aux[0]:
+                                recommended_temp_basal_dict[aux[0]] = float(aux[1])
+                            elif 'duration' in aux[0]:
+                                recommended_temp_basal_dict[aux[0]] = float(aux[1])
+                            else:
+                                recommended_temp_basal_dict[aux[0]] = aux[1]
+                        loop_report_dict["recommended_temp_basal"] = recommended_temp_basal_dict
+                except Exception as e:
+                    print("handled error loop data manager - recommended_temp_basal")
+                    print(e)
 
-                retrospective_glucose_change_dict = {}
-                retrospective_glucose_change_dict['start_dict'] = start_dict
-                retrospective_glucose_change_dict['end_dict'] = end_dict
-                loop_report_dict["retrospective_glucose_change"] = retrospective_glucose_change_dict
+                try:
+                    retrospective_glucose_effect = loop_data_manager['retrospectiveGlucoseEffect']
+                    retrospective_glucose_effect = retrospective_glucose_effect.replace("[", "").replace("]", "").replace(
+                        "LoopKit.GlucoseEffect(", "")
+                    values = retrospective_glucose_effect.split(")")
+                    values.pop(len(values) - 1)
+                    retrospective_glucose_effect_list = []
+                    for value in values:
+                        items = value.split(",")
+                        dictionary = {}
 
-                retrospective_predicted_glucose = loop_data_manager['retrospectivePredictedGlucose']
-                retrospective_predicted_glucose = retrospective_predicted_glucose.replace("[", "").replace("]", "").replace("LoopKit.PredictedGlucoseValue(", "")
-                values = retrospective_predicted_glucose.split(")")
-                values.pop(len(values) - 1)
-                retrospective_predicted_glucose_list = []
-                for value in values:
-                    items = value.split(",")
-                    dictionary = {}
+                        for item in items:
+                            if 'startDate' in item:
+                                item = item.replace("startDate:", "").strip()
+                                dictionary['startDate'] = item
+                            elif "quantity" in item:
+                                item = float(item.replace("quantity:", "").replace("mg/dL", "").strip())
+                                dictionary['quantity'] = item
+                                dictionary['quantity_units'] = "mg/dL"
+                        retrospective_glucose_effect_list.append(dictionary)
+                    loop_report_dict["retrospective_glucose_effect"] = retrospective_glucose_effect_list
+                except Exception as e:
+                    print("handled error loop data manager - retrospective_glucose_effect")
+                    print(e)
 
-                    for item in items:
-                        if 'startDate' in item:
-                            item = item.replace("startDate:", "").strip()
-                            dictionary['startDate'] = item
-                        elif "quantity" in item:
-                            item = float(item.replace("quantity:", "").replace("mg/dL", "").strip())
-                            dictionary['quantity'] = item
-                            dictionary['quantity_units'] = "mg/dL"
-                    retrospective_predicted_glucose_list.append(dictionary)
+                try:
+                    glucose_momentum_effect = loop_data_manager['glucoseMomentumEffect']
+                    glucose_momentum_effect = glucose_momentum_effect.replace("[", "").replace("]", "").replace("LoopKit.GlucoseEffect(", "")
+                    values = glucose_momentum_effect.split(")")
+                    values.pop(len(values) - 1)
+                    glucose_momentum_effect_list = []
+                    for value in values:
+                        items = value.split(",")
+                        dictionary = {}
 
-                loop_report_dict["retrospective_predicted_glucose"] = retrospective_predicted_glucose_list
+                        for item in items:
+                            if 'startDate' in item:
+                                item = item.replace("startDate:", "").strip()
+                                dictionary['startDate'] = item
+                            elif "quantity" in item:
+                                item = float(item.replace("quantity:", "").replace("mg/dL", "").strip())
+                                dictionary['quantity'] = item
+                                dictionary['quantity_units'] = "mg/dL"
+                        glucose_momentum_effect_list.append(dictionary)
+                    loop_report_dict["glucose_momentum_effect"] = glucose_momentum_effect_list
+                except Exception as e:
+                    print("handled error loop data manager - glucose_momentum_effect")
+                    print(e)
 
+                try:
+                    retrospective_glucose_change = loop_data_manager['retrospectiveGlucoseChange']
+                    retrospective_glucose_change = retrospective_glucose_change.replace("Optional((", "").replace("))", "")
+                    split_index = retrospective_glucose_change.index('end')
+                    start = retrospective_glucose_change[:split_index]
+                    start = start.replace("start: LoopKit.StoredGlucoseSample(", "").replace(")", "")
+                    start_list = start.split(",")
+                    start_list.pop(len(start_list) - 1)
+                    start_dict = {}
+                    for v in start_list:
+                        aux = v.split(": ")
+                        start_dict[aux[0]] = aux[1]
 
-                loop_report_dict["maximum_basal_rate"] = float(
-                    re.search(
-                        r"maximumBasalRatePerHour: Optional\((.+?)\), maximumBolus",
-                        loop_data_manager["settings"],
-                    ).group(1)
-                )
+                    end = retrospective_glucose_change[split_index:]
+                    end = end.replace("end: LoopKit.StoredGlucoseSample(", "").replace(")", "")
+                    end_list= end.split(",")
+                    end_dict = {}
+                    for v in end_list:
+                        aux = v.split(": ")
+                        end_dict[aux[0]] = aux[1]
+
+                    retrospective_glucose_change_dict = {}
+                    retrospective_glucose_change_dict['start_dict'] = start_dict
+                    retrospective_glucose_change_dict['end_dict'] = end_dict
+                    loop_report_dict["retrospective_glucose_change"] = retrospective_glucose_change_dict
+                except Exception as e:
+                    print("handled error loop data manager - retrospective_glucose_change")
+                    print(e)
+
+                try:
+                    retrospective_predicted_glucose = loop_data_manager['retrospectivePredictedGlucose']
+                    retrospective_predicted_glucose = retrospective_predicted_glucose.replace("[", "").replace("]", "").replace("LoopKit.PredictedGlucoseValue(", "")
+                    values = retrospective_predicted_glucose.split(")")
+                    values.pop(len(values) - 1)
+                    retrospective_predicted_glucose_list = []
+                    for value in values:
+                        items = value.split(",")
+                        dictionary = {}
+
+                        for item in items:
+                            if 'startDate' in item:
+                                item = item.replace("startDate:", "").strip()
+                                dictionary['startDate'] = item
+                            elif "quantity" in item:
+                                item = float(item.replace("quantity:", "").replace("mg/dL", "").strip())
+                                dictionary['quantity'] = item
+                                dictionary['quantity_units'] = "mg/dL"
+                        retrospective_predicted_glucose_list.append(dictionary)
+
+                    loop_report_dict["retrospective_predicted_glucose"] = retrospective_predicted_glucose_list
+                except Exception as e:
+                    print("handled error loop data manager - retrospective_predicted_glucose")
+                    print(e)
+
+                try:
+                    loop_report_dict["maximum_basal_rate"] = float(
+                        re.search(
+                            r"maximumBasalRatePerHour: Optional\((.+?)\), maximumBolus",
+                            loop_data_manager["settings"],
+                        ).group(1)
+                    )
+                except Exception as e:
+                    print("handled error loop data manager")
+                    print(e)
 
                 loop_report_dict["maximum_bolus"] = float(
                     re.search(
@@ -572,7 +684,16 @@ class LoopReport:
             try:
                 local_list = dict[Sections.GET_PUMP_EVENT_VALUES]
                 temp_list = []
+                count = 1
+
+                #PersistedPumpEvent(date: 2018-12-05 16:16:27 +0000, persistedDate: 2018-12-05 16:28:29 +0000, dose: Optional(LoopKit.DoseEntry(type: LoopKit.DoseType.tempBasal, startDate: 2018-12-05 16:16:27 +0000, endDate: 2018-12-05 16:24:31 +0000, value: 0.0, unit: LoopKit.DoseUnit.unitsPerHour, description: nil, syncIdentifier: Optional("62706c6973743030d40102030405061f20582476657273696f6e58246f626a65637473592461726368697665725424746f7012000186a0a707081011151b1c55246e756c6cd2090a0b0f5a4e532e6f626a656374735624636c617373a30c0d0e80028003800580061001d2120a1314574e532e74696d652341c0dc18ade60d4e8004d2161718195a24636c6173736e616d655824636c6173736573564e5344617465a2181a584e534f626a656374230000000000000000d216171d1e574e534172726179a21d1a5f100f4e534b657965644172636869766572d1212254726f6f74800108111a232d32373f454a555c60626466686a6f77808287929ba2a5aeb7bcc4c7d9dce100000000000001010000000000000023000000000000000000000000000000e3"), scheduledBasalRate: nil)), isUploaded: true, objectIDURL: x-coredata://983CF248-ED7B-4FBD-9EB0-75046CD84585/PumpEvent/p1378, raw: Optional(294 bytes), title: Optional("TempBasal: 0 U/hour 12/5/18, 11:16:27 AM for 8 minutes, 4 seconds Certain"), type: Optional(LoopKit.PumpEventType.tempBasal))
+                #PersistedPumpEvent(date: 2018-12-13 22:39:58 +0000, persistedDate: 2018-12-13 22:41:35 +0000, dose: Optional(LoopKit.DoseEntry(type: LoopKit.DoseType.basal, startDate: 2018-12-13 22:39:58 +0000, endDate: 2018-12-14 22:39:58 +0000, value: 1.0, unit: LoopKit.DoseUnit.unitsPerHour, description: nil, syncIdentifier: Optional("7b04fa27100d12162800"), scheduledBasalRate: nil)), isUploaded: false, objectIDURL: x-coredata://7A7C697F-80EE-41B7-8AB9-FF408D5B3884/PumpEvent/p8690, raw: Optional(10 bytes), title: Optional("BasalProfileStartPumpEvent(length: 10, rawData: 10 bytes, timestamp: calendar: gregorian (fixed) year: 2018 month: 12 day: 13 hour: 16 minute: 39 second: 58 isLeapMonth: false , scheduleEntry: MinimedKit.BasalScheduleEntry(index: 4, timeOffset: 39600.0, rate: 1.0))"), type: Optional(LoopKit.PumpEventType.basal))
+
+
+
                 for item in local_list:
+                    print(count)
+                    count = count + 1
                     record_dict = {}
                     item = item.replace("PersistedPumpEvent(", "")
                     item = item.replace(item[len(item) - 1], "")
@@ -685,94 +806,88 @@ class LoopReport:
                 status_extension_data_manager = dict[
                     Sections.STATUS_EXTENSION_DATA_MANAGER
                 ]
+                statusExtensionContext = {}
                 temp = status_extension_data_manager["statusExtensionContext"]
                 temp = temp.replace("Optional([", "")
                 values_index = temp.index("values")
-                unit_index = temp.index("unit")
-                values = temp[values_index:unit_index]
+                values_temp = temp[values_index:]
+                last_index = values_temp.index("]")
+                values = values_temp[:last_index+1]
                 values = values.replace(": [", "")
                 values = values.replace("values", "")
                 values = values.replace("]", "")
                 values = values.replace(', "', "")
                 values_list = values.split(",")
+                statusExtensionContext["values"] = values_list
 
-                newstr = temp[:values_index] + temp[unit_index:]
-                newstr = newstr.replace('"', "")
-                newstr = newstr.strip()
-                temp_list = newstr.split(",")
 
-                statusExtensionContext = {}
+                sensor_index = temp.index("sensor")
+                sensor_temp = temp[sensor_index:]
+                last_index = sensor_temp.index("]")
+                sensor = sensor_temp[9:last_index+1]
+                sensor = sensor.replace('"', "")
+                sensor = sensor.replace('[', "").replace(']', "")
+                sensor = sensor.strip()
+                temp_list = sensor.split(",")
+                value_dict = {}
+                for value in temp_list:
+                    val = value.split(":")
+                    value_dict[val[0]] = val[1]
+                statusExtensionContext["sensor"] = value_dict
 
-                dictionary = {}
-                for item in temp_list:
-                    if "sensor" in item:
-                        item = item.replace(" sensor: [", "")
-                        self.add_to_dictionary(dictionary, item)
 
-                    elif "lastLoopCompleted" in item:
-                        dictionary["lastLoopCompleted"] = item.replace(
-                            "lastLoopCompleted: ", ""
-                        )
 
-                    elif "predictedGlucose" in item:
-                        item = item.replace(" predictedGlucose: [", "")
-                        self.add_to_dictionary(dictionary, item)
+                netBasal_index = temp.index("netBasal")
+                netBasal_temp = temp[netBasal_index:]
+                last_index = netBasal_temp.index("]")
+                netBasal = netBasal_temp[9:last_index+1]
+                netBasal = netBasal.replace('[', "").replace(']', "")
+                netBasal = netBasal.strip()
+                temp_list = netBasal.split(",")
+                value_dict = {}
+                for value in temp_list:
+                    val = value.split(":")
+                    value_dict[val[0]] = val[1]
+                statusExtensionContext["netBasal"] = value_dict
 
-                    elif "start:" in item:
-                        dictionary["start"] = item.replace("start: ", "")
+                version_index = temp.index("version")
+                version_temp = temp[version_index:]
+                last_index = version_temp.index(",")
+                statusExtensionContext["version"] = version_temp[10:last_index]
 
-                    elif "end:" in item:
-                        dictionary["end"] = item.replace("end: ", "").replace("]", "")
+                unit_index = temp.index("unit")
+                unit_temp = temp[unit_index:]
+                unit_temp = unit_temp.replace('"', '')
+                last_index = unit_temp.index(",")
+                statusExtensionContext["unit"] = unit_temp[6:last_index]
 
-                    elif "percentage" in item:
-                        item = item.replace(" netBasal: [", "")
-                        self.add_to_dictionary(dictionary, item)
+                interval_index = temp.index("interval")
+                interval_temp = temp[interval_index:]
+                interval_temp = interval_temp.replace('"', '')
+                last_index = interval_temp.index(",")
+                interval_temp = interval_temp[9:last_index].replace("]", "")
+                statusExtensionContext["interval"] = float(interval_temp)
 
-                    elif "reservoirCapacity" in item:
-                        item = item.replace("])", "")
-                        self.add_to_dictionary(dictionary, item)
-                    else:
-                        self.add_to_dictionary(dictionary, item)
+                startDate_index = temp.index("startDate")
+                startDate_temp = temp[startDate_index:]
+                startDate_temp = startDate_temp.replace('"', '')
+                last_index = startDate_temp.index(",")
+                statusExtensionContext["startDate"] = startDate_temp[10:last_index]
 
-                sensor = {}
-                sensor["isStateValid"] = dictionary["isStateValid"]
-                sensor["stateDescription"] = dictionary["stateDescription"]
-                sensor["trendType"] = dictionary["trendType"]
-                sensor["isLocal"] = dictionary["isLocal"]
+                batteryPercentage_index = temp.index("batteryPercentage")
+                batteryPercentage_temp = temp[batteryPercentage_index:]
+                batteryPercentage_temp = batteryPercentage_temp.replace('"', '')
+                last_index = batteryPercentage_temp.index(",")
+                statusExtensionContext["batteryPercentage"] = float(batteryPercentage_temp[18:last_index].strip())
 
-                predictedGlucose = {}
-                predictedGlucose["startDate"] = dictionary["startDate"]
-                predictedGlucose["values"] = values_list
-                predictedGlucose["unit"] = dictionary["unit"]
-                predictedGlucose["interval"] = dictionary["interval"]
+                lastLoopCompleted_index = temp.index("lastLoopCompleted")
+                lastLoopCompleted_temp = temp[lastLoopCompleted_index:]
+                lastLoopCompleted_temp = lastLoopCompleted_temp.replace('"', '')
+                last_index = lastLoopCompleted_temp.index(",")
+                statusExtensionContext["lastLoopCompleted"] = lastLoopCompleted_temp[18:last_index]
 
-                netBasal = {}
-                netBasal["percentage"] = dictionary["percentage"]
-                netBasal["start"] = dictionary["start"]
-                netBasal["rate"] = dictionary["rate"]
-                netBasal["end"] = dictionary["end"]
 
-                statusExtensionContext["lastLoopCompleted"] = dictionary[
-                    "lastLoopCompleted"
-                ]
-                statusExtensionContext["sensor"] = sensor
-                statusExtensionContext["predictedGlucose"] = predictedGlucose
-                statusExtensionContext["netBasal"] = netBasal
-                statusExtensionContext["batteryPercentage"] = dictionary[
-                    "batteryPercentage"
-                ]
-                statusExtensionContext["version"] = dictionary["version"]
-                statusExtensionContext["reservoirCapacity"] = dictionary[
-                    "reservoirCapacity"
-                ]
-
-                status_extension_data_manager[
-                    "statusExtensionContext"
-                ] = statusExtensionContext
-
-                loop_report_dict[
-                    "status_extension_data_manager"
-                ] = status_extension_data_manager
+                loop_report_dict["status_extension_data_manager"] = statusExtensionContext
             except Exception as e:
                 print("handled error STATUS_EXTENSION_DATA_MANAGER")
                 print(e)
