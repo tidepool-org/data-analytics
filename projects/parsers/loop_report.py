@@ -1017,7 +1017,9 @@ class LoopReport:
                 status_extension_data_manager = dict[
                     Sections.STATUS_EXTENSION_DATA_MANAGER
                 ]
-                statusExtensionContext = {}
+                status_extension_context_dict = {}
+
+                predicted_glucose = {}
 
                 temp = status_extension_data_manager["statusExtensionContext"]
                 temp = temp.replace("Optional([", "")
@@ -1029,8 +1031,10 @@ class LoopReport:
                 values = values.replace("values", "")
                 values = values.replace("]", "")
                 values = values.replace(', "', "")
+                values = values.replace('"', "")
+                values = values.replace(' ', "")
                 values_list = values.split(",")
-                statusExtensionContext["values"] = values_list
+                predicted_glucose["values"] = values_list
 
                 try:
                     sensor_index = temp.index("sensor")
@@ -1045,7 +1049,8 @@ class LoopReport:
                     for value in temp_list:
                         val = value.split(":")
                         value_dict[val[0]] = val[1]
-                    statusExtensionContext["sensor"] = value_dict
+                        '"85.732078872579'
+                    status_extension_context_dict["sensor"] = value_dict
                 except Exception as e:
                     print("handled error STATUS_EXTENSION_DATA_MANAGER - sensor")
                     print(e)
@@ -1063,7 +1068,7 @@ class LoopReport:
                     for value in temp_list:
                         val = value.split(":")
                         value_dict[val[0]] = val[1]
-                    statusExtensionContext["netBasal"] = value_dict
+                    status_extension_context_dict["netBasal"] = value_dict
                 except Exception as e:
                     print("handled error STATUS_EXTENSION_DATA_MANAGER - netBasal")
                     print(e)
@@ -1072,7 +1077,7 @@ class LoopReport:
                     version_index = temp.index("version")
                     version_temp = temp[version_index:]
                     last_index = version_temp.index(",")
-                    statusExtensionContext["version"] = version_temp[10:last_index]
+                    status_extension_context_dict["version"] = version_temp[10:last_index]
                 except Exception as e:
                     print("handled error STATUS_EXTENSION_DATA_MANAGER - version")
                     print(e)
@@ -1082,7 +1087,7 @@ class LoopReport:
                     unit_temp = temp[unit_index:]
                     unit_temp = unit_temp.replace('"', '')
                     last_index = unit_temp.index(",")
-                    statusExtensionContext["unit"] = unit_temp[6:last_index]
+                    predicted_glucose["unit"] = unit_temp[6:last_index]
                 except Exception as e:
                     print("handled error STATUS_EXTENSION_DATA_MANAGER - unit")
                     print(e)
@@ -1093,7 +1098,7 @@ class LoopReport:
                     interval_temp = interval_temp.replace('"', '')
                     last_index = interval_temp.index(",")
                     interval_temp = interval_temp[9:last_index].replace("]", "")
-                    statusExtensionContext["interval"] = float(interval_temp)
+                    predicted_glucose["interval"] = float(interval_temp)
                 except Exception as e:
                     print("handled error STATUS_EXTENSION_DATA_MANAGER - interval")
                     print(e)
@@ -1103,17 +1108,19 @@ class LoopReport:
                     startDate_temp = temp[startDate_index:]
                     startDate_temp = startDate_temp.replace('"', '')
                     last_index = startDate_temp.index(",")
-                    statusExtensionContext["startDate"] = startDate_temp[10:last_index]
+                    predicted_glucose["startDate"] = startDate_temp[10:last_index]
                 except Exception as e:
                     print("handled error STATUS_EXTENSION_DATA_MANAGER - startDate")
                     print(e)
+
+                status_extension_context_dict["predictedGlucose"] = predicted_glucose
 
                 try:
                     batteryPercentage_index = temp.index("batteryPercentage")
                     batteryPercentage_temp = temp[batteryPercentage_index:]
                     batteryPercentage_temp = batteryPercentage_temp.replace('"', '')
                     last_index = batteryPercentage_temp.index(",")
-                    statusExtensionContext["batteryPercentage"] = float(batteryPercentage_temp[18:last_index].strip())
+                    status_extension_context_dict["batteryPercentage"] = float(batteryPercentage_temp[18:last_index].strip())
                 except Exception as e:
                     print("handled error STATUS_EXTENSION_DATA_MANAGER - batteryPercentage")
                     print(e)
@@ -1123,13 +1130,13 @@ class LoopReport:
                     lastLoopCompleted_temp = temp[lastLoopCompleted_index:]
                     lastLoopCompleted_temp = lastLoopCompleted_temp.replace('"', '')
                     last_index = lastLoopCompleted_temp.index(",")
-                    statusExtensionContext["lastLoopCompleted"] = lastLoopCompleted_temp[18:last_index]
+                    status_extension_context_dict["lastLoopCompleted"] = lastLoopCompleted_temp[18:last_index]
                 except Exception as e:
                     print("handled error STATUS_EXTENSION_DATA_MANAGER - lastLoopCompleted")
                     print(e)
 
 
-                loop_report_dict["status_extension_data_manager"] = statusExtensionContext
+                loop_report_dict["status_extension_data_manager"] = status_extension_context_dict
             except Exception as e:
                 print("handled error STATUS_EXTENSION_DATA_MANAGER")
                 print(e)
