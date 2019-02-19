@@ -1200,7 +1200,7 @@ class LoopReport:
                         ","
                     )
                     if isinstance(quantity, str):
-                        quantity = int(quantity.replace("g", ""))
+                        quantity = float(quantity.replace("g", ""))
 
                     record_dict = {
                         "sampleUUID": sampleUUID,
@@ -1239,7 +1239,7 @@ class LoopReport:
                     elif "quantity" in item:
                         value = item.replace("quantity: ", "")
                         if "mg/dL" in value:
-                            value = int(value.replace("mg/dL", "").strip())
+                            value = float(value.replace("mg/dL", "").strip())
                         dictionary["quantity"] = value
                         dictionary["quantity_units"] = "mg/dL"
                     else:
@@ -1266,7 +1266,7 @@ class LoopReport:
                         aux = v.split(": ")
                         if aux[0] == "quantity":
                             if isinstance(aux[1], str) and "mg/dL" in aux[1]:
-                                aux[1] = int(aux[1].replace("mg/dL", ""))
+                                aux[1] = float(aux[1].replace("mg/dL", ""))
                         record_dict[aux[0]] = aux[1]
                     record_dict["quantity_units"] = "mg/dL"
                     temp_list.append(record_dict)
