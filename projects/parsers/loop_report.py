@@ -672,7 +672,12 @@ class LoopReport:
 
                     for v in key_value:
                         aux = v.split(": ")
-                        record_dict[aux[0]] = aux[1]
+                        if 'scheduledBasalRate' in aux[0] and aux[1] != 'nil':
+                            val = aux[1].replace('IU/hr', '')
+                            record_dict[aux[0]] = float(val)
+                            record_dict['scheduledBasalRateUnits'] = 'IU/hr'
+                        else:
+                            record_dict[aux[0]] = aux[1]
                     temp_list.append(record_dict)
 
                 loop_report_dict["cached_dose_entries"] = temp_list
@@ -682,30 +687,236 @@ class LoopReport:
 
         if Sections.GET_PUMP_EVENT_VALUES in dict:
             try:
-                local_list = dict[Sections.GET_PUMP_EVENT_VALUES]
-                temp_list = []
-                count = 1
+                items = dict[Sections.GET_PUMP_EVENT_VALUES]
+                get_pump_even_values_list = []
+                for temp in items:
 
-                #PersistedPumpEvent(date: 2018-12-05 16:16:27 +0000, persistedDate: 2018-12-05 16:28:29 +0000, dose: Optional(LoopKit.DoseEntry(type: LoopKit.DoseType.tempBasal, startDate: 2018-12-05 16:16:27 +0000, endDate: 2018-12-05 16:24:31 +0000, value: 0.0, unit: LoopKit.DoseUnit.unitsPerHour, description: nil, syncIdentifier: Optional("62706c6973743030d40102030405061f20582476657273696f6e58246f626a65637473592461726368697665725424746f7012000186a0a707081011151b1c55246e756c6cd2090a0b0f5a4e532e6f626a656374735624636c617373a30c0d0e80028003800580061001d2120a1314574e532e74696d652341c0dc18ade60d4e8004d2161718195a24636c6173736e616d655824636c6173736573564e5344617465a2181a584e534f626a656374230000000000000000d216171d1e574e534172726179a21d1a5f100f4e534b657965644172636869766572d1212254726f6f74800108111a232d32373f454a555c60626466686a6f77808287929ba2a5aeb7bcc4c7d9dce100000000000001010000000000000023000000000000000000000000000000e3"), scheduledBasalRate: nil)), isUploaded: true, objectIDURL: x-coredata://983CF248-ED7B-4FBD-9EB0-75046CD84585/PumpEvent/p1378, raw: Optional(294 bytes), title: Optional("TempBasal: 0 U/hour 12/5/18, 11:16:27 AM for 8 minutes, 4 seconds Certain"), type: Optional(LoopKit.PumpEventType.tempBasal))
-                #PersistedPumpEvent(date: 2018-12-13 22:39:58 +0000, persistedDate: 2018-12-13 22:41:35 +0000, dose: Optional(LoopKit.DoseEntry(type: LoopKit.DoseType.basal, startDate: 2018-12-13 22:39:58 +0000, endDate: 2018-12-14 22:39:58 +0000, value: 1.0, unit: LoopKit.DoseUnit.unitsPerHour, description: nil, syncIdentifier: Optional("7b04fa27100d12162800"), scheduledBasalRate: nil)), isUploaded: false, objectIDURL: x-coredata://7A7C697F-80EE-41B7-8AB9-FF408D5B3884/PumpEvent/p8690, raw: Optional(10 bytes), title: Optional("BasalProfileStartPumpEvent(length: 10, rawData: 10 bytes, timestamp: calendar: gregorian (fixed) year: 2018 month: 12 day: 13 hour: 16 minute: 39 second: 58 isLeapMonth: false , scheduleEntry: MinimedKit.BasalScheduleEntry(index: 4, timeOffset: 39600.0, rate: 1.0))"), type: Optional(LoopKit.PumpEventType.basal))
+                    get_pump_even_values_dict = {}
 
+                    value = "rate"
+                    try:
+                        start_index = temp.index(value)
+                        value_temp = temp[start_index:]
+                        value_temp = value_temp.replace('"', '')
+                        last_index = value_temp.index(",")
+                        get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
+                    except Exception as e:
+                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        print(e)
 
+                    value = "timeOffset"
+                    try:
+                        start_index = temp.index(value)
+                        value_temp = temp[start_index:]
+                        value_temp = value_temp.replace('"', '')
+                        last_index = value_temp.index(",")
+                        get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
+                    except Exception as e:
+                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        print(e)
 
-                for item in local_list:
-                    print(count)
-                    count = count + 1
-                    record_dict = {}
-                    item = item.replace("PersistedPumpEvent(", "")
-                    item = item.replace(item[len(item) - 1], "")
-                    item = item.replace("Optional(", "")
-                    key_value = item.split(", ")
+                    value = "index"
+                    try:
+                        start_index = temp.index(value)
+                        value_temp = temp[start_index:]
+                        value_temp = value_temp.replace('"', '')
+                        last_index = value_temp.index(",")
+                        get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
+                    except Exception as e:
+                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        print(e)
 
-                    for v in key_value:
-                        aux = v.split(": ")
-                        record_dict[aux[0]] = aux[1].replace('"', "")
-                    temp_list.append(record_dict)
+                    value = "isLeapMonth"
+                    try:
+                        start_index = temp.index(value)
+                        value_temp = temp[start_index:]
+                        value_temp = value_temp.replace('"', '')
+                        last_index = value_temp.index(",")
+                        get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
+                    except Exception as e:
+                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        print(e)
 
-                loop_report_dict["get_pump_event_values"] = temp_list
+                    value = "timestamp"
+                    try:
+                        start_index = temp.index(value)
+                        value_temp = temp[start_index:]
+                        value_temp = value_temp.replace('"', '')
+                        last_index = value_temp.index(",")
+                        get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
+                    except Exception as e:
+                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        print(e)
+
+                    value = "rawData"
+                    try:
+                        start_index = temp.index(value)
+                        value_temp = temp[start_index:]
+                        value_temp = value_temp.replace('"', '')
+                        last_index = value_temp.index(",")
+                        get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
+                    except Exception as e:
+                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        print(e)
+
+                    value = "length"
+                    try:
+                        start_index = temp.index(value)
+                        value_temp = temp[start_index:]
+                        value_temp = value_temp.replace('"', '')
+                        last_index = value_temp.index(",")
+                        get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
+                    except Exception as e:
+                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        print(e)
+
+                    value = "raw"
+                    try:
+                        start_index = temp.index(value)
+                        value_temp = temp[start_index:]
+                        value_temp = value_temp.replace('"', '')
+                        last_index = value_temp.index(",")
+                        get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
+                    except Exception as e:
+                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        print(e)
+
+                    value = "objectIDURL"
+                    try:
+                        start_index = temp.index(value)
+                        value_temp = temp[start_index:]
+                        value_temp = value_temp.replace('"', '')
+                        last_index = value_temp.index(",")
+                        get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
+                    except Exception as e:
+                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        print(e)
+
+                    value = "isUploaded"
+                    try:
+                        start_index = temp.index(value)
+                        value_temp = temp[start_index:]
+                        value_temp = value_temp.replace('"', '')
+                        last_index = value_temp.index(",")
+                        get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
+                    except Exception as e:
+                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        print(e)
+
+                    #todo: need to parse this out more
+                    value = "syncIdentifier"
+                    try:
+                        start_index = temp.index(value)
+                        value_temp = temp[start_index:]
+                        value_temp = value_temp.replace('"', '')
+                        last_index = value_temp.index(")),")
+                        get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
+                    except Exception as e:
+                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        print(e)
+
+                    value = "description"
+                    try:
+                        start_index = temp.index(value)
+                        value_temp = temp[start_index:]
+                        value_temp = value_temp.replace('"', '')
+                        last_index = value_temp.index(",")
+                        get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
+                    except Exception as e:
+                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        print(e)
+
+                    value = "unit"
+                    try:
+                        start_index = temp.index(value)
+                        value_temp = temp[start_index:]
+                        value_temp = value_temp.replace('"', '')
+                        last_index = value_temp.index(",")
+                        get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
+                    except Exception as e:
+                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        print(e)
+
+                    value = "value"
+                    try:
+                        start_index = temp.index(value)
+                        value_temp = temp[start_index:]
+                        value_temp = value_temp.replace('"', '')
+                        last_index = value_temp.index(",")
+                        get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
+                    except Exception as e:
+                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        print(e)
+
+                    value = "endDate"
+                    try:
+                        start_index = temp.index(value)
+                        value_temp = temp[start_index:]
+                        value_temp = value_temp.replace('"', '')
+                        last_index = value_temp.index(",")
+                        get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
+                    except Exception as e:
+                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        print(e)
+
+                    value = "startDate"
+                    try:
+                        start_index = temp.index(value)
+                        value_temp = temp[start_index:]
+                        value_temp = value_temp.replace('"', '')
+                        last_index = value_temp.index(",")
+                        get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
+                    except Exception as e:
+                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        print(e)
+
+                    value = "type"
+                    try:
+                        start_index = temp.index(value)
+                        value_temp = temp[start_index:]
+                        value_temp = value_temp.replace('"', '')
+                        last_index = value_temp.index(",")
+                        get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
+                    except Exception as e:
+                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        print(e)
+
+                    value = "type"
+                    try:
+                        start_index = temp.index(value)
+                        value_temp = temp[start_index:]
+                        value_temp = value_temp.replace('"', '')
+                        last_index = value_temp.index(",")
+                        get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
+                    except Exception as e:
+                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        print(e)
+
+                    try:
+                        value = "persistedDate"
+                        start_index = temp.index(value)
+                        value_temp = temp[start_index:]
+                        value_temp = value_temp.replace('"', '')
+                        last_index = value_temp.index(",")
+                        get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
+                    except Exception as e:
+                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        print(e)
+
+                    try:
+                        value = "date"
+                        start_index = temp.index(value)
+                        value_temp = temp[start_index:]
+                        value_temp = value_temp.replace('"', '')
+                        last_index = value_temp.index(",")
+                        get_pump_even_values_dict[value] = value_temp[len(value)+1:last_index]
+                    except Exception as e:
+                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        print(e)
+                    get_pump_even_values_list.append(get_pump_even_values_dict)
+
+                loop_report_dict["get_pump_event_values"] = get_pump_even_values_list
+
             except Exception as e:
                 print("handled error GET_PUMP_EVENT_VALUES")
                 print(e)
@@ -807,6 +1018,7 @@ class LoopReport:
                     Sections.STATUS_EXTENSION_DATA_MANAGER
                 ]
                 statusExtensionContext = {}
+
                 temp = status_extension_data_manager["statusExtensionContext"]
                 temp = temp.replace("Optional([", "")
                 values_index = temp.index("values")
@@ -820,71 +1032,101 @@ class LoopReport:
                 values_list = values.split(",")
                 statusExtensionContext["values"] = values_list
 
+                try:
+                    sensor_index = temp.index("sensor")
+                    sensor_temp = temp[sensor_index:]
+                    last_index = sensor_temp.index("]")
+                    sensor = sensor_temp[9:last_index+1]
+                    sensor = sensor.replace('"', "")
+                    sensor = sensor.replace('[', "").replace(']', "")
+                    sensor = sensor.strip()
+                    temp_list = sensor.split(",")
+                    value_dict = {}
+                    for value in temp_list:
+                        val = value.split(":")
+                        value_dict[val[0]] = val[1]
+                    statusExtensionContext["sensor"] = value_dict
+                except Exception as e:
+                    print("handled error STATUS_EXTENSION_DATA_MANAGER - sensor")
+                    print(e)
 
-                sensor_index = temp.index("sensor")
-                sensor_temp = temp[sensor_index:]
-                last_index = sensor_temp.index("]")
-                sensor = sensor_temp[9:last_index+1]
-                sensor = sensor.replace('"', "")
-                sensor = sensor.replace('[', "").replace(']', "")
-                sensor = sensor.strip()
-                temp_list = sensor.split(",")
-                value_dict = {}
-                for value in temp_list:
-                    val = value.split(":")
-                    value_dict[val[0]] = val[1]
-                statusExtensionContext["sensor"] = value_dict
 
+                try:
+                    netBasal_index = temp.index("netBasal")
+                    netBasal_temp = temp[netBasal_index:]
+                    last_index = netBasal_temp.index("]")
+                    netBasal = netBasal_temp[9:last_index+1]
+                    netBasal = netBasal.replace('[', "").replace(']', "")
+                    netBasal = netBasal.strip()
+                    temp_list = netBasal.split(",")
+                    value_dict = {}
+                    for value in temp_list:
+                        val = value.split(":")
+                        value_dict[val[0]] = val[1]
+                    statusExtensionContext["netBasal"] = value_dict
+                except Exception as e:
+                    print("handled error STATUS_EXTENSION_DATA_MANAGER - netBasal")
+                    print(e)
 
+                try:
+                    version_index = temp.index("version")
+                    version_temp = temp[version_index:]
+                    last_index = version_temp.index(",")
+                    statusExtensionContext["version"] = version_temp[10:last_index]
+                except Exception as e:
+                    print("handled error STATUS_EXTENSION_DATA_MANAGER - version")
+                    print(e)
 
-                netBasal_index = temp.index("netBasal")
-                netBasal_temp = temp[netBasal_index:]
-                last_index = netBasal_temp.index("]")
-                netBasal = netBasal_temp[9:last_index+1]
-                netBasal = netBasal.replace('[', "").replace(']', "")
-                netBasal = netBasal.strip()
-                temp_list = netBasal.split(",")
-                value_dict = {}
-                for value in temp_list:
-                    val = value.split(":")
-                    value_dict[val[0]] = val[1]
-                statusExtensionContext["netBasal"] = value_dict
+                try:
+                    unit_index = temp.index("unit")
+                    unit_temp = temp[unit_index:]
+                    unit_temp = unit_temp.replace('"', '')
+                    last_index = unit_temp.index(",")
+                    statusExtensionContext["unit"] = unit_temp[6:last_index]
+                except Exception as e:
+                    print("handled error STATUS_EXTENSION_DATA_MANAGER - unit")
+                    print(e)
 
-                version_index = temp.index("version")
-                version_temp = temp[version_index:]
-                last_index = version_temp.index(",")
-                statusExtensionContext["version"] = version_temp[10:last_index]
+                try:
+                    interval_index = temp.index("interval")
+                    interval_temp = temp[interval_index:]
+                    interval_temp = interval_temp.replace('"', '')
+                    last_index = interval_temp.index(",")
+                    interval_temp = interval_temp[9:last_index].replace("]", "")
+                    statusExtensionContext["interval"] = float(interval_temp)
+                except Exception as e:
+                    print("handled error STATUS_EXTENSION_DATA_MANAGER - interval")
+                    print(e)
 
-                unit_index = temp.index("unit")
-                unit_temp = temp[unit_index:]
-                unit_temp = unit_temp.replace('"', '')
-                last_index = unit_temp.index(",")
-                statusExtensionContext["unit"] = unit_temp[6:last_index]
+                try:
+                    startDate_index = temp.index("startDate")
+                    startDate_temp = temp[startDate_index:]
+                    startDate_temp = startDate_temp.replace('"', '')
+                    last_index = startDate_temp.index(",")
+                    statusExtensionContext["startDate"] = startDate_temp[10:last_index]
+                except Exception as e:
+                    print("handled error STATUS_EXTENSION_DATA_MANAGER - startDate")
+                    print(e)
 
-                interval_index = temp.index("interval")
-                interval_temp = temp[interval_index:]
-                interval_temp = interval_temp.replace('"', '')
-                last_index = interval_temp.index(",")
-                interval_temp = interval_temp[9:last_index].replace("]", "")
-                statusExtensionContext["interval"] = float(interval_temp)
+                try:
+                    batteryPercentage_index = temp.index("batteryPercentage")
+                    batteryPercentage_temp = temp[batteryPercentage_index:]
+                    batteryPercentage_temp = batteryPercentage_temp.replace('"', '')
+                    last_index = batteryPercentage_temp.index(",")
+                    statusExtensionContext["batteryPercentage"] = float(batteryPercentage_temp[18:last_index].strip())
+                except Exception as e:
+                    print("handled error STATUS_EXTENSION_DATA_MANAGER - batteryPercentage")
+                    print(e)
 
-                startDate_index = temp.index("startDate")
-                startDate_temp = temp[startDate_index:]
-                startDate_temp = startDate_temp.replace('"', '')
-                last_index = startDate_temp.index(",")
-                statusExtensionContext["startDate"] = startDate_temp[10:last_index]
-
-                batteryPercentage_index = temp.index("batteryPercentage")
-                batteryPercentage_temp = temp[batteryPercentage_index:]
-                batteryPercentage_temp = batteryPercentage_temp.replace('"', '')
-                last_index = batteryPercentage_temp.index(",")
-                statusExtensionContext["batteryPercentage"] = float(batteryPercentage_temp[18:last_index].strip())
-
-                lastLoopCompleted_index = temp.index("lastLoopCompleted")
-                lastLoopCompleted_temp = temp[lastLoopCompleted_index:]
-                lastLoopCompleted_temp = lastLoopCompleted_temp.replace('"', '')
-                last_index = lastLoopCompleted_temp.index(",")
-                statusExtensionContext["lastLoopCompleted"] = lastLoopCompleted_temp[18:last_index]
+                try:
+                    lastLoopCompleted_index = temp.index("lastLoopCompleted")
+                    lastLoopCompleted_temp = temp[lastLoopCompleted_index:]
+                    lastLoopCompleted_temp = lastLoopCompleted_temp.replace('"', '')
+                    last_index = lastLoopCompleted_temp.index(",")
+                    statusExtensionContext["lastLoopCompleted"] = lastLoopCompleted_temp[18:last_index]
+                except Exception as e:
+                    print("handled error STATUS_EXTENSION_DATA_MANAGER - lastLoopCompleted")
+                    print(e)
 
 
                 loop_report_dict["status_extension_data_manager"] = statusExtensionContext
