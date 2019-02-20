@@ -458,21 +458,19 @@ class LoopReport:
                     items = []
                     for item in values:
                         if "startTime" in item:
-                            item_dict = {}
                             item = item.replace('[', '').replace('"', "")
                             items_values = item.split(",")
                             if 'startTime' not in items_values[0]:
                                 items_values.pop(0)
+                            item_list = [float(items_values[1].replace('value:', '').strip()),
+                                               float(items_values[2].replace('value:', '').strip())]
 
-                            start_time = items_values[0].replace('startTime:', '').strip()
-                            value_start = items_values[1].replace('value:', '').strip()
-                            value_end = items_values[2].replace('value:', '').strip()
-                            item_dict["start_time"] = start_time
-                            item_dict["value_start"] = float(value_start)
-                            item_dict["value_end"] = float(value_end)
+                            item_dict = {'startTime': items_values[0].replace('startTime:', '').strip(),
+                                            'value': item_list}
+
                             items.append(item_dict)
-                    glucose_target_range_schedule["items"] = items
-                    loop_report_dict["glucose_target_range_schedule"] = glucose_target_range_schedule
+
+                    loop_report_dict["correction_range_schedule"] = items
 
                 except Exception as e:
                     print("handled error LOOP_DATA_MANAGER - glucose_target_range_schedule")
