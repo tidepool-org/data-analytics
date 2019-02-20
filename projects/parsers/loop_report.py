@@ -11,6 +11,9 @@ from loop_report_parser import parse_loop_report, Sections
 import os
 import re
 import json
+import logging
+
+logger = logging.getLogger("LoopReport")
 
 
 class LoopReport:
@@ -701,8 +704,8 @@ class LoopReport:
                         last_index = value_temp.index(",")
                         get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
                     except Exception as e:
-                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
-                        print(e)
+                        logger.debug("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        logger.debug(e)
 
                     value = "timeOffset"
                     try:
@@ -712,8 +715,8 @@ class LoopReport:
                         last_index = value_temp.index(",")
                         get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
                     except Exception as e:
-                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
-                        print(e)
+                        logger.debug("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        logger.debug(e)
 
                     value = "index"
                     try:
@@ -723,8 +726,8 @@ class LoopReport:
                         last_index = value_temp.index(",")
                         get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
                     except Exception as e:
-                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
-                        print(e)
+                        logger.debug("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        logger.debug(e)
 
                     value = "isLeapMonth"
                     try:
@@ -734,8 +737,8 @@ class LoopReport:
                         last_index = value_temp.index(",")
                         get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
                     except Exception as e:
-                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
-                        print(e)
+                        logger.debug("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        logger.debug(e)
 
                     value = "timestamp"
                     try:
@@ -745,8 +748,8 @@ class LoopReport:
                         last_index = value_temp.index(",")
                         get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
                     except Exception as e:
-                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
-                        print(e)
+                        logger.debug("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        logger.debug(e)
 
                     value = "rawData"
                     try:
@@ -756,8 +759,8 @@ class LoopReport:
                         last_index = value_temp.index(",")
                         get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
                     except Exception as e:
-                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
-                        print(e)
+                        logger.debug("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        logger.debug(e)
 
                     value = "length"
                     try:
@@ -767,8 +770,8 @@ class LoopReport:
                         last_index = value_temp.index(",")
                         get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
                     except Exception as e:
-                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
-                        print(e)
+                        logger.debug("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        logger.debug(e)
 
                     value = "raw"
                     try:
@@ -778,8 +781,8 @@ class LoopReport:
                         last_index = value_temp.index(",")
                         get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
                     except Exception as e:
-                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
-                        print(e)
+                        logger.debug("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        logger.debug(e)
 
                     value = "objectIDURL"
                     try:
@@ -789,8 +792,8 @@ class LoopReport:
                         last_index = value_temp.index(",")
                         get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
                     except Exception as e:
-                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
-                        print(e)
+                        logger.debug("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        logger.debug(e)
 
                     value = "isUploaded"
                     try:
@@ -800,8 +803,8 @@ class LoopReport:
                         last_index = value_temp.index(",")
                         get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
                     except Exception as e:
-                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
-                        print(e)
+                        logger.debug("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        logger.debug(e)
 
                     #todo: need to parse this out more
                     value = "syncIdentifier"
@@ -812,8 +815,8 @@ class LoopReport:
                         last_index = value_temp.index(")),")
                         get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
                     except Exception as e:
-                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
-                        print(e)
+                        logger.debug("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        logger.debug(e)
 
                     value = "description"
                     try:
@@ -823,8 +826,8 @@ class LoopReport:
                         last_index = value_temp.index(",")
                         get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
                     except Exception as e:
-                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
-                        print(e)
+                        logger.debug("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        logger.debug(e)
 
                     value = "unit"
                     try:
@@ -834,8 +837,8 @@ class LoopReport:
                         last_index = value_temp.index(",")
                         get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
                     except Exception as e:
-                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
-                        print(e)
+                        logger.debug("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        logger.debug(e)
 
                     value = "value"
                     try:
@@ -845,8 +848,8 @@ class LoopReport:
                         last_index = value_temp.index(",")
                         get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
                     except Exception as e:
-                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
-                        print(e)
+                        logger.debug("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        logger.debug(e)
 
                     value = "endDate"
                     try:
@@ -856,8 +859,8 @@ class LoopReport:
                         last_index = value_temp.index(",")
                         get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
                     except Exception as e:
-                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
-                        print(e)
+                        logger.debug("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        logger.debug(e)
 
                     value = "startDate"
                     try:
@@ -867,8 +870,8 @@ class LoopReport:
                         last_index = value_temp.index(",")
                         get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
                     except Exception as e:
-                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
-                        print(e)
+                        logger.debug("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        logger.debug(e)
 
                     value = "type"
                     try:
@@ -878,8 +881,8 @@ class LoopReport:
                         last_index = value_temp.index(",")
                         get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
                     except Exception as e:
-                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
-                        print(e)
+                        logger.debug("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        logger.debug(e)
 
                     value = "type"
                     try:
@@ -889,8 +892,8 @@ class LoopReport:
                         last_index = value_temp.index(",")
                         get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
                     except Exception as e:
-                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
-                        print(e)
+                        logger.debug("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        logger.debug(e)
 
                     try:
                         value = "persistedDate"
@@ -900,8 +903,8 @@ class LoopReport:
                         last_index = value_temp.index(",")
                         get_pump_even_values_dict[value] = value_temp[len(value) + 1:last_index]
                     except Exception as e:
-                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
-                        print(e)
+                        logger.debug("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        logger.debug(e)
 
                     try:
                         value = "date"
@@ -911,8 +914,8 @@ class LoopReport:
                         last_index = value_temp.index(",")
                         get_pump_even_values_dict[value] = value_temp[len(value)+1:last_index]
                     except Exception as e:
-                        print("handled error GET_PUMP_EVENT_VALUES --" + value)
-                        print(e)
+                        logger.debug("handled error GET_PUMP_EVENT_VALUES --" + value)
+                        logger.debug(e)
                     get_pump_even_values_list.append(get_pump_even_values_dict)
 
                 loop_report_dict["get_pump_event_values"] = get_pump_even_values_list

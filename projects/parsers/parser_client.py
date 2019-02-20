@@ -4,6 +4,8 @@
 
 # %% REQUIRED LIBRARIES
 import argparse
+import logging, sys
+#from config.logconfig import log_config
 from loop_report import LoopReport
 import pandas as pd
 import json
@@ -19,6 +21,20 @@ codeDescription = (
 
 
 # %% FUNCTIONS
+logger = None
+
+def setup_logging():
+    console_handler = logging.StreamHandler(sys.stdout)
+    args, _ = parser.parse_known_args()
+    logging.basicConfig(format='%(asctime)s: %(levelname)s: %(name)s: %(message)s',
+                        level=logging.getLevelName(args.logLevel),
+                        handlers=[console_handler])
+
+    global logger
+    logger = logging.getLogger("loop_report_parser")
+    logger.debug('debug_level: %s', args.logLevel)
+
+
 def parse_by_file(file_path, file_name, output_path):
 
     if not os.path.isfile(os.path.join(file_path, file_name)):
@@ -73,6 +89,9 @@ def parse_directory(file_path, output_path):
 
 # %% COMMAND LINE ARGUMENTS
 def main(args):
+    setup_logging()
+
+    logger.debug("This is a simple Test")
 
     if not os.path.isdir(args.file_path):
         raise RuntimeError("The file path is invalid.")
@@ -126,6 +145,13 @@ if __name__ == "__main__":
         dest="verbose_output",
         default=True,
         help="True if you want script progress to print to the console",
+    )
+    parser.add_argument(
+        "-l", "--log",
+        dest="logLevel",
+        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+        help="Set the logging level",
+        default="INFO"
     )
     args = parser.parse_args()
 
