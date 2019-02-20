@@ -7,7 +7,7 @@ dependencies: loop_report_parser.py
 license: BSD-2-Clause
 """
 
-from loop_report_parser import parse_loop_report, Sections
+from .loop_report_parser import parse_loop_report, Sections
 import os
 import re
 import json
@@ -23,7 +23,6 @@ class LoopReport:
                 raise RuntimeError("The file path or file name passed in is invalid.")
         except:
             raise RuntimeError("The file path or file name passed in is invalid.")
-
         return self.__parse(path, file_name)
 
     def parse_by_directory(self, directory: dict) -> list:
@@ -35,8 +34,12 @@ class LoopReport:
 
         all_dict_list = []
         for file_name in os.listdir(directory):
-            if file_name.endswith(".md"):
-                all_dict_list.append(self.__parse(directory, file_name))
+            try:
+                if file_name.endswith(".md"):
+                    all_dict_list.append(self.__parse(directory, file_name))
+            except Exception as e:
+                print("loop parser parse by directory error for file")
+                print(e)
         return all_dict_list
 
     def __parse(self, path, file_name) -> dict:
@@ -415,19 +418,66 @@ class LoopReport:
                     ).group(1)
                 )
 
-                start_index = loop_data_manager["settings"].index("suspendThreshold")
-                end_index = loop_data_manager["settings"].index(
-                    "retrospectiveCorrectionEnabled"
-                )
-                substr = loop_data_manager["settings"][start_index:end_index]
+                try:
+                    start_index = loop_data_manager["settings"].index("suspendThreshold")
+                    end_index = loop_data_manager["settings"].index(
+                        "retrospectiveCorrectionEnabled"
+                    )
+                    substr = loop_data_manager["settings"][start_index:end_index]
 
-                unit = substr.index("unit")
-                start_index = unit + 6
-                check = ""
-                while check != ")":
-                    unit += 1
-                    check = substr[unit]
-                loop_report_dict["suspend_threshold_unit"] = substr[start_index:unit]
+                    unit = substr.index("unit")
+                    start_index = unit + 6
+                    check = ""
+                    while check != ")":
+                        unit += 1
+                        check = substr[unit]
+                    loop_report_dict["suspend_threshold_unit"] = substr[start_index:unit]
+                except Exception as e:
+                    logger.debug("handled error LOOP_DATA_MANAGER - suspend_threshold_unit")
+                    logger.debug(e)
+
+                try:
+                    start_index = loop_data_manager["settings"].index("glucoseTargetRangeSchedule")
+                    end_index = loop_data_manager["settings"].index(
+                        "overrideRanges"
+                    )
+                    substr = loop_data_manager["settings"][start_index:end_index]
+                    glucose_target_range_schedule = {}
+                    substr = substr.replace("glucoseTargetRangeSchedule: Optional(", "")
+                    timeZone_start = substr.index('timeZone')
+                    timeZone_end = substr.index(',')
+                    time_zone = substr[timeZone_start: timeZone_end]
+                    time_zone = time_zone.replace('timeZone":', "")
+                    glucose_target_range_schedule["time_zone"] = time_zone
+
+                    items_start = substr.index('items')
+                    items_end = substr.index(']]]')
+                    items = substr[items_start: (items_end + 2)]
+                    items = items.replace('items":', '')
+                    values = items.split("]]")
+                    items = []
+                    for item in values:
+                        if "startTime" in item:
+                            item_dict = {}
+                            item = item.replace('[', '').replace('"', "")
+                            items_values = item.split(",")
+                            if 'startTime' not in items_values[0]:
+                                items_values.pop(0)
+
+                            start_time = items_values[0].replace('startTime:', '').strip()
+                            value_start = items_values[1].replace('value:', '').strip()
+                            value_end = items_values[2].replace('value:', '').strip()
+                            item_dict["start_time"] = start_time
+                            item_dict["value_start"] = float(value_start)
+                            item_dict["value_end"] = float(value_end)
+                            items.append(item_dict)
+                    glucose_target_range_schedule["items"] = items
+                    loop_report_dict["glucose_target_range_schedule"] = glucose_target_range_schedule
+
+                except Exception as e:
+                    print("handled error LOOP_DATA_MANAGER - glucose_target_range_schedule")
+                    print(e)
+
 
                 start_index = loop_data_manager["settings"].index("overrideRanges")
                 end_index = loop_data_manager["settings"].index(
