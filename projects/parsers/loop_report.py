@@ -226,8 +226,8 @@ class LoopReport:
                             carbs_on_board_dict[aux[0]] = aux[1]
                     loop_report_dict["carbs_on_board"] = carbs_on_board_dict
                 except Exception as e:
-                    print("handled error loop data manager - carbs_on_board")
-                    print(e)
+                    logger.debug("handled error loop data manager - carbs_on_board")
+                    logger.debug(e)
 
                 try:
                     last_temp_basal = loop_data_manager['lastTempBasal']
@@ -243,8 +243,8 @@ class LoopReport:
                                 last_temp_basal_dict[aux[0]] = aux[1]
                         loop_report_dict["last_temp_basal"] = last_temp_basal_dict
                 except Exception as e:
-                    print("handled error loop data manager - last_temp_basal")
-                    print(e)
+                    logger.debug("handled error loop data manager - last_temp_basal")
+                    logger.debug(e)
 
                 try:
                     recommended_bolus = loop_data_manager['recommendedBolus']
@@ -261,8 +261,8 @@ class LoopReport:
                             recommended_bolus_dict[aux[0]] = aux[1]
                     loop_report_dict["recommended_bolus"] = recommended_bolus_dict
                 except Exception as e:
-                    print("handled error loop data manager - recommended_bolus")
-                    print(e)
+                    logger.debug("handled error loop data manager - recommended_bolus")
+                    logger.debug(e)
 
                 try:
                     recommended_temp_basal = loop_data_manager['recommendedTempBasal']
@@ -280,8 +280,8 @@ class LoopReport:
                                 recommended_temp_basal_dict[aux[0]] = aux[1]
                         loop_report_dict["recommended_temp_basal"] = recommended_temp_basal_dict
                 except Exception as e:
-                    print("handled error loop data manager - recommended_temp_basal")
-                    print(e)
+                    logger.debug("handled error loop data manager - recommended_temp_basal")
+                    logger.debug(e)
 
                 try:
                     retrospective_glucose_effect = loop_data_manager['retrospectiveGlucoseEffect']
@@ -305,8 +305,8 @@ class LoopReport:
                         retrospective_glucose_effect_list.append(dictionary)
                     loop_report_dict["retrospective_glucose_effect"] = retrospective_glucose_effect_list
                 except Exception as e:
-                    print("handled error loop data manager - retrospective_glucose_effect")
-                    print(e)
+                    logger.debug("handled error loop data manager - retrospective_glucose_effect")
+                    logger.debug(e)
 
                 try:
                     glucose_momentum_effect = loop_data_manager['glucoseMomentumEffect']
@@ -329,8 +329,8 @@ class LoopReport:
                         glucose_momentum_effect_list.append(dictionary)
                     loop_report_dict["glucose_momentum_effect"] = glucose_momentum_effect_list
                 except Exception as e:
-                    print("handled error loop data manager - glucose_momentum_effect")
-                    print(e)
+                    logger.debug("handled error loop data manager - glucose_momentum_effect")
+                    logger.debug(e)
 
                 try:
                     retrospective_glucose_change = loop_data_manager['retrospectiveGlucoseChange']
@@ -358,8 +358,8 @@ class LoopReport:
                     retrospective_glucose_change_dict['end_dict'] = end_dict
                     loop_report_dict["retrospective_glucose_change"] = retrospective_glucose_change_dict
                 except Exception as e:
-                    print("handled error loop data manager - retrospective_glucose_change")
-                    print(e)
+                    logger.debug("handled error loop data manager - retrospective_glucose_change")
+                    logger.debug(e)
 
                 try:
                     retrospective_predicted_glucose = loop_data_manager['retrospectivePredictedGlucose']
@@ -383,8 +383,8 @@ class LoopReport:
 
                     loop_report_dict["retrospective_predicted_glucose"] = retrospective_predicted_glucose_list
                 except Exception as e:
-                    print("handled error loop data manager - retrospective_predicted_glucose")
-                    print(e)
+                    logger.debug("handled error loop data manager - retrospective_predicted_glucose")
+                    logger.debug(e)
 
                 try:
                     loop_report_dict["maximum_basal_rate"] = float(
@@ -396,27 +396,30 @@ class LoopReport:
                 except Exception as e:
                     print("handled error loop data manager")
                     print(e)
+                try:
+                    loop_report_dict["maximum_bolus"] = float(
+                        re.search(
+                            r"maximumBolus: Optional\((.+?)\), suspendThreshold",
+                            loop_data_manager["settings"],
+                        ).group(1)
+                    )
 
-                loop_report_dict["maximum_bolus"] = float(
-                    re.search(
-                        r"maximumBolus: Optional\((.+?)\), suspendThreshold",
+                    temp = re.search(
+                        "retrospectiveCorrectionEnabled: (.+?), retrospectiveCorrection",
                         loop_data_manager["settings"],
-                    ).group(1)
-                )
+                    )
+                    if temp:
+                        loop_report_dict["retrospective_correction_enabled"] = temp.group(1)
 
-                temp = re.search(
-                    "retrospectiveCorrectionEnabled: (.+?), retrospectiveCorrection",
-                    loop_data_manager["settings"],
-                )
-                if temp:
-                    loop_report_dict["retrospective_correction_enabled"] = temp.group(1)
-
-                loop_report_dict["suspend_threshold"] = float(
-                    re.search(
-                        r"Loop.GlucoseThreshold\(value: (.+?), unit",
-                        loop_data_manager["settings"],
-                    ).group(1)
-                )
+                    loop_report_dict["suspend_threshold"] = float(
+                        re.search(
+                            r"Loop.GlucoseThreshold\(value: (.+?), unit",
+                            loop_data_manager["settings"],
+                        ).group(1)
+                    )
+                except Exception as e:
+                    logger.debug("handled error LOOP_DATA_MANAGER - retrospective_correction_enabled")
+                    logger.debug(e)
 
                 try:
                     start_index = loop_data_manager["settings"].index("suspendThreshold")
@@ -441,6 +444,9 @@ class LoopReport:
                     end_index = loop_data_manager["settings"].index(
                         "overrideRanges"
                     )
+
+
+
                     substr = loop_data_manager["settings"][start_index:end_index]
                     glucose_target_range_schedule = {}
                     substr = substr.replace("glucoseTargetRangeSchedule: Optional(", "")
@@ -476,22 +482,26 @@ class LoopReport:
                     print("handled error LOOP_DATA_MANAGER - glucose_target_range_schedule")
                     print(e)
 
+                try:
+                    start_index = loop_data_manager["settings"].index("overrideRanges")
+                    end_index = loop_data_manager["settings"].index(
+                        "maximumBasalRatePerHour"
+                    )
+                    substr = loop_data_manager["settings"][start_index:end_index]
 
-                start_index = loop_data_manager["settings"].index("overrideRanges")
-                end_index = loop_data_manager["settings"].index(
-                    "maximumBasalRatePerHour"
-                )
-                substr = loop_data_manager["settings"][start_index:end_index]
+                    workout = substr.index("workout")
+                    start_index = workout + 10
+                    check = ""
+                    while check != "]":
+                        workout += 1
+                        check = substr[workout]
+                    loop_report_dict["override_range_workout"] = eval(
+                        substr[start_index : workout + 1]
+                    )
+                except Exception as e:
+                    print("handled error LOOP_DATA_MANAGER - override_range_workout")
+                    print(e)
 
-                workout = substr.index("workout")
-                start_index = workout + 10
-                check = ""
-                while check != "]":
-                    workout += 1
-                    check = substr[workout]
-                loop_report_dict["override_range_workout"] = eval(
-                    substr[start_index : workout + 1]
-                )
                 try:
                     premeal = substr.index("preMeal")
                     start_index = premeal + 10
