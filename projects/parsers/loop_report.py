@@ -7,7 +7,7 @@ dependencies: loop_report_parser.py
 license: BSD-2-Clause
 """
 
-from loop_report_parser import parse_loop_report, Sections
+from .loop_report_parser import parse_loop_report, Sections
 import os
 import re
 import json
@@ -445,33 +445,62 @@ class LoopReport:
                         "overrideRanges"
                     )
 
+                    """ 
+                    'glucoseTargetRangeSchedule: Optional(["items": [["value": [100.0, 100.0], "startTime": 0.0]], "unit": "mg/dL", "timeZone": -18000, "'
 
+                    ' [["startTime": 0.0, "value": [90.0, 100.0]], ["startTime": 19800.0, "value": [90.0, 100.0]], ["startTime": 32400.0, "value": [90.0, 100.0]]'
+                    ' [["startTime": 0.0, "value": [90.0, 100.0'
+                    
+                    ' [["value": [100.0, 100.0], "startTime": 0.0]]'
+                    '["items": [["value": [100.0, 100.0], "startTime": 0.0]], "unit": "mg/dL", "timeZone": -18000, "'
+                    """
 
                     substr = loop_data_manager["settings"][start_index:end_index]
                     glucose_target_range_schedule = {}
                     substr = substr.replace("glucoseTargetRangeSchedule: Optional(", "")
+
+                    """  
                     timeZone_start = substr.index('timeZone')
                     timeZone_end = substr.index(',')
                     time_zone = substr[timeZone_start: timeZone_end]
                     time_zone = time_zone.replace('timeZone":', "")
                     glucose_target_range_schedule["time_zone"] = time_zone
+                    """
 
                     items_start = substr.index('items')
-                    items_end = substr.index(']]]')
-                    items = substr[items_start: (items_end + 2)]
-                    items = items.replace('items":', '')
-                    values = items.split("]]")
+                    values = []
+                    items_end = None
+                    if ']]]' in  substr:
+                        items_end = substr.index(']]]')
+                        items = substr[items_start: (items_end + 2)]
+                        items = items.replace('items":', '')
+                        values = items.split("]]")
+                    else:
+                        items_end = substr.index(']]')
+                        items = substr[items_start: (items_end + 2)]
+                        items = items.replace('items":', '')
+                        values = [items]
+
                     items = []
                     for item in values:
                         if "startTime" in item:
-                            item = item.replace('[', '').replace('"', "")
+                            item = item.replace('[', '').replace('"', "").replace(']', "")
                             items_values = item.split(",")
-                            if 'startTime' not in items_values[0]:
-                                items_values.pop(0)
-                            item_list = [float(items_values[1].replace('value:', '').strip()),
-                                               float(items_values[2].replace('value:', '').strip())]
+                            item_list = []
 
-                            item_dict = {'startTime': items_values[0].replace('startTime:', '').strip(),
+                            if 'startTime' not in items_values[0] and 'value:' not in items_values[0]:
+                                items_values.pop(0)
+
+                            if 'value:' in items_values[0]:
+                                item_list = [float(items_values[0].replace('value:', '').strip()),
+                                             float(items_values[1].strip())]
+                                startTime = items_values[2].replace('startTime:', '').strip()
+                            else:
+                                startTime = items_values[0].replace('startTime:', '').strip()
+                                item_list = [float(items_values[1].replace('value:', '').strip()),
+                                             float(items_values[2].strip())]
+
+                            item_dict = {'startTime': startTime,
                                             'value': item_list}
 
                             items.append(item_dict)
