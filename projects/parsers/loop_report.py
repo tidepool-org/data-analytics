@@ -440,8 +440,10 @@ class LoopReport:
                     logger.debug(e)
 
                 try:
-                    start_index = loop_data_manager["settings"].index("items")
-                    temp_str = loop_data_manager["settings"][start_index:]
+                    glucoseTargetRangeSchedule_index = loop_data_manager["settings"].index("glucoseTargetRangeSchedule")
+                    temp_str = loop_data_manager["settings"][glucoseTargetRangeSchedule_index:]
+                    items_index = temp_str.index("items")
+                    temp_str = temp_str[items_index:]
                     temp_str = temp_str.replace('items":', '')
                     values = []
 
