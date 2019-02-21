@@ -38,8 +38,8 @@ class LoopReport:
                 if file_name.endswith(".md"):
                     all_dict_list.append(self.__parse(directory, file_name))
             except Exception as e:
-                print("loop parser parse by directory error for file")
-                print(e)
+                logger.debug("loop parser parse by directory error for file")
+                logger.debug(e)
         return all_dict_list
 
     def __parse(self, path, file_name) -> dict:
@@ -52,13 +52,13 @@ class LoopReport:
                     Sections.LOOP_VERSION
                 ]
             except:
-                print("handled error loop_version")
+                logger.debug("handled error loop_version")
 
         if Sections.DEVICE_DATA_MANAGER in dict:
             try:
                 self.__device_data_manager = dict[Sections.DEVICE_DATA_MANAGER]
             except:
-                print("handled error device data manager")
+                logger.debug("handled error device data manager")
 
         if Sections.RILEY_LINK_DEVICE in dict:
             try:
@@ -70,7 +70,7 @@ class LoopReport:
                     "bleFirmware"
                 ].strip()
             except:
-                print("handled error riley link device")
+                logger.debug("handled error riley link device")
 
         if Sections.CARB_STORE in dict:
             try:
@@ -145,7 +145,7 @@ class LoopReport:
                 ] = insulin_sensitivity_factor_schedule["unit"]
 
             except:
-                print("handled error carb store")
+                logger.debug("handled error carb store")
 
         if Sections.DOSE_STORE in dict:
             try:
@@ -174,7 +174,7 @@ class LoopReport:
                 )
 
             except:
-                print("handled error dose store")
+                logger.debug("handled error dose store")
 
         minimed_pump_manager = None
         omnipod_pump_manager = None
@@ -186,12 +186,12 @@ class LoopReport:
                 try:
                     minimed_pump_manager = dict[Sections.MINIMED_PUMP_MANAGER]
                 except:
-                    print("handled error minimed pump manager")
+                    logger.debug("handled error minimed pump manager")
             if Sections.OMNIPOD_PUMP_MANAGER in dict:
                 try:
                     omnipod_pump_manager = dict[Sections.OMNIPOD_PUMP_MANAGER]
                 except:
-                    print("handled error omnipod pump manager")
+                    logger.debug("handled error omnipod pump manager")
 
             self.__set_pump_manager_type(
                 loop_report_dict, minimed_pump_manager, omnipod_pump_manager
@@ -205,7 +205,7 @@ class LoopReport:
                 ].strip()
 
             except:
-                print("handled error watch data manager")
+                logger.debug("handled error watch data manager")
 
         if Sections.LOOP_DATA_MANAGER in dict:
             try:
@@ -394,8 +394,8 @@ class LoopReport:
                         ).group(1)
                     )
                 except Exception as e:
-                    print("handled error loop data manager")
-                    print(e)
+                    logger.debug("handled error loop data manager")
+                    logger.debug(e)
                 try:
                     loop_report_dict["maximum_bolus"] = float(
                         re.search(
@@ -440,76 +440,30 @@ class LoopReport:
                     logger.debug(e)
 
                 try:
-                    start_index = loop_data_manager["settings"].index("glucoseTargetRangeSchedule")
-                    end_index = loop_data_manager["settings"].index(
-                        "overrideRanges"
-                    )
-
-                    """ 
-                    'glucoseTargetRangeSchedule: Optional(["items": [["value": [100.0, 100.0], "startTime": 0.0]], "unit": "mg/dL", "timeZone": -18000, "'
-
-                    ' [["startTime": 0.0, "value": [90.0, 100.0]], ["startTime": 19800.0, "value": [90.0, 100.0]], ["startTime": 32400.0, "value": [90.0, 100.0]]'
-                    ' [["startTime": 0.0, "value": [90.0, 100.0'
-                    
-                    ' [["value": [100.0, 100.0], "startTime": 0.0]]'
-                    '["items": [["value": [100.0, 100.0], "startTime": 0.0]], "unit": "mg/dL", "timeZone": -18000, "'
-                    """
-
-                    substr = loop_data_manager["settings"][start_index:end_index]
-                    glucose_target_range_schedule = {}
-                    substr = substr.replace("glucoseTargetRangeSchedule: Optional(", "")
-
-                    """  
-                    timeZone_start = substr.index('timeZone')
-                    timeZone_end = substr.index(',')
-                    time_zone = substr[timeZone_start: timeZone_end]
-                    time_zone = time_zone.replace('timeZone":', "")
-                    glucose_target_range_schedule["time_zone"] = time_zone
-                    """
-
-                    items_start = substr.index('items')
+                    start_index = loop_data_manager["settings"].index("items")
+                    temp_str = loop_data_manager["settings"][start_index:]
+                    temp_str = temp_str.replace('items":', '')
                     values = []
-                    items_end = None
-                    if ']]]' in  substr:
-                        items_end = substr.index(']]]')
-                        items = substr[items_start: (items_end + 2)]
-                        items = items.replace('items":', '')
-                        values = items.split("]]")
-                    else:
-                        items_end = substr.index(']]')
-                        items = substr[items_start: (items_end + 2)]
-                        items = items.replace('items":', '')
-                        values = [items]
 
-                    items = []
-                    for item in values:
-                        if "startTime" in item:
-                            item = item.replace('[', '').replace('"', "").replace(']', "")
-                            items_values = item.split(",")
-                            item_list = []
-
-                            if 'startTime' not in items_values[0] and 'value:' not in items_values[0]:
-                                items_values.pop(0)
-
-                            if 'value:' in items_values[0]:
-                                item_list = [float(items_values[0].replace('value:', '').strip()),
-                                             float(items_values[1].strip())]
-                                startTime = items_values[2].replace('startTime:', '').strip()
+                    while True:
+                        if "]]" in temp_str:
+                            end_index = temp_str.index("]]")
+                            parse_string = temp_str[:end_index + 2]
+                            item = self._parse_item(parse_string)
+                            if item:
+                                values.append(item)
                             else:
-                                startTime = items_values[0].replace('startTime:', '').strip()
-                                item_list = [float(items_values[1].replace('value:', '').strip()),
-                                             float(items_values[2].strip())]
+                                break
+                            temp_str = temp_str[end_index+3:]
+                        else:
+                            break
 
-                            item_dict = {'startTime': startTime,
-                                            'value': item_list}
-
-                            items.append(item_dict)
-
-                    loop_report_dict["correction_range_schedule"] = items
+                    loop_report_dict["correction_range_schedule"] = values
 
                 except Exception as e:
-                    print("handled error LOOP_DATA_MANAGER - glucose_target_range_schedule")
-                    print(e)
+                    print("correction_range_schedule missing in file : " + file_name)
+                    logger.debug("handled error LOOP_DATA_MANAGER - glucose_target_range_schedule")
+                    logger.debug(e)
 
                 try:
                     start_index = loop_data_manager["settings"].index("overrideRanges")
@@ -528,8 +482,8 @@ class LoopReport:
                         substr[start_index : workout + 1]
                     )
                 except Exception as e:
-                    print("handled error LOOP_DATA_MANAGER - override_range_workout")
-                    print(e)
+                    logger.debug("handled error LOOP_DATA_MANAGER - override_range_workout")
+                    logger.debug(e)
 
                 try:
                     premeal = substr.index("preMeal")
@@ -543,12 +497,12 @@ class LoopReport:
                         substr[start_index : premeal + 1]
                     )
                 except Exception as e:
-                    print("preMeal is not in loop data")
-                    print(e)
+                    logger.debug("preMeal is not in loop data")
+                    logger.debug(e)
 
             except Exception as e:
-                print("handled error loop data manager")
-                print(e)
+                logger.debug("handled error loop data manager")
+                logger.debug(e)
 
         if Sections.INSULIN_COUNTERACTION_EFFECTS in dict:
             try:
@@ -568,8 +522,8 @@ class LoopReport:
                 loop_report_dict["insulin_counteraction_effects"] = temp_list
 
             except Exception as e:
-                print("handled error INSULIN_COUNTERACTION_EFFECTS")
-                print(e)
+                logger.debug("handled error INSULIN_COUNTERACTION_EFFECTS")
+                logger.debug(e)
 
         if Sections.RETROSPECTIVE_GLUCOSE_DISCREPANCIES_SUMMED in dict:
             try:
@@ -592,8 +546,8 @@ class LoopReport:
                 ] = temp_list
 
             except Exception as e:
-                print("handled error RETROSPECTIVE_GLUCOSE_DISCREPANCIES")
-                print(e)
+                logger.debug("handled error RETROSPECTIVE_GLUCOSE_DISCREPANCIES")
+                logger.debug(e)
 
         if Sections.GET_RESERVOIR_VALUES in dict:
             try:
@@ -614,8 +568,8 @@ class LoopReport:
                 loop_report_dict["get_reservoir_values"] = temp_list
 
             except Exception as e:
-                print("handled error GET_RESERVOIR_VALUES")
-                print(e)
+                logger.debug("handled error GET_RESERVOIR_VALUES")
+                logger.debug(e)
 
         if Sections.PREDICTED_GLUCOSE in dict:
             try:
@@ -635,8 +589,8 @@ class LoopReport:
                 loop_report_dict["predicted_glucose"] = temp_list
 
             except Exception as e:
-                print("handled error PREDICTED_GLUCOSE")
-                print(e)
+                logger.debug("handled error PREDICTED_GLUCOSE")
+                logger.debug(e)
 
         if Sections.RETROSPECTIVE_GLUCOSE_DISCREPANCIES in dict:
             try:
@@ -657,8 +611,8 @@ class LoopReport:
                 loop_report_dict["retrospective_glucose_discrepancies"] = temp_list
 
             except Exception as e:
-                print("handled error RETROSPECTIVE_GLUCOSE_DISCREPANCIES")
-                print(e)
+                logger.debug("handled error RETROSPECTIVE_GLUCOSE_DISCREPANCIES")
+                logger.debug(e)
 
         if Sections.CARB_EFFECT in dict:
             try:
@@ -677,8 +631,8 @@ class LoopReport:
                 loop_report_dict["carb_effect"] = temp_list
 
             except Exception as e:
-                print("handled error CARB_EFFECT")
-                print(e)
+                logger.debug("handled error CARB_EFFECT")
+                logger.debug(e)
 
         if Sections.INSULIN_EFFECT in dict:
             try:
@@ -698,8 +652,8 @@ class LoopReport:
                 loop_report_dict["insulin_effect"] = temp_list
 
             except Exception as e:
-                print("handled error INSULIN_EFFECT")
-                print(e)
+                logger.debug("handled error INSULIN_EFFECT")
+                logger.debug(e)
 
         if Sections.GET_NORMALIZED_PUMP_EVENT_DOSE in dict:
             try:
@@ -724,8 +678,8 @@ class LoopReport:
 
                 loop_report_dict["get_normalized_pump_event_dose"] = temp_list
             except Exception as e:
-                print("handled error GET_NORMALIZED_PUMP_EVENT_DOSE")
-                print(e)
+                logger.debug("handled error GET_NORMALIZED_PUMP_EVENT_DOSE")
+                logger.debug(e)
 
         if Sections.GET_NORMALIZED_DOSE_ENTRIES in dict:
             try:
@@ -746,8 +700,8 @@ class LoopReport:
                 loop_report_dict["get_normalized_dose_entries"] = temp_list
 
             except Exception as e:
-                print("handled error GET_NORMALIZED_DOSE_ENTRIES")
-                print(e)
+                logger.debug("handled error GET_NORMALIZED_DOSE_ENTRIES")
+                logger.debug(e)
 
         if Sections.CACHED_DOSE_ENTRIES in dict:
             try:
@@ -772,8 +726,8 @@ class LoopReport:
 
                 loop_report_dict["cached_dose_entries"] = temp_list
             except Exception as e:
-                print("handled error CACHED_DOSE_ENTRIES")
-                print(e)
+                logger.debug("handled error CACHED_DOSE_ENTRIES")
+                logger.debug(e)
 
         if Sections.GET_PUMP_EVENT_VALUES in dict:
             try:
@@ -1008,8 +962,8 @@ class LoopReport:
                 loop_report_dict["get_pump_event_values"] = get_pump_even_values_list
 
             except Exception as e:
-                print("handled error GET_PUMP_EVENT_VALUES")
-                print(e)
+                logger.debug("handled error GET_PUMP_EVENT_VALUES")
+                logger.debug(e)
 
         if Sections.MESSAGE_LOG in dict:
             local_list = dict[Sections.MESSAGE_LOG]
@@ -1077,8 +1031,8 @@ class LoopReport:
 
                 loop_report_dict["g5_cgm_manager"] = dictionary_complete
             except Exception as e:
-                print("handled error G5_CGM_MANAGER")
-                print(e)
+                logger.debug("handled error G5_CGM_MANAGER")
+                logger.debug(e)
 
         if Sections.DEX_CGM_MANAGER in dict:
             try:
@@ -1099,8 +1053,8 @@ class LoopReport:
                 loop_report_dict["dex_cgm_manager"] = latestBackfill
 
             except Exception as e:
-                print("handled error DEX_CGM_MANAGER")
-                print(e)
+                logger.debug("handled error DEX_CGM_MANAGER")
+                logger.debug(e)
 
         if Sections.STATUS_EXTENSION_DATA_MANAGER in dict:
             try:
@@ -1142,8 +1096,8 @@ class LoopReport:
                         '"85.732078872579'
                     status_extension_context_dict["sensor"] = value_dict
                 except Exception as e:
-                    print("handled error STATUS_EXTENSION_DATA_MANAGER - sensor")
-                    print(e)
+                    logger.debug("handled error STATUS_EXTENSION_DATA_MANAGER - sensor")
+                    logger.debug(e)
 
 
                 try:
@@ -1160,8 +1114,8 @@ class LoopReport:
                         value_dict[val[0]] = val[1]
                     status_extension_context_dict["netBasal"] = value_dict
                 except Exception as e:
-                    print("handled error STATUS_EXTENSION_DATA_MANAGER - netBasal")
-                    print(e)
+                    logger.debug("handled error STATUS_EXTENSION_DATA_MANAGER - netBasal")
+                    logger.debug(e)
 
                 try:
                     version_index = temp.index("version")
@@ -1169,8 +1123,8 @@ class LoopReport:
                     last_index = version_temp.index(",")
                     status_extension_context_dict["version"] = version_temp[10:last_index]
                 except Exception as e:
-                    print("handled error STATUS_EXTENSION_DATA_MANAGER - version")
-                    print(e)
+                    logger.debug("handled error STATUS_EXTENSION_DATA_MANAGER - version")
+                    logger.debug(e)
 
                 try:
                     unit_index = temp.index("unit")
@@ -1179,8 +1133,8 @@ class LoopReport:
                     last_index = unit_temp.index(",")
                     predicted_glucose["unit"] = unit_temp[6:last_index]
                 except Exception as e:
-                    print("handled error STATUS_EXTENSION_DATA_MANAGER - unit")
-                    print(e)
+                    logger.debug("handled error STATUS_EXTENSION_DATA_MANAGER - unit")
+                    logger.debug(e)
 
                 try:
                     interval_index = temp.index("interval")
@@ -1190,8 +1144,8 @@ class LoopReport:
                     interval_temp = interval_temp[9:last_index].replace("]", "")
                     predicted_glucose["interval"] = float(interval_temp)
                 except Exception as e:
-                    print("handled error STATUS_EXTENSION_DATA_MANAGER - interval")
-                    print(e)
+                    logger.debug("handled error STATUS_EXTENSION_DATA_MANAGER - interval")
+                    logger.debug(e)
 
                 try:
                     startDate_index = temp.index("startDate")
@@ -1200,8 +1154,8 @@ class LoopReport:
                     last_index = startDate_temp.index(",")
                     predicted_glucose["startDate"] = startDate_temp[10:last_index]
                 except Exception as e:
-                    print("handled error STATUS_EXTENSION_DATA_MANAGER - startDate")
-                    print(e)
+                    logger.debug("handled error STATUS_EXTENSION_DATA_MANAGER - startDate")
+                    logger.debug(e)
 
                 status_extension_context_dict["predictedGlucose"] = predicted_glucose
 
@@ -1212,8 +1166,8 @@ class LoopReport:
                     last_index = batteryPercentage_temp.index(",")
                     status_extension_context_dict["batteryPercentage"] = float(batteryPercentage_temp[18:last_index].strip())
                 except Exception as e:
-                    print("handled error STATUS_EXTENSION_DATA_MANAGER - batteryPercentage")
-                    print(e)
+                    logger.debug("handled error STATUS_EXTENSION_DATA_MANAGER - batteryPercentage")
+                    logger.debug(e)
 
                 try:
                     lastLoopCompleted_index = temp.index("lastLoopCompleted")
@@ -1222,14 +1176,14 @@ class LoopReport:
                     last_index = lastLoopCompleted_temp.index(",")
                     status_extension_context_dict["lastLoopCompleted"] = lastLoopCompleted_temp[18:last_index]
                 except Exception as e:
-                    print("handled error STATUS_EXTENSION_DATA_MANAGER - lastLoopCompleted")
-                    print(e)
+                    logger.debug("handled error STATUS_EXTENSION_DATA_MANAGER - lastLoopCompleted")
+                    logger.debug(e)
 
 
                 loop_report_dict["status_extension_data_manager"] = status_extension_context_dict
             except Exception as e:
-                print("handled error STATUS_EXTENSION_DATA_MANAGER")
-                print(e)
+                logger.debug("handled error STATUS_EXTENSION_DATA_MANAGER")
+                logger.debug(e)
 
         if Sections.RILEY_LINK_PUMP_MANAGER in dict:
             try:
@@ -1237,8 +1191,8 @@ class LoopReport:
                     Sections.RILEY_LINK_PUMP_MANAGER
                 ]
             except Exception as e:
-                print("handled error RILEY_LINK_PUMP_MANAGER")
-                print(e)
+                logger.debug("handled error RILEY_LINK_PUMP_MANAGER")
+                logger.debug(e)
 
         if Sections.RILEY_LINK_DEVICE_MANAGER in dict:
             try:
@@ -1246,8 +1200,8 @@ class LoopReport:
                     Sections.RILEY_LINK_DEVICE_MANAGER
                 ]
             except Exception as e:
-                print("handled error RILEY_LINK_DEVICE_MANAGER")
-                print(e)
+                logger.debug("handled error RILEY_LINK_DEVICE_MANAGER")
+                logger.debug(e)
 
         if Sections.PERSISTENCE_CONTROLLER in dict:
             try:
@@ -1255,8 +1209,8 @@ class LoopReport:
                     Sections.PERSISTENCE_CONTROLLER
                 ]
             except Exception as e:
-                print("handled error PERSISTENCE_CONTROLLER")
-                print(e)
+                logger.debug("handled error PERSISTENCE_CONTROLLER")
+                logger.debug(e)
 
         if Sections.INSULIN_DELIVERY_STORE in dict:
             try:
@@ -1264,8 +1218,8 @@ class LoopReport:
                     Sections.INSULIN_DELIVERY_STORE
                 ]
             except Exception as e:
-                print("handled error INSULIN_DELIVERY_STORE")
-                print(e)
+                logger.debug("handled error INSULIN_DELIVERY_STORE")
+                logger.debug(e)
 
         if Sections.CACHED_CARB_ENTRIES in dict:
             try:
@@ -1308,8 +1262,8 @@ class LoopReport:
                     temp_list.append(record_dict)
                 loop_report_dict["cached_carb_entries"] = temp_list
             except Exception as e:
-                print("handled error CACHED_CARB_ENTRIES")
-                print(e)
+                logger.debug("handled error CACHED_CARB_ENTRIES")
+                logger.debug(e)
 
         if Sections.GLUCOSE_STORE in dict:
             try:
@@ -1339,8 +1293,8 @@ class LoopReport:
                 loop_report_dict["glucose_store"] = temp_dict
 
             except Exception as e:
-                print("handled error GLUCOSE_STORE")
-                print(e)
+                logger.debug("handled error GLUCOSE_STORE")
+                logger.debug(e)
 
         if Sections.CACHED_GLUCOSE_SAMPLES in dict:
             try:
@@ -1363,8 +1317,8 @@ class LoopReport:
 
                 loop_report_dict["cached_glucose_samples"] = temp_list
             except Exception as e:
-                print("handled error CACHED_GLUCOSE_SAMPLES")
-                print(e)
+                logger.debug("handled error CACHED_GLUCOSE_SAMPLES")
+                logger.debug(e)
 
         return loop_report_dict
 
@@ -1390,8 +1344,8 @@ class LoopReport:
                     "pumpModel"
                 ].strip()
             except Exception as e:
-                print("pump model in minimed_pump_manager is not available")
-                print(e)
+                logger.debug("pump model in minimed_pump_manager is not available")
+                logger.debug(e)
 
         elif omnipod_pump_manager:
             loop_report_dict["pump_manager_type"] = "omnipod"
@@ -1403,10 +1357,34 @@ class LoopReport:
                     "piVersion"
                 ].strip()
             except Exception as e:
-                print(
+                logger.debug(
                     "pm version or pi version in omnipod_pump_manager is not available"
                 )
-                print(e)
+                logger.debug(e)
 
         else:
             loop_report_dict["pump_manager_type"] = "unknown"
+
+
+    def _parse_item(self, item):
+        item_dict = None
+        if "startTime" in item:
+            item = item.replace('[', '').replace('"', "").replace(']', "")
+            items_values = item.split(",")
+            item_list = []
+
+            if 'startTime' not in items_values[0] and 'value:' not in items_values[0]:
+                items_values.pop(0)
+
+            if 'value:' in items_values[0]:
+                item_list = [float(items_values[0].replace('value:', '').strip()),
+                             float(items_values[1].strip())]
+                startTime = items_values[2].replace('startTime:', '').strip()
+            else:
+                startTime = items_values[0].replace('startTime:', '').strip()
+                item_list = [float(items_values[1].replace('value:', '').strip()),
+                             float(items_values[2].strip())]
+
+            item_dict = {'startTime': startTime,
+                         'value': item_list}
+        return item_dict
