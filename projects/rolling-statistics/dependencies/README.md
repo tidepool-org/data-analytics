@@ -1,0 +1,2 @@
+# Rolling Statistics Dependencies
+At the time of writing the rolling statistics code, the big data processing pipeline code is being transitioned into a stand-alone library. These files are a placeholder for that library. 

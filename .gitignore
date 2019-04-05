@@ -27,3 +27,7 @@ htmlcov
 .pytest_cache
 
 
+
+projects/rolling-statistics/results/
+
+*.html
