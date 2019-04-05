@@ -14,7 +14,7 @@ A script to calculate and visualize rolling statistics of cgm and pump data from
 
 
 Example Call:
-`python rolling_statistics.py -years 1 -rw continuous -metrics mean SD percent-below54`
+`python rolling_statistics.py -years 1 -rw continuous`
 
 ##Output:
 
