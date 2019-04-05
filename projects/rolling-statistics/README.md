@@ -3,7 +3,7 @@ A script to calculate and visualize rolling statistics of cgm and pump data from
 
 ## Usage
 **rolling_statistics.py** arguments:  
-`-i`:  Input filename of a .csv to analyze (default: "", no input will ask for a Tidepool account login)
+`-i`:  Input filename to analyze (.csv / .json / .xlsx) (default: no input  - - code will prompt for a Tidepool account login and retrieve data via Tidepool API)
 
 `-years`: Number of years of data to retrieve (default: 10)
 
