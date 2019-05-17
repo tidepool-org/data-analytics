@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 
 
 # %% load environmental variables
-dotenv_path = join(dirname(__file__), '.env')
+dotenv_path = join(dirname(__file__), ".env")
 if isfile(dotenv_path):
     load_dotenv(dotenv_path)
 
@@ -34,4 +34,6 @@ def get_environmental_variables(donorGroup):
         return emailAddress, pswd
 
     except KeyError:
-        raise KeyError("Details for Donor Group '{0}' not found in .env".format(donorGroup))
+        raise KeyError(
+            "Details for Donor Group '{0}' not found in .env".format(donorGroup)
+        )

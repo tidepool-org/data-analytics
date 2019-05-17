@@ -18,11 +18,14 @@ import pandas as pd
 import datetime as dt
 import argparse
 import time
+
 # load tidals package locally if it does not exist globally
 import importlib
+
 if importlib.util.find_spec("tidals") is None:
-    tidalsPath = os.path.abspath(os.path.join(os.path.dirname(__file__),
-                      "..", "..", "tidepool-analysis-tools"))
+    tidalsPath = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "tidepool-analysis-tools")
+    )
     if tidalsPath not in sys.path:
         sys.path.insert(0, tidalsPath)
 import tidals as td
@@ -34,22 +37,29 @@ print("starting at " + dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 
 # %% USER INPUTS
-codeDescription = "A batch processing or wrapper script to get a list of all column headings"
+codeDescription = (
+    "A batch processing or wrapper script to get a list of all column headings"
+)
 parser = argparse.ArgumentParser(description=codeDescription)
 
-parser.add_argument("-d",
-                    "--date-stamp",
-                    dest="dateStamp",
-                    default=dt.datetime.now().strftime("%Y-%m-%d"),
-                    help="date in '%Y-%m-%d' format needed to call unique " +
-                    "donor list (e.g., PHI-2018-03-02-uniqueDonorList)")
+parser.add_argument(
+    "-d",
+    "--date-stamp",
+    dest="dateStamp",
+    default=dt.datetime.now().strftime("%Y-%m-%d"),
+    help="date in '%Y-%m-%d' format needed to call unique "
+    + "donor list (e.g., PHI-2018-03-02-uniqueDonorList)",
+)
 
 args = parser.parse_args()
 
 
 # %% SET UP PATHS
-dataPath = os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                        "..", "data", "PHI-" + args.dateStamp + "-donor-data"))
+dataPath = os.path.abspath(
+    os.path.join(
+        os.path.dirname(__file__), "..", "data", "PHI-" + args.dateStamp + "-donor-data"
+    )
+)
 
 donorInfoPath = os.path.join(dataPath, "PHI-" + args.dateStamp + "-uniqueDonorList.csv")
 donors = td.load.load_csv(donorInfoPath)

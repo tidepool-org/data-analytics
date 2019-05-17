@@ -20,41 +20,44 @@ import sys
 import requests
 import json
 import argparse
-envPath = os.path.abspath(
-        os.path.join(
-        os.path.dirname(__file__), ".."))
+
+envPath = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if envPath not in sys.path:
     sys.path.insert(0, envPath)
 import environmentalVariables
 
 
 # %% user inputs (choices to be made in order to run the code)
-codeDescription = "Download a list of donors for each of the Tidepool" + \
-                  "accounts defined in .env"
+codeDescription = (
+    "Download a list of donors for each of the Tidepool" + "accounts defined in .env"
+)
 
 parser = argparse.ArgumentParser(description=codeDescription)
 
-parser.add_argument("-d",
-                    "--date-stamp",
-                    dest="dateStamp",
-                    default=dt.datetime.now().strftime("%Y-%m-%d"),
-                    help="date, in '%Y-%m-%d' format, of the date when " +
-                    "donors were accepted")
+parser.add_argument(
+    "-d",
+    "--date-stamp",
+    dest="dateStamp",
+    default=dt.datetime.now().strftime("%Y-%m-%d"),
+    help="date, in '%Y-%m-%d' format, of the date when " + "donors were accepted",
+)
 
-parser.add_argument("-i",
-                    "--input-donor-groups",
-                    dest="donorGroupsCsvFile",
-                    default="2018-09-04-donor-groups.csv",
-                    help="a .csv file that contains a column heading " +
-                    "'donorGroups' and a list of donor groups")
+parser.add_argument(
+    "-i",
+    "--input-donor-groups",
+    dest="donorGroupsCsvFile",
+    default="2018-09-04-donor-groups.csv",
+    help="a .csv file that contains a column heading "
+    + "'donorGroups' and a list of donor groups",
+)
 
-parser.add_argument("-o",
-                    "--output-data-path",
-                    dest="dataPath",
-                    default=os.path.abspath(
-                            os.path.join(
-                            os.path.dirname(__file__), "..", "data")),
-                    help="the output path where the data is stored")
+parser.add_argument(
+    "-o",
+    "--output-data-path",
+    dest="dataPath",
+    default=os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data")),
+    help="the output path where the data is stored",
+)
 
 args = parser.parse_args()
 
@@ -67,10 +70,9 @@ if not os.path.isdir(args.dataPath):
 # %% define global variables
 donorGroupPath = os.path.join(args.dataPath, args.donorGroupsCsvFile)
 
-donorGroups = pd.read_csv(donorGroupPath,
-                          header=0,
-                          names=["donorGroups"],
-                          low_memory=False)
+donorGroups = pd.read_csv(
+    donorGroupPath, header=0, names=["donorGroups"], low_memory=False
+)
 
 donorGroups[args.dateStamp] = np.nan
 
@@ -84,8 +86,7 @@ if not os.path.exists(newDonorFolder):
 def get_secrets(donorGroup):
     if donorGroup == "bigdata":
         donorGroup = ""
-    email, password = \
-        environmentalVariables.get_environmental_variables(donorGroup)
+    email, password = environmentalVariables.get_environmental_variables(donorGroup)
 
     return email, password
 
@@ -95,33 +96,35 @@ def accept_new_donor(email, password):
     url1 = "https://api.tidepool.org/auth/login"
     myResponse = requests.post(url1, auth=(email, password))
 
-    if(myResponse.ok):
+    if myResponse.ok:
         xtoken = myResponse.headers["x-tidepool-session-token"]
         userid = json.loads(myResponse.content.decode())["userid"]
         url2 = "https://api.tidepool.org/confirm/invitations/" + userid
         headers = {
             "x-tidepool-session-token": xtoken,
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
 
         myResponse2 = requests.get(url2, headers=headers)
-        if(myResponse2.ok):
+        if myResponse2.ok:
 
             usersData = json.loads(myResponse2.content.decode())
 
             for i in range(0, len(usersData)):
                 shareKey = usersData[i]["key"]
                 shareID = usersData[i]["creatorId"]
-                payload = {
-                    "key": shareKey
-                }
+                payload = {"key": shareKey}
 
-                url3 = "https://api.tidepool.org/confirm/accept/invite/" + \
-                    userid + "/" + shareID
+                url3 = (
+                    "https://api.tidepool.org/confirm/accept/invite/"
+                    + userid
+                    + "/"
+                    + shareID
+                )
 
                 myResponse3 = requests.put(url3, headers=headers, json=payload)
 
-                if(myResponse3.ok):
+                if myResponse3.ok:
                     nAccepted = nAccepted + 1
                 else:
                     print(email, "ERROR", myResponse3.status_code)
@@ -154,5 +157,6 @@ for dgIndex in range(0, len(donorGroups)):
 
 
 # %% save output
-donorGroups.to_csv(os.path.join(newDonorFolder, args.dateStamp + "-donorCounts.csv"),
-                   index=False)
+donorGroups.to_csv(
+    os.path.join(newDonorFolder, args.dateStamp + "-donorCounts.csv"), index=False
+)

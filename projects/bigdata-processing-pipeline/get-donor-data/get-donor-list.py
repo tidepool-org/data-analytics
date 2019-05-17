@@ -22,47 +22,52 @@ import sys
 import requests
 import json
 import argparse
-envPath = os.path.abspath(
-        os.path.join(
-        os.path.dirname(__file__), ".."))
+
+envPath = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if envPath not in sys.path:
     sys.path.insert(0, envPath)
 import environmentalVariables
 
 
 # %% user inputs (choices to be made in order to run the code)
-codeDescription = "Download a list of donors for each of the Tidepool" + \
-                  "accounts defined in .env"
+codeDescription = (
+    "Download a list of donors for each of the Tidepool" + "accounts defined in .env"
+)
 
 parser = argparse.ArgumentParser(description=codeDescription)
 
-parser.add_argument("-d",
-                    "--date-stamp",
-                    dest="dateStamp",
-                    default=dt.datetime.now().strftime("%Y-%m-%d"),
-                    help="date, in '%Y-%m-%d' format, of the date when " +
-                    "donors were accepted")
+parser.add_argument(
+    "-d",
+    "--date-stamp",
+    dest="dateStamp",
+    default=dt.datetime.now().strftime("%Y-%m-%d"),
+    help="date, in '%Y-%m-%d' format, of the date when " + "donors were accepted",
+)
 
-parser.add_argument("-i",
-                    "--input-donor-groups",
-                    dest="donorGroupsCsvFile",
-                    default="2018-09-04-donor-groups.csv",
-                    help="a .csv file that contains a column heading " +
-                    "'donorGroups' and a list of donor groups")
+parser.add_argument(
+    "-i",
+    "--input-donor-groups",
+    dest="donorGroupsCsvFile",
+    default="2018-09-04-donor-groups.csv",
+    help="a .csv file that contains a column heading "
+    + "'donorGroups' and a list of donor groups",
+)
 
-parser.add_argument("-o",
-                    "--output-data-path",
-                    dest="dataPath",
-                    default=os.path.abspath(
-                            os.path.join(
-                            os.path.dirname(__file__), "..", "data")),
-                    help="the output path where the data is stored")
+parser.add_argument(
+    "-o",
+    "--output-data-path",
+    dest="dataPath",
+    default=os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data")),
+    help="the output path where the data is stored",
+)
 
-parser.add_argument("--ignore-accounts",
-                    dest="ignoreAccountsCsvFile",
-                    default="PHI-2018-02-28-prod-accounts-to-be-ignored.csv",
-                    help="a .csv file that contains a column heading " +
-                    "'userID' and a list of userIDs to ignore")
+parser.add_argument(
+    "--ignore-accounts",
+    dest="ignoreAccountsCsvFile",
+    default="PHI-2018-02-28-prod-accounts-to-be-ignored.csv",
+    help="a .csv file that contains a column heading "
+    + "'userID' and a list of userIDs to ignore",
+)
 
 args = parser.parse_args()
 
@@ -76,10 +81,9 @@ if not os.path.isdir(args.dataPath):
 ignoreAccountsPath = os.path.join(args.dataPath, args.ignoreAccountsCsvFile)
 donorGroupPath = os.path.join(args.dataPath, args.donorGroupsCsvFile)
 
-donorGroups = pd.read_csv(donorGroupPath,
-                          header=0,
-                          names=["donorGroups"],
-                          low_memory=False)
+donorGroups = pd.read_csv(
+    donorGroupPath, header=0, names=["donorGroups"], low_memory=False
+)
 
 donorGroups = donorGroups.donorGroups
 
@@ -90,10 +94,18 @@ except KeyError:
 
 phiDateStamp = "PHI-" + args.dateStamp
 
-donorMetadataColumns = ["userID", "name", "email",
-                        "bDay", "dDay", "diagnosisType",
-                        "targetDevices", "targetTimezone",
-                        "termsAccepted", "hashID"]
+donorMetadataColumns = [
+    "userID",
+    "name",
+    "email",
+    "bDay",
+    "dDay",
+    "diagnosisType",
+    "targetDevices",
+    "targetTimezone",
+    "termsAccepted",
+    "hashID",
+]
 
 alldonorMetadataList = pd.DataFrame(columns=donorMetadataColumns)
 
@@ -106,8 +118,7 @@ donorListFolder = os.path.join(donorFolder, phiDateStamp + "-donorLists")
 if not os.path.exists(donorListFolder):
     os.makedirs(donorListFolder)
 
-uniqueDonorPath = os.path.join(donorFolder,
-                               phiDateStamp + "-uniqueDonorList.csv")
+uniqueDonorPath = os.path.join(donorFolder, phiDateStamp + "-uniqueDonorList.csv")
 
 
 # %% define functions
@@ -116,17 +127,17 @@ def get_donor_info(email, password, donorMetadataColumns):
     url1 = "https://api.tidepool.org/auth/login"
     myResponse = requests.post(url1, auth=(email, password))
 
-    if(myResponse.ok):
+    if myResponse.ok:
         xtoken = myResponse.headers["x-tidepool-session-token"]
         userid = json.loads(myResponse.content.decode())["userid"]
         url2 = "https://api.tidepool.org/metadata/users/" + userid + "/users"
         headers = {
             "x-tidepool-session-token": xtoken,
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
 
         myResponse2 = requests.get(url2, headers=headers)
-        if(myResponse2.ok):
+        if myResponse2.ok:
 
             usersData = json.loads(myResponse2.content.decode())
 
@@ -152,7 +163,9 @@ def get_donor_info(email, password, donorMetadataColumns):
                 except Exception:
                     targetDevices = np.nan
                 try:
-                    targetTimezone = usersData[i]["profile"]["patient"]["targetTimezone"]
+                    targetTimezone = usersData[i]["profile"]["patient"][
+                        "targetTimezone"
+                    ]
                 except Exception:
                     targetTimezone = np.nan
                 try:
@@ -164,18 +177,25 @@ def get_donor_info(email, password, donorMetadataColumns):
                 hash_user = hashlib.sha256(usr_string.encode())
                 hashID = hash_user.hexdigest()
                 donorMetaData = donorMetaData.append(
-                        pd.DataFrame([[userID,
-                                       userName,
-                                       userEmail,
-                                       bDay,
-                                       dDay,
-                                       diagnosisType,
-                                       targetDevices,
-                                       targetTimezone,
-                                       termsAccepted,
-                                       hashID]],
-                                     columns=donorMetadataColumns),
-                                     ignore_index=True)
+                    pd.DataFrame(
+                        [
+                            [
+                                userID,
+                                userName,
+                                userEmail,
+                                bDay,
+                                dDay,
+                                diagnosisType,
+                                targetDevices,
+                                targetTimezone,
+                                termsAccepted,
+                                hashID,
+                            ]
+                        ],
+                        columns=donorMetadataColumns,
+                    ),
+                    ignore_index=True,
+                )
         else:
             print(donorGroup, "ERROR", myResponse2.status_code)
             sys.exit("Error with" + donorGroup + ":" + str(myResponse2.status_code))
@@ -194,8 +214,7 @@ for donorGroup in donorGroups:
         donorGroup = ""
 
     # get environmental variables
-    email, password = \
-        environmentalVariables.get_environmental_variables(donorGroup)
+    email, password = environmentalVariables.get_environmental_variables(donorGroup)
 
     # load in bdays and ddays and append to all donor list
     donorMetadataList = get_donor_info(email, password, donorMetadataColumns)
@@ -204,18 +223,17 @@ for donorGroup in donorGroups:
     print("BIGDATA_" + donorGroup, "complete")
     donorMetadataList["donorGroup"] = donorGroup
 
-    alldonorMetadataList = alldonorMetadataList.append(donorMetadataList,
-                                                       ignore_index=True,
-                                                       sort=False)
+    alldonorMetadataList = alldonorMetadataList.append(
+        donorMetadataList, ignore_index=True, sort=False
+    )
 
 # %% save output
-alldonorMetadataList.sort_values(by=['name', 'donorGroup'], inplace=True)
+alldonorMetadataList.sort_values(by=["name", "donorGroup"], inplace=True)
 uniqueDonors = alldonorMetadataList.loc[~alldonorMetadataList["userID"].duplicated()]
 
 # cross reference the QA users here and DROP them
 ignoreAccounts = pd.read_csv(ignoreAccountsPath, low_memory=False)
-uniqueIgnoreAccounts = \
-    ignoreAccounts[ignoreAccounts.Userid.notnull()].Userid.unique()
+uniqueIgnoreAccounts = ignoreAccounts[ignoreAccounts.Userid.notnull()].Userid.unique()
 
 for ignoreAccount in uniqueIgnoreAccounts:
     uniqueDonors = uniqueDonors[uniqueDonors.userID != ignoreAccount]
@@ -223,14 +241,18 @@ for ignoreAccount in uniqueIgnoreAccounts:
 uniqueDonors = uniqueDonors.reset_index(drop=True)
 uniqueDonors.index.name = "dIndex"
 
-print("There are",
-      len(uniqueDonors),
-      "unique donors, of the",
-      len(alldonorMetadataList),
-      "records")
+print(
+    "There are",
+    len(uniqueDonors),
+    "unique donors, of the",
+    len(alldonorMetadataList),
+    "records",
+)
 
-print("The total number of missing datapoints:",
-      "\n",
-      uniqueDonors[["bDay", "dDay"]].isnull().sum())
+print(
+    "The total number of missing datapoints:",
+    "\n",
+    uniqueDonors[["bDay", "dDay"]].isnull().sum(),
+)
 
 uniqueDonors.to_csv(uniqueDonorPath)

@@ -23,10 +23,12 @@ import requests
 import json
 from multiprocessing import Pool
 import time
+
 envPath = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if envPath not in sys.path:
     sys.path.insert(0, envPath)
 import environmentalVariables
+
 startTime = time.time()
 print("starting at " + dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
@@ -37,19 +39,19 @@ def get_user_data(email, password, userid, outputFilePathName):
     url1 = "https://api.tidepool.org/auth/login"
     myResponse = requests.post(url1, auth=(email, password))
 
-    if(myResponse.ok):
+    if myResponse.ok:
         xtoken = myResponse.headers["x-tidepool-session-token"]
         url2 = "https://api.tidepool.org/data/" + userid
         headers = {
             "x-tidepool-session-token": xtoken,
-            "Content-Type": "application/json"
-            }
+            "Content-Type": "application/json",
+        }
 
         myResponse2 = requests.get(url2, headers=headers)
-        if(myResponse2.ok):
+        if myResponse2.ok:
 
             usersData = json.loads(myResponse2.content.decode())
-            with open(outputFilePathName, 'w') as outfile:
+            with open(outputFilePathName, "w") as outfile:
                 json.dump(usersData, outfile)
 
         else:
@@ -65,37 +67,51 @@ codeDescription = "Download donor's json files"
 
 parser = argparse.ArgumentParser(description=codeDescription)
 
-parser.add_argument("-d",
-                    "--date-stamp",
-                    dest="dateStamp",
-                    default=dt.datetime.now().strftime("%Y-%m-%d"),
-                    help="date in '%Y-%m-%d' format of unique donor list" +
-                    "(e.g., PHI-2018-03-02-uniqueDonorList)")
+parser.add_argument(
+    "-d",
+    "--date-stamp",
+    dest="dateStamp",
+    default=dt.datetime.now().strftime("%Y-%m-%d"),
+    help="date in '%Y-%m-%d' format of unique donor list"
+    + "(e.g., PHI-2018-03-02-uniqueDonorList)",
+)
 
 args = parser.parse_args()
 
 # create a datestamp of when the data is pulled, and add PHI bc data has PHI
 phiDateStamp = "PHI-" + args.dateStamp
 
-parser.add_argument("-i",
-                    "--input-data-path",
-                    dest="donorListPath",
-                    default=os.path.abspath(
-                            os.path.join(
-                            os.path.dirname(__file__), "..", "data",
-                            phiDateStamp + "-donor-data",
-                            phiDateStamp + "-uniqueDonorList.csv")),
-                    help="csv file that contains the a list of donors")
+parser.add_argument(
+    "-i",
+    "--input-data-path",
+    dest="donorListPath",
+    default=os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "data",
+            phiDateStamp + "-donor-data",
+            phiDateStamp + "-uniqueDonorList.csv",
+        )
+    ),
+    help="csv file that contains the a list of donors",
+)
 
-parser.add_argument("-o",
-                    "--output-data-path",
-                    dest="donorJsonDataFolder",
-                    default=os.path.abspath(
-                            os.path.join(
-                            os.path.dirname(__file__), "..", "data",
-                            phiDateStamp + "-donor-data",
-                            phiDateStamp + "-donorJsonData")),
-                    help="the output path where the data is stored")
+parser.add_argument(
+    "-o",
+    "--output-data-path",
+    dest="donorJsonDataFolder",
+    default=os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "data",
+            phiDateStamp + "-donor-data",
+            phiDateStamp + "-donorJsonData",
+        )
+    ),
+    help="the output path where the data is stored",
+)
 
 args = parser.parse_args()
 
@@ -108,19 +124,20 @@ if not os.path.isdir(args.donorJsonDataFolder):
     os.makedirs(args.donorJsonDataFolder)
 
 # load in list of unique donors
-uniqueDonors = pd.read_csv(args.donorListPath,
-                           index_col="dIndex",
-                           low_memory=False)
+uniqueDonors = pd.read_csv(args.donorListPath, index_col="dIndex", low_memory=False)
 
 
 # %% pull the json files for all of the unique donors
 blankDF = pd.DataFrame()
+
+
 def get_json_file(dIndex):
     userID = uniqueDonors.userID[dIndex]
     donorGroup = uniqueDonors.donorGroup[dIndex]
 
-    outputFilePathName = os.path.join(args.donorJsonDataFolder,
-                                      "PHI-" + userID + ".json")
+    outputFilePathName = os.path.join(
+        args.donorJsonDataFolder, "PHI-" + userID + ".json"
+    )
 
     # if the json file already exists, do NOT pull it again
     if not os.path.exists(outputFilePathName):
@@ -133,8 +150,7 @@ def get_json_file(dIndex):
             donorGroup = ""
 
         # get environmental variables
-        email, password = \
-            environmentalVariables.get_environmental_variables(donorGroup)
+        email, password = environmentalVariables.get_environmental_variables(donorGroup)
 
         # get json data
         get_user_data(email, password, userID, outputFilePathName)
