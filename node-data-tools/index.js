@@ -18,15 +18,11 @@ const MMOL_TO_MGDL = 18.01559;
 
 export default class TidepoolDataTools {
   static fieldsToStringify(type) {
-    return Object.keys(_.pickBy(config[type].fields, n => n.stringify));
+    return this.cache.fieldsToStringify[type];
   }
 
   static get allFields() {
-    return _.chain(config)
-      .flatMap(field => Object.keys(field.fields))
-      .uniq()
-      .sort()
-      .value();
+    return this.cache.allFields;
   }
 
   static stringifyFields(data) {
@@ -211,6 +207,17 @@ export default class TidepoolDataTools {
     );
   }
 }
+
+TidepoolDataTools.cache = {
+  allFields: _.chain(config)
+    .flatMap(field => Object.keys(field.fields))
+    .uniq()
+    .sort()
+    .value(),
+  fieldsToStringify: _.mapValues(
+    config, (item, key) => Object.keys(_.pickBy(config[key].fields, n => n.stringify)),
+  ),
+};
 
 function convert(command) {
   if (!command.inputTidepoolData) command.help();
