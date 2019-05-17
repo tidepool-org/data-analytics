@@ -16,15 +16,14 @@ import config from './config.json';
 
 const MMOL_TO_MGDL = 18.01559;
 
-// TODO: Having this as a class seems to slow down performance
 export default class TidepoolDataTools {
   static fieldsToStringify(type) {
-    return Object.keys(_.pickBy(config[type], n => n.stringify));
+    return Object.keys(_.pickBy(config[type].fields, n => n.stringify));
   }
 
   static get allFields() {
     return _.chain(config)
-      .flatMap(field => Object.keys(field))
+      .flatMap(field => Object.keys(field.fields))
       .uniq()
       .sort()
       .value();
@@ -165,7 +164,7 @@ export default class TidepoolDataTools {
               }],
             });
             try {
-              sheet.columns = Object.keys(config[data.type]).map(field => ({
+              sheet.columns = Object.keys(config[data.type].fields).map(field => ({
                 header: field,
                 key: field,
                 width: 22,
@@ -274,13 +273,13 @@ function convert(command) {
       }
       Object.keys(config).forEach((key) => {
         const csvStream2 = fs.createWriteStream(`${outFilename}/${key}.csv`);
-        csvStream2.write(CSV.stringify(Object.keys(config[key])));
+        csvStream2.write(CSV.stringify(Object.keys(config[key].fields)));
         events.EventEmitter.defaultMaxListeners += 2;
         processingStream
           // eslint-disable-next-line consistent-return
           .pipe(es.mapSync((data) => {
             if (data.type === key) {
-              return CSV.stringify(Object.keys(config[key]).map(field => data[field] || ''));
+              return CSV.stringify(Object.keys(config[key].fields).map(field => data[field] || ''));
             }
           }))
           .pipe(csvStream2);

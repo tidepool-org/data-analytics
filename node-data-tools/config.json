@@ -1,207 +1,300 @@
 {
   "basal": {
-    "time": {},
-    "deviceTime": {},
-    "type": {},
-    "deliveryType": {},
-    "duration": {},
-    "expectedDuration": {},
-    "rate": {},
-    "percent": {},
-    "scheduleName": {},
-    "suppressed.scheduleName": {},
-    "suppressed.deliveryType": {},
-    "suppressed.type": {},
-    "suppressed.rate": {},
-    "timezoneOffset": {},
-    "conversionOffset": {},
-    "clockDriftOffset": {},
-    "deviceId": {},
-    "id": {},
-    "uploadId": {},
-    "payload": {"stringify": true},
-    "annotations": {"stringify": true}
+    "fields": {
+      "time": {},
+      "deviceTime": {},
+      "type": {},
+      "deliveryType": {},
+      "duration": {},
+      "expectedDuration": {},
+      "rate": {},
+      "percent": {},
+      "scheduleName": {},
+      "suppressed.scheduleName": {},
+      "suppressed.deliveryType": {},
+      "suppressed.type": {},
+      "suppressed.rate": {},
+      "timezoneOffset": {},
+      "conversionOffset": {},
+      "clockDriftOffset": {},
+      "deviceId": {},
+      "id": {},
+      "uploadId": {},
+      "payload": {
+        "stringify": true
+      },
+      "annotations": {
+        "stringify": true
+      }
+    }
   },
   "bloodKetone": {
-    "time": {},
-    "deviceTime": {},
-    "type": {},
-    "value": {},
-    "units": {},
-    "timezoneOffset": {},
-    "conversionOffset": {},
-    "clockDriftOffset": {},
-    "deviceId": {},
-    "id": {},
-    "uploadId": {},
-    "payload": {"stringify": true},
-    "annotations": {"stringify": true}
+    "fields": {
+      "time": {},
+      "deviceTime": {},
+      "type": {},
+      "value": {},
+      "units": {},
+      "timezoneOffset": {},
+      "conversionOffset": {},
+      "clockDriftOffset": {},
+      "deviceId": {},
+      "id": {},
+      "uploadId": {},
+      "payload": {
+        "stringify": true
+      },
+      "annotations": {
+        "stringify": true
+      }
+    }
   },
   "cbg": {
-    "time": {},
-    "deviceTime": {},
-    "type": {},
-    "value": {},
-    "units": {},
-    "timezoneOffset": {},
-    "conversionOffset": {},
-    "clockDriftOffset": {},
-    "deviceId": {},
-    "id": {},
-    "uploadId": {},
-    "payload": {"stringify": true},
-    "annotations": {"stringify": true}
+    "format": {
+      "xlsx": {
+        "sheetName": "cgm"
+      }
+    },
+    "fields": {
+      "time": {},
+      "deviceTime": {},
+      "type": {},
+      "value": {},
+      "units": {},
+      "timezoneOffset": {},
+      "conversionOffset": {},
+      "clockDriftOffset": {},
+      "deviceId": {},
+      "id": {},
+      "uploadId": {},
+      "payload": {
+        "stringify": true
+      },
+      "annotations": {
+        "stringify": true
+      }
+    }
   },
   "pumpSettings": {
-    "time": {},
-    "deviceTime": {},
-    "type": {},
-    "activeSchedule": {},
-    "bgTarget": {"stringify": true},
-    "units.carb": {},
-    "units.bg": {},
-    "carbRatio": {"stringify": true},
-    "insulinSensitivity": {"stringify": true},
-    "basalSchedules": {"stringify": true},
-    "timezoneOffset": {},
-    "conversionOffset": {},
-    "clockDriftOffset": {},
-    "deviceId": {},
-    "id": {},
-    "uploadId": {},
-    "payload": {"stringify": true},
-    "annotations": {"stringify": true}
+    "fields": {
+      "time": {},
+      "deviceTime": {},
+      "type": {},
+      "activeSchedule": {},
+      "bgTarget": {
+        "stringify": true
+      },
+      "units.carb": {},
+      "units.bg": {},
+      "carbRatio": {
+        "stringify": true
+      },
+      "insulinSensitivity": {
+        "stringify": true
+      },
+      "basalSchedules": {
+        "stringify": true
+      },
+      "timezoneOffset": {},
+      "conversionOffset": {},
+      "clockDriftOffset": {},
+      "deviceId": {},
+      "id": {},
+      "uploadId": {},
+      "payload": {
+        "stringify": true
+      },
+      "annotations": {
+        "stringify": true
+      }
+    }
   },
   "smbg": {
-    "time": {},
-    "deviceTime": {},
-    "type": {},
-    "subType": {},
-    "value": {},
-    "units": {},
-    "timezoneOffset": {},
-    "conversionOffset": {},
-    "clockDriftOffset": {},
-    "deviceId": {},
-    "id": {},
-    "uploadId": {},
-    "payload": {"stringify": true},
-    "annotations": {"stringify": true}
+    "fields": {
+      "time": {},
+      "deviceTime": {},
+      "type": {},
+      "subType": {},
+      "value": {},
+      "units": {},
+      "timezoneOffset": {},
+      "conversionOffset": {},
+      "clockDriftOffset": {},
+      "deviceId": {},
+      "id": {},
+      "uploadId": {},
+      "payload": {
+        "stringify": true
+      },
+      "annotations": {
+        "stringify": true
+      }
+    }
   },
   "wizard": {
-    "time": {},
-    "deviceTime": {},
-    "type": {},
-    "bgInput": {},
-    "insulinSensitivity": {},
-    "carbInput": {},
-    "insulinCarbRatio": {},
-    "insulinOnBoard": {},
-    "bolus": {},
-    "units": {},
-    "recommended.carb": {},
-    "recommended.correction": {},
-    "recommended.net": {},
-    "bgTarget": {"stringify": true},
-    "timezoneOffset": {},
-    "conversionOffset": {},
-    "clockDriftOffset": {},
-    "deviceId": {},
-    "id": {},
-    "uploadId": {},
-    "payload": {"stringify": true},
-    "annotations": {"stringify": true}
+    "fields": {
+      "time": {},
+      "deviceTime": {},
+      "type": {},
+      "bgInput": {},
+      "insulinSensitivity": {},
+      "carbInput": {},
+      "insulinCarbRatio": {},
+      "insulinOnBoard": {},
+      "bolus": {},
+      "units": {},
+      "recommended.carb": {},
+      "recommended.correction": {},
+      "recommended.net": {},
+      "bgTarget": {
+        "stringify": true
+      },
+      "timezoneOffset": {},
+      "conversionOffset": {},
+      "clockDriftOffset": {},
+      "deviceId": {},
+      "id": {},
+      "uploadId": {},
+      "payload": {
+        "stringify": true
+      },
+      "annotations": {
+        "stringify": true
+      }
+    }
   },
   "food": {
-    "time": {},
-    "deviceTime": {},
-    "type": {},
-    "nutrition": {"stringify": true},
-    "timezoneOffset": {},
-    "conversionOffset": {},
-    "clockDriftOffset": {},
-    "deviceId": {},
-    "id": {},
-    "uploadId": {},
-    "payload": {"stringify": true},
-    "annotations": {"stringify": true}
+    "fields": {
+      "time": {},
+      "deviceTime": {},
+      "type": {},
+      "nutrition": {
+        "stringify": true
+      },
+      "timezoneOffset": {},
+      "conversionOffset": {},
+      "clockDriftOffset": {},
+      "deviceId": {},
+      "id": {},
+      "uploadId": {},
+      "payload": {
+        "stringify": true
+      },
+      "annotations": {
+        "stringify": true
+      }
+    }
   },
   "physicalActivity": {
-    "time": {},
-    "deviceTime": {},
-    "type": {},
-    "name": {},
-    "distance": {"stringify": true},
-    "duration": {"stringify": true},
-    "energy": {"stringify": true},
-    "timezoneOffset": {},
-    "conversionOffset": {},
-    "clockDriftOffset": {},
-    "deviceId": {},
-    "id": {},
-    "uploadId": {},
-    "payload": {"stringify": true},
-    "annotations": {"stringify": true}
+    "fields": {
+      "time": {},
+      "deviceTime": {},
+      "type": {},
+      "name": {},
+      "distance": {
+        "stringify": true
+      },
+      "duration": {
+        "stringify": true
+      },
+      "energy": {
+        "stringify": true
+      },
+      "timezoneOffset": {},
+      "conversionOffset": {},
+      "clockDriftOffset": {},
+      "deviceId": {},
+      "id": {},
+      "uploadId": {},
+      "payload": {
+        "stringify": true
+      },
+      "annotations": {
+        "stringify": true
+      }
+    }
   },
   "bolus": {
-    "time": {},
-    "deviceTime": {},
-    "type": {},
-    "subType": {},
-    "normal": {},
-    "expectedNormal": {},
-    "timezoneOffset": {},
-    "conversionOffset": {},
-    "clockDriftOffset": {},
-    "deviceId": {},
-    "id": {},
-    "uploadId": {},
-    "payload": {"stringify": true},
-    "annotations": {"stringify": true}
+    "fields": {
+      "time": {},
+      "deviceTime": {},
+      "type": {},
+      "subType": {},
+      "normal": {},
+      "expectedNormal": {},
+      "timezoneOffset": {},
+      "conversionOffset": {},
+      "clockDriftOffset": {},
+      "deviceId": {},
+      "id": {},
+      "uploadId": {},
+      "payload": {
+        "stringify": true
+      },
+      "annotations": {
+        "stringify": true
+      }
+    }
   },
   "deviceEvent": {
-    "time": {},
-    "deviceTime": {},
-    "type": {},
-    "subType": {},
-    "value": {},
-    "units": {},
-    "duration": {},
-    "change.from": {},
-    "change.to": {},
-    "change.agent": {},
-    "status": {},
-    "primeTarget": {},
-    "volume": {},
-    "reason.suspended": {},
-    "reason.resumed": {},
-    "timezoneOffset": {},
-    "conversionOffset": {},
-    "clockDriftOffset": {},
-    "deviceId": {},
-    "id": {},
-    "uploadId": {},
-    "payload": {"stringify": true},
-    "annotations": {"stringify": true}
+    "fields": {
+      "time": {},
+      "deviceTime": {},
+      "type": {},
+      "subType": {},
+      "value": {},
+      "units": {},
+      "duration": {},
+      "change.from": {},
+      "change.to": {},
+      "change.agent": {},
+      "status": {},
+      "primeTarget": {},
+      "volume": {},
+      "reason.suspended": {},
+      "reason.resumed": {},
+      "timezoneOffset": {},
+      "conversionOffset": {},
+      "clockDriftOffset": {},
+      "deviceId": {},
+      "id": {},
+      "uploadId": {},
+      "payload": {
+        "stringify": true
+      },
+      "annotations": {
+        "stringify": true
+      }
+    }
   },
   "upload": {
-    "time": {},
-    "computerTime": {},
-    "timezone": {},
-    "timeProcessing": {},
-    "type": {},
-    "version": {},
-    "deviceSerialNumber": {},
-    "deviceModel": {},
-    "deviceManufacturers": {"stringify": true},
-    "deviceTags": {"stringify": true},
-    "timezoneOffset": {},
-    "conversionOffset": {},
-    "deviceId": {},
-    "id": {},
-    "byUser": {},
-    "uploadId": {},
-    "payload": {"stringify": true},
-    "annotations": {"stringify": true}
+    "fields": {
+      "time": {},
+      "computerTime": {},
+      "timezone": {},
+      "timeProcessing": {},
+      "type": {},
+      "version": {},
+      "deviceSerialNumber": {},
+      "deviceModel": {},
+      "deviceManufacturers": {
+        "stringify": true
+      },
+      "deviceTags": {
+        "stringify": true
+      },
+      "timezoneOffset": {},
+      "conversionOffset": {},
+      "deviceId": {},
+      "id": {},
+      "byUser": {},
+      "uploadId": {},
+      "payload": {
+        "stringify": true
+      },
+      "annotations": {
+        "stringify": true
+      }
+    }
   }
 }
