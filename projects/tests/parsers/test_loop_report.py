@@ -7,6 +7,7 @@ import pytest
 def test_parse_by_file():
     lr = loop_report.LoopReport()
     loop_dict = lr.parse_by_file(os.getcwd() + "/files", "LoopReport.md")
+
     assert loop_dict["file_name"] == "LoopReport.md"
     assert loop_dict["loop_version"] == "Loop v1.9.3"
     assert loop_dict["rileyLink_radio_firmware"] == "Optional(subg_rfspy 0.9)"
@@ -50,10 +51,13 @@ def test_parse_by_file():
     assert loop_dict["retrospective_correction_enabled"] == "true"
     assert loop_dict["suspend_threshold"] == 85.0
     assert loop_dict["suspend_threshold_unit"] == "mg/dL"
-    override_range_workout = [135.0, 145.0]
-    assert loop_dict["override_range_workout"] == override_range_workout
-    override_range_premeal = [70.0, 80.0]
-    assert loop_dict["override_range_premeal"] == override_range_premeal
+
+    assert loop_dict["override_range_workout_minimum"] == 135.0
+    assert loop_dict["override_range_workout_maximum"] == 145.0
+
+    assert loop_dict["override_range_premeal_minimum"] == 70.0
+    assert loop_dict["override_range_premeal_maximum"] == 80.0
+
     assert (
         loop_dict["retrospective_glucose_discrepancies_summed"]
         == get_retrospective_glucose_discrepancies_summed()

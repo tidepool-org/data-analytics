@@ -480,9 +480,12 @@ class LoopReport:
                     while check != "]":
                         workout += 1
                         check = substr[workout]
-                    loop_report_dict["override_range_workout"] = eval(
+                    workout_list = eval(
                         substr[start_index : workout + 1]
                     )
+                    loop_report_dict["override_range_workout_minimum"] = workout_list[0]
+                    loop_report_dict["override_range_workout_maximum"] = workout_list[1]
+
                 except Exception as e:
                     logger.debug("handled error LOOP_DATA_MANAGER - override_range_workout")
                     logger.debug(e)
@@ -495,9 +498,15 @@ class LoopReport:
                     while check != "]":
                         premeal += 1
                         check = substr[premeal]
-                    loop_report_dict["override_range_premeal"] = eval(
+
+
+                    premeal_list = eval(
                         substr[start_index : premeal + 1]
                     )
+
+                    loop_report_dict["override_range_premeal_minimum"] = premeal_list[0]
+                    loop_report_dict["override_range_premeal_maximum"] = premeal_list[1]
+
                 except Exception as e:
                     logger.debug("preMeal is not in loop data")
                     logger.debug(e)
