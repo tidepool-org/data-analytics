@@ -1,21 +1,19 @@
 import _ from 'lodash';
+import moment from 'moment';
 import program from 'commander';
+import { promisify } from 'util';
 import fs from 'fs';
 import Excel from 'exceljs';
 import { unflatten } from 'flat';
 import { diffString } from 'json-diff';
+import TidepoolDataTools from '../index';
 
 program
   .version('0.1.0')
-  .option('-i, --input-data <file>', 'csv, xlsx, or json file that contains Tidepool data')
+  .option('-i, --input-data <file>', 'json file that contains Tidepool data')
   .option('-o, --output-data <file>', 'the file that was exported by the exporter')
   .option('-v, --verbose', 'show differences between files')
   .parse(process.argv);
-
-const sortedInputData = _.sortBy(
-  JSON.parse(fs.readFileSync(program.inputData, 'utf8')),
-  obj => obj.time + obj.type,
-);
 
 const outputData = [];
 let sortedOutputData = [];
@@ -32,13 +30,26 @@ const excludedFields = [
   'client',
   'dataSetType',
   'guid',
-  'clockDriftOffset',
-  'conversionOffset',
 ];
 
 const wb = new Excel.Workbook();
 
 (async () => {
+  const readFile = promisify(fs.readFile);
+  const inputFile = await readFile(program.inputData, 'utf8');
+  const sortedInputData = _.sortBy(
+    JSON.parse(inputFile),
+    obj => obj.id + obj.type,
+  );
+  // Normalize BG data
+  // FIXME: Handle mg/dL as well
+  // eslint-disable-next-line no-restricted-syntax
+  for (const data of sortedInputData) {
+    TidepoolDataTools.normalizeBgData(data, 'mmol/L');
+    // Normalize `time` field (turn it into UTC)
+    data.time = moment(data.time).utc().toISOString();
+  }
+
   await wb.xlsx.readFile(program.outputData);
   wb.eachSheet((worksheet) => {
     const headings = _.drop(worksheet.getRow(1).values);
@@ -48,13 +59,20 @@ const wb = new Excel.Workbook();
         let valueIdx = 1;
         const data = unflatten(_.omitBy(_.reduce(headings, (object, key) => {
           let cellValue = row.values[valueIdx];
-          try {
-            cellValue = JSON.parse(cellValue);
-            if (typeof cellValue !== 'object') {
-              cellValue = row.values[valueIdx];
+          if (_.indexOf(['deviceTime', 'computerTime'], headings[valueIdx - 1]) >= 0) {
+            cellValue = moment.utc(cellValue).format('YYYY-MM-DDTHH:mm:ss');
+          } else if (headings[valueIdx - 1] === 'time') {
+            // Normalize `time` field (turn it into UTC)
+            cellValue = moment(cellValue).utc().toISOString();
+          } else {
+            try {
+              cellValue = JSON.parse(cellValue);
+              if (typeof cellValue !== 'object') {
+                cellValue = row.values[valueIdx];
+              }
+            } catch (e) {
+              // Don't care.
             }
-          } catch (e) {
-            // Don't care.
           }
           // eslint-disable-next-line no-param-reassign
           object[key] = cellValue;
@@ -65,7 +83,7 @@ const wb = new Excel.Workbook();
       }
     });
 
-    sortedOutputData = _.sortBy(outputData, obj => obj.time + obj.type);
+    sortedOutputData = _.sortBy(outputData, obj => obj.id + obj.type);
   });
 
   if (sortedInputData.length !== sortedOutputData.length) {
@@ -77,7 +95,7 @@ const wb = new Excel.Workbook();
     const diff = diffString(_.omit(sortedInputData[i], excludedFields), sortedOutputData[i]);
     if (diff) {
       diffCount += 1;
-      console.log(`'${sortedInputData[i].type}' record at ${sortedInputData[i].time} differs`);
+      console.log(`'${sortedInputData[i].type}' record (ID: ${sortedInputData[i].id}) at ${sortedInputData[i].time} differs`);
       if (program.verbose) {
         console.log(diff);
       }
