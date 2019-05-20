@@ -25,6 +25,7 @@ figures
 isf-basal-figures
 fonts
 wip
+projects/parsers/output/
 
 # Test
 htmlcov
