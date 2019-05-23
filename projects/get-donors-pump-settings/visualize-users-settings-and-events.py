@@ -58,8 +58,7 @@ def save_fig(fig, plot_name, width, height, scale):
     pio.write_image(
     fig,
     os.path.join(
-        "..",
-        "figures",
+        figure_path,
         plot_name + ".png"
     ),
     width=width,
@@ -174,8 +173,7 @@ def make_static_table(field, figName, filteredDF, nDecimals, return_summaryTable
     pio.write_image(
         fig,
         os.path.join(
-            "..",
-            "figures",
+            figure_path,
             figName + "-table-highRes.png"
         ),
         width=1200,
@@ -185,8 +183,7 @@ def make_static_table(field, figName, filteredDF, nDecimals, return_summaryTable
     pio.write_image(
         fig,
         os.path.join(
-            "..",
-            "figures",
+            figure_path,
             figName + "-table-lowRes.png"
         ),
         width=1200,
@@ -195,15 +192,13 @@ def make_static_table(field, figName, filteredDF, nDecimals, return_summaryTable
 
     summaryTable.to_csv(
         os.path.join(
-            "..",
-            "figures",
+            figure_path,
             figName + "-table.csv"
         )
     )
     allAgeTable.to_csv(
         os.path.join(
-            "..",
-            "figures",
+            figure_path,
             figName + "-all-age-table.csv"
         )
     )
@@ -367,7 +362,7 @@ def bin_data(df, ageBins, ageGroupNames, ylwBins, ylwGroupNames, catColorDF, min
 
 # %% define age and years living with bins
 group_title = "-withYlw0"
-
+figure_path = os.path.join(".", "figures")
 
 # next bin the data by age-ylw groups
 dataGroupName = "age-ylw-groups"
@@ -494,6 +489,7 @@ bolus, bolusGroupSummary = (
     )
 )
 
+
 # %% overview of bolus data table
 figName = "overviewTable-bolus-events"
 figName = figName + group_title
@@ -526,8 +522,7 @@ fig.add_trace(trace)
 pio.write_image(
     fig,
     os.path.join(
-        "..",
-        "figures",
+        figure_path,
         figName + "-highRes.png"
     ),
     width=1200,
@@ -537,8 +532,7 @@ pio.write_image(
 pio.write_image(
     fig,
     os.path.join(
-        "..",
-        "figures",
+        figure_path,
         figName + "-lowRes.png"
     ),
     width=1200,
@@ -655,8 +649,7 @@ fig.add_trace(trace)
 pio.write_image(
     fig,
     os.path.join(
-        "..",
-        "figures",
+        figure_path,
         figName + "-highRes.png"
     ),
     width=1200,
@@ -666,8 +659,7 @@ pio.write_image(
 pio.write_image(
     fig,
     os.path.join(
-        "..",
-        "figures",
+        figure_path,
         figName + "-lowRes.png"
     ),
     width=1200,
@@ -769,8 +761,7 @@ fig.add_trace(trace)
 pio.write_image(
     fig,
     os.path.join(
-        "..",
-        "figures",
+        figure_path,
         figName + "-highRes.png"
     ),
     width=1200,
@@ -780,8 +771,7 @@ pio.write_image(
 pio.write_image(
     fig,
     os.path.join(
-        "..",
-        "figures",
+        figure_path,
         figName + "-lowRes.png"
     ),
     width=1200,
@@ -1266,8 +1256,7 @@ make_lite_interactive_boxplot(field, yLabel, filteredDF, yMin, yMax)
 figName = "allAgeSettingSummary" + group_title
 allAgeSummary.to_csv(
     os.path.join(
-        "..",
-        "figures",
+        figure_path,
         figName + "-all-age-table.csv"
     )
 )
