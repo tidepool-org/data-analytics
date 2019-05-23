@@ -418,7 +418,7 @@ dataPulledDate = "2019-01-10"
 dataProcessedDate = "2019-01-22"
 
 phiDate = "PHI-" + dataPulledDate
-donorPath = os.path.join("..", "..", "bigdata-processing-pipeline", "data", phiDate + "-donor-data")
+donorPath = os.path.join("..", "bigdata-processing-pipeline", "data", phiDate + "-donor-data")
 donorList = phiDate + "-uniqueDonorList"
 donors = pd.read_csv(os.path.join(donorPath, donorList + ".csv"), low_memory=False)
 
