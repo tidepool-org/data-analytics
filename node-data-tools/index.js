@@ -17,6 +17,22 @@ import config from './config.json';
 const MMOL_TO_MGDL = 18.01559;
 
 export default class TidepoolDataTools {
+  static typeDisplayName(type) {
+    return this.cache.typeDisplayName[type];
+  }
+
+  static fieldHeader(type, field) {
+    return this.cache.fieldHeader[type][field];
+  }
+
+  static fieldWidth(type, field) {
+    return this.cache.fieldWidth[type][field];
+  }
+
+  static cellFormat(type, field) {
+    return this.cache.cellFormat[type][field];
+  }
+
   static fieldsToStringify(type) {
     return this.cache.fieldsToStringify[type];
   }
@@ -35,12 +51,30 @@ export default class TidepoolDataTools {
     );
   }
 
+  static convertDurations(data) {
+    switch (data.type) {
+      case 'basal':
+      case 'deviceEvent':
+        if (data.duration) {
+          _.assign(data, {
+            duration: moment.duration(data.duration).asMinutes(),
+          });
+        }
+        if (data.expectedDuration) {
+          _.assign(data, {
+            expectedDuration: moment.duration(data.expectedDuration).asMinutes(),
+          });
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
   static normalizeBgData(data, units) {
     let conversion = 1;
-    let precision = 1;
     if (units === 'mg/dL') {
       conversion = MMOL_TO_MGDL;
-      precision = 0;
     }
     if (data.units) {
       if (typeof data.units === 'string' && data.units !== units) {
@@ -58,26 +92,26 @@ export default class TidepoolDataTools {
       case 'deviceEvent':
         if (data.value) {
           _.assign(data, {
-            value: _.round(data.value * conversion, precision),
+            value: data.value * conversion,
           });
         }
         break;
       case 'wizard':
         if (data.bgInput) {
           _.assign(data, {
-            bgInput: _.round(data.bgInput * conversion, precision),
+            bgInput: data.bgInput * conversion,
           });
         }
         if (data.insulinSensitivity) {
           _.assign(data, {
-            insulinSensitivity: _.round(data.insulinSensitivity * conversion, precision),
+            insulinSensitivity: data.insulinSensitivity * conversion,
           });
         }
         if (data.bgTarget) {
           const bgTarget = _.cloneDeep(typeof data.bgTarget === 'string' ? JSON.parse(data.bgTarget) : data.bgTarget);
           _.assign(bgTarget, {
-            high: _.round(bgTarget.high * conversion, precision),
-            low: _.round(bgTarget.low * conversion, precision),
+            high: bgTarget.high * conversion,
+            low: bgTarget.low * conversion,
           });
           _.assign(data, {
             bgTarget: typeof data.bgTarget === 'string' ? JSON.stringify(bgTarget) : bgTarget,
@@ -89,8 +123,8 @@ export default class TidepoolDataTools {
           const bgTargets = _.cloneDeep(typeof data.bgTarget === 'string' ? JSON.parse(data.bgTarget) : data.bgTarget);
           for (let idx = 0; idx < bgTargets.length; idx++) {
             _.assign(bgTargets[idx], {
-              high: _.round(bgTargets[idx].high * conversion, precision),
-              low: _.round(bgTargets[idx].low * conversion, precision),
+              high: bgTargets[idx].high * conversion,
+              low: bgTargets[idx].low * conversion,
             });
           }
           _.assign(data, {
@@ -101,7 +135,7 @@ export default class TidepoolDataTools {
           const isfs = _.cloneDeep(typeof data.insulinSensitivity === 'string' ? JSON.parse(data.insulinSensitivity) : data.insulinSensitivity);
           for (let idx = 0; idx < isfs.length; idx++) {
             _.assign(isfs[idx], {
-              amount: _.round(isfs[idx].amount * conversion, precision),
+              amount: isfs[idx].amount * conversion,
             });
           }
           _.assign(data, {
@@ -132,6 +166,7 @@ export default class TidepoolDataTools {
       if (processorConfig.bgUnits) {
         this.normalizeBgData(data, processorConfig.bgUnits);
       }
+      this.convertDurations(data);
       // Return flattened layout mapped to all fields in the config
       return this.flatMap(data, this.allFields);
     });
@@ -148,9 +183,10 @@ export default class TidepoolDataTools {
     return es.through(
       (data) => {
         if (data.type) {
-          let sheet = wb.getWorksheet(data.type);
+          const sheetName = this.typeDisplayName(data.type);
+          let sheet = wb.getWorksheet(sheetName);
           if (_.isUndefined(sheet)) {
-            sheet = wb.addWorksheet(data.type, {
+            sheet = wb.addWorksheet(sheetName, {
               views: [{
                 state: 'frozen',
                 xSplit: 0,
@@ -161,16 +197,14 @@ export default class TidepoolDataTools {
             });
             try {
               sheet.columns = Object.keys(config[data.type].fields).map(field => ({
-                header: field,
+                header: this.fieldHeader(data.type, field),
                 key: field,
-                width: 22,
+                width: this.fieldWidth(data.type, field),
+                style: { numFmt: this.cellFormat(data.type, field) },
               }));
               sheet.getRow(1).font = {
                 bold: true,
               };
-              // FIXME: use the right columns
-              sheet.getColumn(1).numFmt = 'yyyy-mm-ddThh:mm:ss';
-              sheet.getColumn(2).numFmt = 'yyyy-mm-ddThh:mm:ss';
             } catch (e) {
               if (e instanceof TypeError) {
                 console.warn(`Warning: configuration ignores data type: '${data.type}'`);
@@ -215,7 +249,18 @@ TidepoolDataTools.cache = {
     .sort()
     .value(),
   fieldsToStringify: _.mapValues(
-    config, (item, key) => Object.keys(_.pickBy(config[key].fields, n => n.stringify)),
+    config, item => Object.keys(_.pickBy(item.fields, n => n.stringify)),
+  ),
+  typeDisplayName: _.mapValues(config, (item, key) => item.displayName || key),
+  fieldHeader: _.mapValues(
+    config, type => _.mapValues(type.fields,
+      (item, key) => item.header || _.chain(key).replace(/([A-Z])/g, ' $1').upperFirst().value()),
+  ),
+  fieldWidth: _.mapValues(
+    config, type => _.mapValues(type.fields, item => item.width || 22),
+  ),
+  cellFormat: _.mapValues(
+    config, type => _.mapValues(type.fields, item => item.cellFormat || undefined),
   ),
 };
 
@@ -252,8 +297,7 @@ function convert(command) {
     events.EventEmitter.defaultMaxListeners = 3;
     const processingStream = readStream
       .pipe(TidepoolDataTools.jsonParser())
-      .pipe(TidepoolDataTools.tidepoolProcessor({ bgUnits: 'mmol/L' }));
-      // .pipe(TidepoolDataTools.tidepoolProcessor({ bgUnits: 'mg/dL' }));
+      .pipe(TidepoolDataTools.tidepoolProcessor({ bgUnits: command.units }));
 
     events.EventEmitter.defaultMaxListeners += 1;
     processingStream
@@ -279,7 +323,7 @@ function convert(command) {
         fs.mkdirSync(outFilename);
       }
       Object.keys(config).forEach((key) => {
-        const csvStream2 = fs.createWriteStream(`${outFilename}/${key}.csv`);
+        const csvStream2 = fs.createWriteStream(`${outFilename}/${TidepoolDataTools.typeDisplayName(key)}.csv`);
         csvStream2.write(CSV.stringify(Object.keys(config[key].fields)));
         events.EventEmitter.defaultMaxListeners += 2;
         processingStream
@@ -326,6 +370,13 @@ if (require.main === module) {
     .description('Convert data between different formats')
     .option('-i, --input-tidepool-data <file>', 'csv, xlsx, or json file that contains Tidepool data')
     .option('-c, --config <file>', 'a JSON file that contains the field export configuration')
+    .option('-u, --units <units>', 'BG Units (mg/dL|mmol/L)', (value) => {
+      if (_.indexOf(['mmol/L', 'mg/dL'], value) < 0) {
+        console.error('Units must be "mg/dL" or "mmol/L"');
+        process.exit(1);
+      }
+      return value;
+    }, 'mmol/L')
     .option('--salt <salt>', 'salt used in the hashing algorithm', 'no salt specified')
     .option('-o, --output-data-path <path>', 'the path where the data is exported',
       path.join(__dirname, 'example-data', 'export'))

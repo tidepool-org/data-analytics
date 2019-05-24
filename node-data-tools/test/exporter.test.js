@@ -12,6 +12,13 @@ program
   .version('0.1.0')
   .option('-i, --input-data <file>', 'json file that contains Tidepool data')
   .option('-o, --output-data <file>', 'the file that was exported by the exporter')
+  .option('-u, --units <units>', 'BG Units (mg/dL|mmol/L)', (value) => {
+    if (_.indexOf(['mmol/L', 'mg/dL'], value) < 0) {
+      console.error('Units must be "mg/dL" or "mmol/L"');
+      process.exit(1);
+    }
+    return value;
+  }, 'mmol/L')
   .option('-v, --verbose', 'show differences between files')
   .parse(process.argv);
 
@@ -37,15 +44,16 @@ const wb = new Excel.Workbook();
 (async () => {
   const readFile = promisify(fs.readFile);
   const inputFile = await readFile(program.inputData, 'utf8');
+  const headingsToFields = _.mapValues(TidepoolDataTools.cache.fieldHeader, item => _.invert(item));
+  const sheetNameToType = _.invert(TidepoolDataTools.cache.typeDisplayName);
   const sortedInputData = _.sortBy(
     JSON.parse(inputFile),
     obj => obj.id + obj.type,
   );
-  // Normalize BG data
-  // FIXME: Handle mg/dL as well
   // eslint-disable-next-line no-restricted-syntax
   for (const data of sortedInputData) {
-    TidepoolDataTools.normalizeBgData(data, 'mmol/L');
+    TidepoolDataTools.normalizeBgData(data, program.units);
+    TidepoolDataTools.convertDurations(data);
     // Normalize `time` field (turn it into UTC)
     data.time = moment(data.time).utc().toISOString();
   }
@@ -53,15 +61,17 @@ const wb = new Excel.Workbook();
   await wb.xlsx.readFile(program.outputData);
   wb.eachSheet((worksheet) => {
     const headings = _.drop(worksheet.getRow(1).values);
+    const type = sheetNameToType[worksheet.name] || worksheet.name;
+    const fields = _.map(headings, value => headingsToFields[type][value] || value);
     worksheet.eachRow((row, rowNumber) => {
       // Skip the header
       if (rowNumber > 1) {
         let valueIdx = 1;
-        const data = unflatten(_.omitBy(_.reduce(headings, (object, key) => {
+        const data = unflatten(_.omitBy(_.reduce(fields, (object, key) => {
           let cellValue = row.values[valueIdx];
-          if (_.indexOf(['deviceTime', 'computerTime'], headings[valueIdx - 1]) >= 0) {
+          if (_.indexOf(['deviceTime', 'computerTime'], fields[valueIdx - 1]) >= 0) {
             cellValue = moment.utc(cellValue).format('YYYY-MM-DDTHH:mm:ss');
-          } else if (headings[valueIdx - 1] === 'time') {
+          } else if (fields[valueIdx - 1] === 'time') {
             // Normalize `time` field (turn it into UTC)
             cellValue = moment(cellValue).utc().toISOString();
           } else {
