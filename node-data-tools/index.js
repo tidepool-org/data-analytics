@@ -180,6 +180,20 @@ export default class TidepoolDataTools {
     };
     const wb = new Excel.stream.xlsx.WorkbookWriter(options);
 
+    // Create the error sheet first, and hide it.
+    // We create this up front, so that if the user experiences an error, this is the
+    // first sheet they see when they open the XLSX.
+    const errorSheet = wb.addWorksheet('EXPORT ERROR');
+    (async () => {
+      await errorSheet.addRow(['The Export took too long to complete. Please contact Tidepool Support.']).commit();
+      errorSheet.state = 'veryHidden';
+    })();
+
+    outStream.on('timeout', () => {
+      // Unhide the error sheet
+      errorSheet.state = 'visible';
+    });
+
     return es.through(
       (data) => {
         if (data.type) {
