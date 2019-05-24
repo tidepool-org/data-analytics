@@ -390,6 +390,8 @@ catColors = [
     '#dacbde','#d0b6d4','#c5a1ca','#ba8dc0','#af78b7','#a464ad','#984ea3'
 ]
 
+
+
 finalCategories = [
         'age 01-05 ylw 00', 'age 01-05 ylw 01', 'age 01-05 ylw 02',
         'age 01-05 ylw 03-05', 'age 06-08 ylw 00', 'age 06-08 ylw 01',
@@ -1260,3 +1262,268 @@ allAgeSummary.to_csv(
         figName + "-all-age-table.csv"
     )
 )
+
+# %% make a plot of TDD by ISF
+
+# Average ISF per day
+dayDF["isfRounded"] = dayDF['isf.weightedMean'].round(1)
+#field = 'isfRounded'
+#yLabel = "Insulin Sensitivity Factor (mg/dL/U)"
+#figName = "Insulin Sensitivity Factor"
+#yMin = 0
+#yMax = 400
+
+## Total Daily Dose
+#field = "totalAmountOfInsulin"
+#yLabel = "Total Daily Dose (U)"
+#figName = "Total Daily Dose"
+#yMin = 0
+#yMax = 125
+#filteredDF = dayDF[dayDF[field] > 0].copy()
+
+filteredDF = dayDF[((dayDF['isfRounded'] > 0) &
+                    (dayDF['totalAmountOfInsulin'] > 0))].copy()
+
+ylwColors = ["#ffffb2", '#fecc5c', '#fd8d3c', '#f03b20', '#bd0026']
+for f in filteredDF["ylwCategories"].unique():
+    if f == '00':
+        colorCode = 0
+    if f == '01':
+        colorCode = 1
+    if f == '02':
+        colorCode = 2
+    if f == '03-05':
+        colorCode = 3
+    else:
+        colorCode = 4
+
+    filteredDF.loc[filteredDF["ylwCategories"] == f, "ylwColor"] = ylwColors[colorCode]
+
+
+
+from scipy.optimize import curve_fit
+def func(x, a, b, c):
+    return (a * x + b) / (x - 10)
+
+import statsmodels.api as sm
+lowess = sm.nonparametric.lowess
+#a * np.exp(-b*x) + c * np.exp(-d * x)
+#y = a * np.exp(-b * x) + c
+#y = a * np.exp(b*x) + c * np.exp(d * x)
+
+xdata = filteredDF['totalAmountOfInsulin'].round()
+ydata = filteredDF['isfRounded']
+popt, pcov = curve_fit(func, xdata, ydata)
+
+
+x = np.arange(1, 500)
+c = pd.DataFrame(columns=["ISF", "TDD"])
+for xi in x:
+    if sum(filteredDF['isfRounded'] == xi) > 3:
+        c.loc[xi, "ISF"] = xi
+        c.loc[xi, "TDD"] = filteredDF.loc[
+            filteredDF['isfRounded'] == xi,
+            "totalAmountOfInsulin"].median()
+
+asdf2 = c.rolling(25, center=True).mean()
+plt.plot(asdf2["TDD"], asdf2["ISF"])
+
+x = np.arange(1, 300)
+d = pd.DataFrame(columns=["TDD", "ISF"])
+for xi in x:
+    if sum(filteredDF['totalAmountOfInsulin'].round() == xi) > 3:
+        d.loc[xi, "TDD"] = xi
+        d.loc[xi, "ISF"] = filteredDF.loc[
+            filteredDF['totalAmountOfInsulin'].round() == xi,
+            "isfRounded"].median()
+
+# then smooth out the medians
+asdf = d.rolling(10, center=True).mean()
+plt.plot(asdf["TDD"], asdf["ISF"])
+
+
+# try a different approach were we just do a smoothed line
+
+
+z = lowess(ydata, xdata)
+#>>> w = lowess(y, x, frac=1./3)
+plt.plot(z[:,0], z[:,1])
+
+plt.plot(
+    x,
+    func(x, *popt),
+    'r-',
+#    label='fit: a=%5.3f, b=%5.3f, c=%5.3f' % tuple(popt)
+)
+
+#df.sort_values("categories", inplace=True)
+
+traces = []
+traces.append(go.Scatter(
+        y=ydata,
+        x=xdata,
+        name="Scatter",
+        mode='markers',
+        marker=dict(
+            color=filteredDF["allColors"],
+            opacity=0.125,
+        ),
+))
+
+#traces.append(go.Scatter(
+#        y=z2[:,0],
+#        x=z2[:,1],
+#        mode='lines',
+#))
+#
+#traces.append(go.Scatter(
+#        y=z[:,1],
+#        x=z[:,0],
+#        mode='lines',
+#        line=dict(
+#            color="black",
+#        ),
+#))
+
+traces.append(go.Scatter(
+        y=asdf["ISF"],
+        x=asdf["TDD"],
+        mode='lines',
+        name="Trend by TDD",
+        line=dict(
+            color="black",
+            dash="dot",
+        ),
+))
+
+traces.append(go.Scatter(
+        y=asdf2["ISF"],
+        x=asdf2["TDD"],
+        mode='lines',
+        name="Trend by ISF",
+        line=dict(
+            color="black",
+            dash="dash",
+        ),
+))
+
+layout = go.Layout(
+    font=dict(
+        size=18
+    ),
+    xaxis=dict(
+        title="TDD",
+        dtick=20,
+        range=[0, 300],
+        showgrid=True,
+        gridcolor='#f1f3f4',
+        gridwidth=2,
+        zeroline=True,
+        zerolinecolor='#f1f3f4',
+        zerolinewidth=2,
+    ),
+    yaxis=dict(
+        title="ISF",
+        dtick=20,
+        range=[0, 500],
+        showgrid=True,
+        gridcolor='#f1f3f4',
+        gridwidth=2,
+        zeroline=True,
+        zerolinecolor='#f1f3f4',
+        zerolinewidth=2,
+    )
+)
+
+fig = go.Figure(data=traces, layout=layout)
+plot(fig)
+
+for yd in df.categories.unique():
+    traces.append(go.Box(
+        y=df.loc[df["categories"] == yd, field].values,
+        x=df.loc[df["categories"] == yd, "categories"].values,
+        name=yd,
+        boxpoints="all",
+        notched=True,
+        hoverlabel=dict(font=dict(size=22)),
+        marker=dict(
+            color=df.loc[df["categories"] == yd, "allColors"].describe()["top"],
+            opacity=0,
+        ),
+    ))
+
+layout = go.Layout(
+    font=dict(
+        size=22
+    ),
+    xaxis=dict(
+        tickangle=52.5
+    ),
+    yaxis=dict(
+        title=yLabel,
+        range=[yMin, yMax],
+        showgrid=True,
+        gridcolor='#f1f3f4',
+        gridwidth=2,
+        zeroline=True,
+        zerolinecolor='#f1f3f4',
+        zerolinewidth=2,
+    ),
+    margin=dict(
+        l=100,
+        r=200,
+        b=250,
+        t=50,
+    ),
+
+    boxmode='group',
+    showlegend=False,
+    legend=dict(font=dict(size=14))
+)
+
+fig = go.Figure(data=traces, layout=layout)
+
+save_fig(fig, figName + "-boxplot-lowRes", 1800, 1200, 1)
+save_fig(fig, figName + "-boxplot-highRes", 1800, 1200, 4)
+
+
+
+
+
+
+
+
+#filteredDF.plot.scatter(y="isfRounded", x="totalAmountOfInsulin", alpha=0.025)
+
+# %% make a plot of TDD by max temp basal rate
+maxBasal = pd.DataFrame(basal[basal["type"]=="basal"].groupby(["hashID", "day"])["rate"].max()).reset_index()
+
+maxBasal.rename(columns={"rate":"maxBasalRatePerDay"}, inplace=True)
+
+maxBasal = pd.merge(
+    maxBasal,
+    dayDF[[
+        "hashID",
+        "day",
+        "categories",
+        "allColors",
+        "totalAmountOfInsulin",
+        'basal.closedLoopDays'
+    ]],
+    how="left",
+    on=["hashID", "day"]
+)
+
+# remove nans in category as they represent data from days that did not meat the
+# acceptable day standard
+#maxBasal = maxBasal[maxBasal["categories"].notnull()]
+
+
+
+
+filteredDF = maxBasal[((maxBasal['totalAmountOfInsulin'] > 0) &
+                    (maxBasal['maxBasalRatePerDay'] > 0))].copy()
+
+
+filteredDF.plot.scatter(y="maxBasalRatePerDay", x="totalAmountOfInsulin", alpha=0.125)
+
