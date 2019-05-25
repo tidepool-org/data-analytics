@@ -20,6 +20,7 @@ if envPath not in sys.path:
     sys.path.insert(0, envPath)
 import environmentalVariables
 
+
 def login_api(auth):
     url1 = "https://api.tidepool.org/auth/login"
     myResponse = requests.post(url1, auth=auth)
@@ -35,14 +36,14 @@ def login_api(auth):
         print(auth[0], "ERROR", myResponse.status_code)
         sys.exit("Error with " + auth[0] + ":" + str(myResponse.status_code))
 
-    return xtoken, userid, headers
+    return xtoken, headers, userid
 
 def accept_new_donor(auth):
     nAccepted = 0
 #    url1 = "https://api.tidepool.org/auth/login"
     url3 = "https://api.tidepool.org/auth/logout"
 #    myResponse = requests.post(url1, auth=auth)
-    xtoken, userid, headers = login_api(auth)
+    xtoken, headers, userid = login_api(auth)
 
 #    if(myResponse.ok):
 #        xtoken = myResponse.headers["x-tidepool-session-token"]
@@ -94,39 +95,40 @@ def accept_new_donor(auth):
 
 
 def get_donor_list(auth):
-    url1 = "https://api.tidepool.org/auth/login"
+#    url1 = "https://api.tidepool.org/auth/login"
     url3 = "https://api.tidepool.org/auth/logout"
-    myResponse = requests.post(url1, auth=auth)
+#    myResponse = requests.post(url1, auth=auth)
 
-    if(myResponse.ok):
-        xtoken = myResponse.headers["x-tidepool-session-token"]
-        userid = json.loads(myResponse.content.decode())["userid"]
-        url2 = "https://api.tidepool.org/access/groups/" + userid
-        headers = {
-            "x-tidepool-session-token": xtoken,
-            "Content-Type": "application/json"
-        }
+#    if(myResponse.ok):
+#        xtoken = myResponse.headers["x-tidepool-session-token"]
+#        userid = json.loads(myResponse.content.decode())["userid"]
+    xtoken, headers, userid = login_api(auth)
+    url2 = "https://api.tidepool.org/access/groups/" + userid
+#        headers = {
+#            "x-tidepool-session-token": xtoken,
+#            "Content-Type": "application/json"
+#        }
 
-        myResponse2 = requests.get(url2, headers=headers)
-        if(myResponse2.ok):
+    myResponse2 = requests.get(url2, headers=headers)
+    if(myResponse2.ok):
 
-            donors_list = json.loads(myResponse2.content.decode())
-
-        else:
-            print(auth[0], "ERROR", myResponse2.status_code)
-            sys.exit("Error with API2 for " + auth[0] + ":" + str(myResponse2.status_code))
+        donors_list = json.loads(myResponse2.content.decode())
 
     else:
-        print(auth[0], "ERROR", myResponse.status_code)
-        sys.exit("Error with API1 for " + auth[0] + ":" + str(myResponse.status_code))
+        print(auth[0], "ERROR", myResponse2.status_code)
+        sys.exit("Error with API2 for " + auth[0] + ":" + str(myResponse2.status_code))
+
+#    else:
+#        print(auth[0], "ERROR", myResponse.status_code)
+#        sys.exit("Error with API1 for " + auth[0] + ":" + str(myResponse.status_code))
 
     myResponse3 = requests.post(url3, auth=auth)
 
-    responses = [myResponse, myResponse2, myResponse3]
+#    responses = [myResponse, myResponse2, myResponse3]
 
     df = pd.DataFrame(list(donors_list.keys()), columns=["userID"])
 
-    return df, responses
+    return df
 
 
 # create output folders
@@ -200,7 +202,7 @@ for donor_group in donor_groups:
 
     # get full donor list
     print("now getting full donor list...")
-    donors_df, api_response_donor = get_donor_list(
+    donors_df = get_donor_list(
         environmentalVariables.get_environmental_variables(dg)
     )
     donors_df["donorGroup"] = donor_group
@@ -251,7 +253,10 @@ if not os.path.exists(csv_path):
 
 
 donor_list = pd.read_csv(uniqueDonorPath, low_memory=False)
-url1 = "https://api.tidepool.org/auth/login"
+#url1 = "https://api.tidepool.org/auth/login"
+xtoken, headers, _ = login_api(
+    environmentalVariables.get_environmental_variables(dg)
+)
 url3 = "https://api.tidepool.org/auth/logout"
 
 meta_df = pd.DataFrame(
@@ -268,96 +273,97 @@ meta_df = pd.DataFrame(
     ]
 )
 
+
 for donor_group in donor_list["donorGroup"].unique():
     if donor_group == "bigdata":
         dg = ""
     else:
         dg = donor_group
 
-    response1 = requests.post(
-        url1,
-        auth=environmentalVariables.get_environmental_variables(dg)
-    )
-    if(response1.ok):
-        xtoken = response1.headers["x-tidepool-session-token"]
-        headers = {
-            "x-tidepool-session-token": xtoken,
-            "Content-Type": "application/json"
-        }
+#    response1 = requests.post(
+#        url1,
+#        auth=environmentalVariables.get_environmental_variables(dg)
+#    )
+#    if(response1.ok):
+#        xtoken = response1.headers["x-tidepool-session-token"]
+#        headers = {
+#            "x-tidepool-session-token": xtoken,
+#            "Content-Type": "application/json"
+#        }
 
-        for userid in donor_list.loc[donor_list["donorGroup"] == donor_group, "userID"]:
-            profile_api = "https://api.tidepool.org/metadata/%s/profile" % userid
-            responseP = requests.get(profile_api, headers=headers)
-            if(responseP.ok):
-                user_profile = json.loads(responseP.content.decode())
-                if "patient" in user_profile.keys():
-                    temp_df = pd.DataFrame.from_dict(
-                        user_profile["patient"],
-                        dtype=object,
-                        orient='index',
-                        columns=[userid]
-                    ).T
+    for userid in donor_list.loc[donor_list["donorGroup"] == donor_group, "userID"]:
+        profile_api = "https://api.tidepool.org/metadata/%s/profile" % userid
+        responseP = requests.get(profile_api, headers=headers)
+        if(responseP.ok):
+            user_profile = json.loads(responseP.content.decode())
+            if "patient" in user_profile.keys():
+                temp_df = pd.DataFrame.from_dict(
+                    user_profile["patient"],
+                    dtype=object,
+                    orient='index',
+                    columns=[userid]
+                ).T
 
-                    # get download json data
-                    endDate = pd.datetime.now()
-                    weeks_of_data=52*2
-                    years_of_data = int(np.floor(weeks_of_data/52))
-                    df = pd.DataFrame()
+                # get download json data
+                endDate = pd.datetime.now()
+                weeks_of_data=52*2
+                years_of_data = int(np.floor(weeks_of_data/52))
+                df = pd.DataFrame()
 
-                    gzip_csv_output_path = os.path.join(
-                        csv_path,
-                        "PHI-" + userid + ".gz"
+                gzip_csv_output_path = os.path.join(
+                    csv_path,
+                    "PHI-" + userid + ".gz"
+                )
+
+                for years in range(0, years_of_data + 1):
+
+                    startDate = endDate - pd.Timedelta(365, unit="d")
+
+                    url2 = (
+                        "https://api.tidepool.org/data/" + userid + "?" +
+                        "endDate=" + endDate.strftime("%Y-%m-%d") + "T23:59:59.000Z" + "&" +
+                        "startDate=" + startDate.strftime("%Y-%m-%d") + "T00:00:00.000Z" + "&" +
+                        "dexcom=true" + "&" +
+                        "medtronic=true" + "&" +
+                        "carelink=true"
                     )
 
-                    for years in range(0, years_of_data + 1):
-
-                        startDate = endDate - pd.Timedelta(365, unit="d")
-
-                        url2 = (
-                            "https://api.tidepool.org/data/" + userid + "?" +
-                            "endDate=" + endDate.strftime("%Y-%m-%d") + "T23:59:59.000Z" + "&" +
-                            "startDate=" + startDate.strftime("%Y-%m-%d") + "T00:00:00.000Z" + "&" +
-                            "dexcom=true" + "&" +
-                            "medtronic=true" + "&" +
-                            "carelink=true"
+                    myResponse2 = requests.get(url2, headers=headers)
+                    if(myResponse2.ok):
+                        json_data = json.loads(myResponse2.content.decode())
+                        year_df = pd.DataFrame(json_data)
+                        df = pd.concat(
+                            [df, year_df],
+                            ignore_index=True,
+                            sort=False
                         )
 
-                        myResponse2 = requests.get(url2, headers=headers)
-                        if(myResponse2.ok):
-                            json_data = json.loads(myResponse2.content.decode())
-                            year_df = pd.DataFrame(json_data)
-                            df = pd.concat(
-                                [df, year_df],
-                                ignore_index=True,
-                                sort=False
-                            )
-
-                        else:
-                            print("ERROR in getting data for year ", years, myResponse2.status_code)
-
-                        endDate = startDate - pd.Timedelta(1, unit="d")
-                    df_size = len(df)
-
-                    if df_size > 0:
-                        df.to_csv(gzip_csv_output_path, index_label=False, compression="gzip")
-                        meta_df["nCols"] = df_size
                     else:
-                        meta_df["nCols"] = 0
-                    meta_df = pd.concat([meta_df, temp_df], sort=False)
+                        print("ERROR in getting data for year ", years, myResponse2.status_code)
 
-                    print("done with", userid,"data size is", df_size)
-            else:
-                print("ERROR in metadata API ", responseP.status_code)
-    else:
-        print("ERROR in getting token ", response1.status_code)
-        response2 = np.nan
+                    endDate = startDate - pd.Timedelta(1, unit="d")
+                df_size = len(df)
 
-    response3 = requests.post(
-        url3,
-        auth=environmentalVariables.get_environmental_variables(dg)
-    )
-    print("done with donor group", donor_group)
-    print("here are the responses", response1, responseP, response3)
+                if df_size > 0:
+                    df.to_csv(gzip_csv_output_path, index_label=False, compression="gzip")
+                    meta_df["nCols"] = df_size
+                else:
+                    meta_df["nCols"] = 0
+                meta_df = pd.concat([meta_df, temp_df], sort=False)
+
+                print("done with", userid,"data size is", df_size)
+        else:
+            print("ERROR in metadata API ", responseP.status_code)
+else:
+    print("ERROR in getting token ", response1.status_code)
+    response2 = np.nan
+
+response3 = requests.post(
+    url3,
+    auth=environmentalVariables.get_environmental_variables(dg)
+)
+print("done with donor group", donor_group)
+print("here are the responses", response1, responseP, response3)
 
 # add the meta data to the donor data
 meta_df.reset_index(inplace=True)
