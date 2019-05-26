@@ -117,15 +117,28 @@ def get_metadata_api(userid, headers):
     print("get donor metadata for %s ..." % userid)
     api_call = "https://api.tidepool.org/metadata/%s/profile" % userid
     api_response = requests.get(api_call, headers=headers)
+    df = pd.DataFrame(
+        dtype=object,
+        columns=[
+            "diagnosisType",
+            "diagnosisDate",
+            "biologicalSex",
+            "birthday",
+            "targetTimezone",
+            "targetDevices",
+            "isOtherPerson",
+            "about"
+        ]
+    )
+
     if(api_response.ok):
         user_profile = json.loads(api_response.content.decode())
         if "patient" in user_profile.keys():
-            df = pd.DataFrame.from_dict(
-                user_profile["patient"],
-                dtype=object,
-                orient='index',
-                columns=[userid]
-            ).T
+            for k, d in zip(
+                user_profile["patient"].keys(),
+                user_profile["patient"].values()
+            ):
+                df.at[userid, k] = d
     else:
         sys.exit(
             "Error getting metadata API " +
