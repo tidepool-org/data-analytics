@@ -103,6 +103,7 @@
     }
   },
   "pumpSettings.basalSchedules": {
+    "transform": "<% return _.mapValues(data, (v, k) => k === 'basalSchedule' ? _.merge(v, { start: new Date(v.start) }) : v) %>",
     "displayName": "Basal Schedules",
     "fields": {
       "time": { "header": "Zulu Time", "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
@@ -111,7 +112,7 @@
       "type": { "header": "Tidepool Data Type", "width": 15 },
       "activeSchedule": {},
       "scheduleName": {},
-      "basalSchedule.start": {},
+      "basalSchedule.start": { "cellFormat": "[$-x-systime]h:mm am/pm" },
       "basalSchedule.rate": {},
       "timezoneOffset": { "width": 14 },
       "conversionOffset": { "width": 14 },
@@ -128,6 +129,7 @@
     }
   },
   "pumpSettings.bgTarget": {
+    "transform": "<% return _.mapValues(data, (v, k) => k === 'bgTarget' ? _.merge(v, { start: new Date(v.start) }) : v) %>",
     "displayName": "BG Targets",
     "fields": {
       "time": { "header": "Zulu Time", "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
@@ -135,7 +137,7 @@
       "deviceTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
       "type": { "header": "Tidepool Data Type", "width": 15 },
       "activeSchedule": {},
-      "bgTarget.start": { "header": "BG Target Start" },
+      "bgTarget.start": { "header": "BG Target Start", "cellFormat": "[$-x-systime]h:mm am/pm" },
       "bgTarget.low": { "header": "BG Low Target Setting", "cellFormat": "<%= obj['units.bg'] === 'mmol/L' ? '0.0': '0' %>" },
       "bgTarget.high": { "header": "BG High Target Setting", "cellFormat": "<%= obj['units.bg'] === 'mmol/L' ? '0.0': '0' %>" },
       "bgTarget.target": { "header": "BG Target Setting", "cellFormat": "<%= obj['units.bg'] === 'mmol/L' ? '0.0': '0' %>" },
@@ -156,6 +158,7 @@
     }
   },
   "pumpSettings.carbRatio": {
+    "transform": "<% return _.mapValues(data, (v, k) => k === 'carbRatio' ? _.merge(v, { start: new Date(v.start) }) : v) %>",
     "displayName": "Carb Ratios",
     "fields": {
       "time": { "header": "Zulu Time", "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
@@ -163,7 +166,7 @@
       "deviceTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
       "type": { "header": "Tidepool Data Type", "width": 15 },
       "activeSchedule": {},
-      "carbRatio.start": {},
+      "carbRatio.start": { "cellFormat": "[$-x-systime]h:mm am/pm" },
       "carbRatio.amount": {},
       "units.carb": { "header": "Units" },
       "timezoneOffset": { "width": 14 },
@@ -181,6 +184,7 @@
     }
   },
   "pumpSettings.insulinSensitivity": {
+    "transform": "<% return _.mapValues(data, (v, k) => k === 'insulinSensitivity' ? _.merge(v, { start: new Date(v.start) }) : v) %>",
     "displayName": "Insulin Sensitivities",
     "fields": {
       "time": { "header": "Zulu Time", "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
@@ -188,7 +192,7 @@
       "deviceTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
       "type": { "header": "Tidepool Data Type", "width": 15 },
       "activeSchedule": {},
-      "insulinSensitivity.start": {},
+      "insulinSensitivity.start": { "cellFormat": "[$-x-systime]h:mm am/pm" },
       "insulinSensitivity.amount": { "cellFormat": "<%= obj['units.bg'] === 'mmol/L' ? '0.0': '0' %>" },
       "timezoneOffset": { "width": 14 },
       "conversionOffset": { "width": 14 },
