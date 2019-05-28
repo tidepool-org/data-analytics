@@ -60,6 +60,10 @@ const wb = new Excel.Workbook();
 
   await wb.xlsx.readFile(program.outputData);
   wb.eachSheet((worksheet) => {
+    // Ignore the "EXPORT ERROR" sheet
+    if (worksheet.name === 'EXPORT ERROR') {
+      return;
+    }
     const headings = _.drop(worksheet.getRow(1).values);
     const type = sheetNameToType[worksheet.name] || worksheet.name;
     const fields = _.map(headings, value => headingsToFields[type][value] || value);

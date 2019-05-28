@@ -2,6 +2,7 @@
   "basal": {
     "fields": {
       "time": { "header": "Zulu Time", "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
+      "localTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
       "deviceTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
       "type": { "header": "Tidepool Data Type", "width": 15 },
       "deliveryType": {},
@@ -31,6 +32,7 @@
   "bloodKetone": {
     "fields": {
       "time": { "header": "Zulu Time", "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
+      "localTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
       "deviceTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
       "type": { "header": "Tidepool Data Type", "width": 15 },
       "value": { "cellFormat": "0.00", "width": 10 },
@@ -50,9 +52,10 @@
     }
   },
   "cbg": {
-    "displayName": "cgm",
+    "displayName": "CGM",
     "fields": {
       "time": { "header": "Zulu Time", "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
+      "localTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
       "deviceTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
       "type": { "header": "Tidepool Data Type", "width": 15 },
       "value": { "cellFormat": "0.0", "width": 10 },
@@ -74,23 +77,118 @@
   "pumpSettings": {
     "fields": {
       "time": { "header": "Zulu Time", "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
+      "localTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
       "deviceTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
       "type": { "header": "Tidepool Data Type", "width": 15 },
       "activeSchedule": {},
-      "bgTarget": {
-        "stringify": true
-      },
+      "bgTarget": {},
       "units.carb": {},
       "units.bg": {},
-      "carbRatio": {
+      "carbRatio": {},
+      "insulinSensitivity": {},
+      "basalSchedules": {},
+      "timezoneOffset": { "width": 14 },
+      "conversionOffset": { "width": 14 },
+      "clockDriftOffset": { "width": 14 },
+      "deviceId": {},
+      "id": {},
+      "uploadId": {},
+      "payload": {
         "stringify": true
       },
-      "insulinSensitivity": {
+      "annotations": {
+        "stringify": true
+      }
+    }
+  },
+  "pumpSettings.basalSchedules": {
+    "displayName": "Basal Schedules",
+    "fields": {
+      "time": { "header": "Zulu Time", "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
+      "localTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
+      "deviceTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
+      "type": { "header": "Tidepool Data Type", "width": 15 },
+      "activeSchedule": {},
+      "scheduleName": {},
+      "basalSchedule.start": {},
+      "basalSchedule.rate": {},
+      "timezoneOffset": { "width": 14 },
+      "conversionOffset": { "width": 14 },
+      "clockDriftOffset": { "width": 14 },
+      "deviceId": {},
+      "id": {},
+      "uploadId": {},
+      "payload": {
         "stringify": true
       },
-      "basalSchedules": {
+      "annotations": {
+        "stringify": true
+      }
+    }
+  },
+  "pumpSettings.bgTarget": {
+    "displayName": "BG Targets",
+    "fields": {
+      "time": { "header": "Zulu Time", "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
+      "localTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
+      "deviceTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
+      "type": { "header": "Tidepool Data Type", "width": 15 },
+      "activeSchedule": {},
+      "bgTarget.start": { "header": "BG Target Start" },
+      "bgTarget.low": { "header": "BG Low Target Setting", "cellFormat": "0.0" },
+      "bgTarget.high": { "header": "BG High Target Setting", "cellFormat": "0.0" },
+      "bgTarget.target": { "header": "BG Target Setting", "cellFormat": "0.0" },
+      "bgTarget.range": { "header": "BG Target Range Setting", "cellFormat": "0.0" },
+      "units.bg": { "header": "Units" },
+      "timezoneOffset": { "width": 14 },
+      "conversionOffset": { "width": 14 },
+      "clockDriftOffset": { "width": 14 },
+      "deviceId": {},
+      "id": {},
+      "uploadId": {},
+      "payload": {
         "stringify": true
       },
+      "annotations": {
+        "stringify": true
+      }
+    }
+  },
+  "pumpSettings.carbRatio": {
+    "displayName": "Carb Ratios",
+    "fields": {
+      "time": { "header": "Zulu Time", "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
+      "localTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
+      "deviceTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
+      "type": { "header": "Tidepool Data Type", "width": 15 },
+      "activeSchedule": {},
+      "carbRatio.start": {},
+      "carbRatio.amount": {},
+      "units.carb": { "header": "Units" },
+      "timezoneOffset": { "width": 14 },
+      "conversionOffset": { "width": 14 },
+      "clockDriftOffset": { "width": 14 },
+      "deviceId": {},
+      "id": {},
+      "uploadId": {},
+      "payload": {
+        "stringify": true
+      },
+      "annotations": {
+        "stringify": true
+      }
+    }
+  },
+  "pumpSettings.insulinSensitivity": {
+    "displayName": "Insulin Sensitivities",
+    "fields": {
+      "time": { "header": "Zulu Time", "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
+      "localTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
+      "deviceTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
+      "type": { "header": "Tidepool Data Type", "width": 15 },
+      "activeSchedule": {},
+      "insulinSensitivity.start": {},
+      "insulinSensitivity.amount": { "cellFormat": "0.0" },
       "timezoneOffset": { "width": 14 },
       "conversionOffset": { "width": 14 },
       "clockDriftOffset": { "width": 14 },
@@ -106,8 +204,10 @@
     }
   },
   "smbg": {
+    "displayName": "SMBG",
     "fields": {
       "time": { "header": "Zulu Time", "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
+      "localTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
       "deviceTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
       "type": { "header": "Tidepool Data Type", "width": 15 },
       "subType": {},
@@ -128,8 +228,10 @@
     }
   },
   "wizard": {
+    "displayName": "Bolus Calculator",
     "fields": {
       "time": { "header": "Zulu Time", "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
+      "localTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
       "deviceTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
       "type": { "header": "Tidepool Wizard Type", "width": 15 },
       "bgInput": { "cellFormat": "0.0" },
@@ -161,6 +263,7 @@
   "food": {
     "fields": {
       "time": { "header": "Zulu Time", "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
+      "localTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
       "deviceTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
       "type": { "header": "Tidepool Data Type", "width": 15 },
       "nutrition": {
@@ -183,6 +286,7 @@
   "physicalActivity": {
     "fields": {
       "time": { "header": "Zulu Time", "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
+      "localTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
       "deviceTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
       "type": { "header": "Tidepool Data Type", "width": 15 },
       "name": {},
@@ -212,6 +316,7 @@
   "bolus": {
     "fields": {
       "time": { "header": "Zulu Time", "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
+      "localTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
       "deviceTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
       "type": { "header": "Tidepool Data Type", "width": 15 },
       "subType": {},
@@ -234,6 +339,7 @@
   "deviceEvent": {
     "fields": {
       "time": { "header": "Zulu Time", "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
+      "localTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
       "deviceTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
       "type": { "header": "Tidepool Data Type", "width": 15 },
       "subType": {},
@@ -265,6 +371,7 @@
   "upload": {
     "fields": {
       "time": { "header": "Zulu Time", "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
+      "localTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
       "computerTime": { "cellFormat": "yyyy-mm-dd hh:mm:ss", "width": 18 },
       "timezone": {},
       "timeProcessing": {},

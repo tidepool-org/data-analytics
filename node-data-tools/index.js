@@ -51,6 +51,14 @@ export default class TidepoolDataTools {
     );
   }
 
+  static addLocalTime(data) {
+    const localTime = new Date(data.time);
+    localTime.setUTCMinutes(localTime.getUTCMinutes() + data.timezoneOffset);
+    _.assign(data, {
+      localTime,
+    });
+  }
+
   static convertDurations(data) {
     switch (data.type) {
       case 'basal':
@@ -72,11 +80,12 @@ export default class TidepoolDataTools {
   }
 
   static normalizeBgData(data, units) {
+    // TODO: conversion should be done with config and a mapping function
     let conversion = 1;
     if (units === 'mg/dL') {
       conversion = MMOL_TO_MGDL;
     }
-    if (data.units) {
+    if (data.units && data.type !== 'bloodKetone') {
       if (typeof data.units === 'string' && data.units !== units) {
         _.assign(data, {
           units,
@@ -92,29 +101,54 @@ export default class TidepoolDataTools {
       case 'deviceEvent':
         if (data.value) {
           _.assign(data, {
-            value: data.value * conversion,
+            value: data.value * conversion || '',
           });
         }
         break;
       case 'wizard':
         if (data.bgInput) {
           _.assign(data, {
-            bgInput: data.bgInput * conversion,
+            bgInput: data.bgInput * conversion || '',
           });
         }
         if (data.insulinSensitivity) {
           _.assign(data, {
-            insulinSensitivity: data.insulinSensitivity * conversion,
+            insulinSensitivity: data.insulinSensitivity * conversion || '',
           });
         }
         if (data.bgTarget) {
           const bgTarget = _.cloneDeep(typeof data.bgTarget === 'string' ? JSON.parse(data.bgTarget) : data.bgTarget);
           _.assign(bgTarget, {
-            high: bgTarget.high * conversion,
-            low: bgTarget.low * conversion,
+            high: bgTarget.high * conversion || '',
+            low: bgTarget.low * conversion || '',
           });
           _.assign(data, {
             bgTarget: typeof data.bgTarget === 'string' ? JSON.stringify(bgTarget) : bgTarget,
+          });
+        }
+        break;
+      case 'pumpSettings.bgTarget':
+        if (data.bgTarget) {
+          const bgTarget = _.cloneDeep(typeof data.bgTarget === 'string' ? JSON.parse(data.bgTarget) : data.bgTarget);
+          _.assign(bgTarget, {
+            high: bgTarget.high * conversion || '',
+            low: bgTarget.low * conversion || '',
+            target: bgTarget.target * conversion || '',
+            range: bgTarget.range * conversion || '',
+          });
+          _.assign(data, {
+            bgTarget: typeof data.bgTarget === 'string' ? JSON.stringify(bgTarget) : bgTarget,
+          });
+        }
+        break;
+      case 'pumpSettings.insulinSensitivity':
+        if (data.insulinSensitivity) {
+          const isf = _.cloneDeep(typeof data.insulinSensitivity === 'string' ? JSON.parse(data.insulinSensitivity) : data.insulinSensitivity);
+          _.assign(isf, {
+            amount: isf.amount * conversion || '',
+          });
+          _.assign(data, {
+            insulinSensitivity: typeof data.insulinSensitivity === 'string' ? JSON.stringify(isf) : isf,
           });
         }
         break;
@@ -123,8 +157,8 @@ export default class TidepoolDataTools {
           const bgTargets = _.cloneDeep(typeof data.bgTarget === 'string' ? JSON.parse(data.bgTarget) : data.bgTarget);
           for (let idx = 0; idx < bgTargets.length; idx++) {
             _.assign(bgTargets[idx], {
-              high: bgTargets[idx].high * conversion,
-              low: bgTargets[idx].low * conversion,
+              high: bgTargets[idx].high * conversion || '',
+              low: bgTargets[idx].low * conversion || '',
             });
           }
           _.assign(data, {
@@ -135,7 +169,7 @@ export default class TidepoolDataTools {
           const isfs = _.cloneDeep(typeof data.insulinSensitivity === 'string' ? JSON.parse(data.insulinSensitivity) : data.insulinSensitivity);
           for (let idx = 0; idx < isfs.length; idx++) {
             _.assign(isfs[idx], {
-              amount: isfs[idx].amount * conversion,
+              amount: isfs[idx].amount * conversion || '',
             });
           }
           _.assign(data, {
@@ -146,6 +180,50 @@ export default class TidepoolDataTools {
       default:
         break;
     }
+  }
+
+  static splitPumpSettingsData() {
+    return es.through(
+      function write(data) {
+        if (data.type === 'pumpSettings') {
+          this.pause();
+          const commonFields = _.omit(data, ['basalSchedules', 'bgTarget', 'carbRatio', 'insulinSensitivity', 'units']);
+          /* eslint-disable no-restricted-syntax */
+          for (const scheduleName of _.keys(data.basalSchedules)) {
+            for (const basalSchedule of data.basalSchedules[scheduleName]) {
+              const emitData = _.assign(
+                { scheduleName, basalSchedule },
+                commonFields,
+              );
+              emitData.type = 'pumpSettings.basalSchedules';
+              this.emit('data', emitData);
+            }
+          }
+          for (const bgTarget of data.bgTarget) {
+            const emitData = _.assign({ bgTarget, units: data.units }, commonFields);
+            emitData.type = 'pumpSettings.bgTarget';
+            this.emit('data', emitData);
+          }
+          for (const carbRatio of data.carbRatio) {
+            const emitData = _.assign({ carbRatio, units: data.units }, commonFields);
+            emitData.type = 'pumpSettings.carbRatio';
+            this.emit('data', emitData);
+          }
+          for (const insulinSensitivity of data.insulinSensitivity) {
+            const emitData = _.assign({ insulinSensitivity }, commonFields);
+            emitData.type = 'pumpSettings.insulinSensitivity';
+            this.emit('data', emitData);
+          }
+          /* eslint-enable no-restricted-syntax */
+          this.resume();
+        } else {
+          this.emit('data', data);
+        }
+      },
+      function end() {
+        this.emit('end');
+      },
+    );
   }
 
   static flatMap(data, toFields) {
@@ -160,6 +238,8 @@ export default class TidepoolDataTools {
 
   static tidepoolProcessor(processorConfig = {}) {
     return es.mapSync((data) => {
+      // Synthesize the 'localTime' field
+      this.addLocalTime(data);
       // Stringify objects configured with { "stringify": true }
       this.stringifyFields(data);
       // Convert BGL data to mg/dL if configured to do so
@@ -185,7 +265,7 @@ export default class TidepoolDataTools {
     // first sheet they see when they open the XLSX.
     const errorSheet = wb.addWorksheet('EXPORT ERROR');
     (async () => {
-      await errorSheet.addRow(['The Export took too long to complete. Please contact Tidepool Support.']).commit();
+      await errorSheet.addRow(['The Export tool took too long to complete. Please send an email to support@tidepool.org and we\'ll help you out.']).commit();
       errorSheet.state = 'veryHidden';
     })();
 
@@ -198,6 +278,10 @@ export default class TidepoolDataTools {
       (data) => {
         if (data.type) {
           const sheetName = this.typeDisplayName(data.type);
+          if (_.isUndefined(sheetName)) {
+            console.warn(`Warning: configuration ignores data type: '${data.type}'`);
+            return;
+          }
           let sheet = wb.getWorksheet(sheetName);
           if (_.isUndefined(sheet)) {
             sheet = wb.addWorksheet(sheetName, {
@@ -209,23 +293,15 @@ export default class TidepoolDataTools {
                 activeCell: 'A2',
               }],
             });
-            try {
-              sheet.columns = Object.keys(config[data.type].fields).map(field => ({
-                header: this.fieldHeader(data.type, field),
-                key: field,
-                width: this.fieldWidth(data.type, field),
-                style: { numFmt: this.cellFormat(data.type, field) },
-              }));
-              sheet.getRow(1).font = {
-                bold: true,
-              };
-            } catch (e) {
-              if (e instanceof TypeError) {
-                console.warn(`Warning: configuration ignores data type: '${data.type}'`);
-              } else {
-                throw e;
-              }
-            }
+            sheet.columns = Object.keys(config[data.type].fields).map(field => ({
+              header: this.fieldHeader(data.type, field),
+              key: field,
+              width: this.fieldWidth(data.type, field),
+              style: { numFmt: this.cellFormat(data.type, field) },
+            }));
+            sheet.getRow(1).font = {
+              bold: true,
+            };
           }
           // Convert timestamps to Excel Dates
           if (data.time) {
@@ -245,7 +321,7 @@ export default class TidepoolDataTools {
           }
           sheet.addRow(data).commit();
         } else {
-          console.warn(`Invalid data type specified: '${JSON.stringify(data)}'`);
+          console.warn(`No data type specified: '${JSON.stringify(data)}Invalid'`);
         }
       },
       async function end() {
@@ -265,10 +341,11 @@ TidepoolDataTools.cache = {
   fieldsToStringify: _.mapValues(
     config, item => Object.keys(_.pickBy(item.fields, n => n.stringify)),
   ),
-  typeDisplayName: _.mapValues(config, (item, key) => item.displayName || key),
+  typeDisplayName: _.mapValues(config, (item, key) => item.displayName || _.chain(key).replace(/([A-Z])/g, ' $1').startCase().value()),
   fieldHeader: _.mapValues(
     config, type => _.mapValues(type.fields,
-      (item, key) => item.header || _.chain(key).replace(/([A-Z])/g, ' $1').upperFirst().value()),
+      (item, key) => item.header || _.chain(key).replace(/([A-Z])/g, ' $1').replace('.', ' ').startCase()
+        .value()),
   ),
   fieldWidth: _.mapValues(
     config, type => _.mapValues(type.fields, item => item.width || 22),
@@ -311,6 +388,7 @@ function convert(command) {
     events.EventEmitter.defaultMaxListeners = 3;
     const processingStream = readStream
       .pipe(TidepoolDataTools.jsonParser())
+      .pipe(TidepoolDataTools.splitPumpSettingsData())
       .pipe(TidepoolDataTools.tidepoolProcessor({ bgUnits: command.units }));
 
     events.EventEmitter.defaultMaxListeners += 1;
