@@ -29,8 +29,14 @@ export default class TidepoolDataTools {
     return this.cache.fieldWidth[type][field];
   }
 
-  static cellFormat(type, field) {
-    return this.cache.cellFormat[type][field];
+  static cellFormat(type, field, data = {}) {
+    try {
+      return _.template(this.cache.cellFormat[type][field])(data);
+    } catch (err) {
+      console.error(`Error in cellFormat with data: ${JSON.stringify(data)}`);
+      console.error(`Template processing error: ${err}`);
+      return '';
+    }
   }
 
   static fieldsToStringify(type) {
@@ -59,23 +65,15 @@ export default class TidepoolDataTools {
     });
   }
 
-  static convertDurations(data) {
-    switch (data.type) {
-      case 'basal':
-      case 'deviceEvent':
-        if (data.duration) {
-          _.assign(data, {
-            duration: moment.duration(data.duration).asMinutes(),
-          });
-        }
-        if (data.expectedDuration) {
-          _.assign(data, {
-            expectedDuration: moment.duration(data.expectedDuration).asMinutes(),
-          });
-        }
-        break;
-      default:
-        break;
+  static transformData(data, options = {}) {
+    const transformFunction = this.cache.transformData[data.type];
+    if (transformFunction) {
+      try {
+        _.assign(data, transformFunction({ data, options }));
+      } catch (err) {
+        console.error(`Error in transformData with data: ${JSON.stringify(data)}`);
+        console.error(`Template processing error: ${err}`);
+      }
     }
   }
 
@@ -87,12 +85,10 @@ export default class TidepoolDataTools {
     }
     if (data.units && data.type !== 'bloodKetone') {
       if (typeof data.units === 'string' && data.units !== units) {
-        _.assign(data, {
-          units,
-        });
+        _.set(data, 'units', units);
       }
-      if (typeof data.units === 'object' && data.units.bg && data.units.bg === units) {
-        _.assign(data.units.bg, units);
+      if (typeof data.units === 'object' && data.units.bg && data.units.bg !== units) {
+        _.set(data, 'units.bg', units);
       }
     }
     switch (data.type) {
@@ -210,7 +206,7 @@ export default class TidepoolDataTools {
             this.emit('data', emitData);
           }
           for (const insulinSensitivity of data.insulinSensitivity) {
-            const emitData = _.assign({ insulinSensitivity }, commonFields);
+            const emitData = _.assign({ insulinSensitivity, units: data.units }, commonFields);
             emitData.type = 'pumpSettings.insulinSensitivity';
             this.emit('data', emitData);
           }
@@ -246,7 +242,7 @@ export default class TidepoolDataTools {
       if (processorConfig.bgUnits) {
         this.normalizeBgData(data, processorConfig.bgUnits);
       }
-      this.convertDurations(data);
+      this.transformData(data, processorConfig);
       // Return flattened layout mapped to all fields in the config
       return this.flatMap(data, this.allFields);
     });
@@ -297,7 +293,7 @@ export default class TidepoolDataTools {
               header: this.fieldHeader(data.type, field),
               key: field,
               width: this.fieldWidth(data.type, field),
-              style: { numFmt: this.cellFormat(data.type, field) },
+              style: { numFmt: this.cellFormat(data.type, field, data) },
             }));
             sheet.getRow(1).font = {
               bold: true,
@@ -353,6 +349,8 @@ TidepoolDataTools.cache = {
   cellFormat: _.mapValues(
     config, type => _.mapValues(type.fields, item => item.cellFormat || undefined),
   ),
+  transformData:
+    _.mapValues(config, item => (item.transform ? _.template(item.transform) : undefined)),
 };
 
 function convert(command) {
