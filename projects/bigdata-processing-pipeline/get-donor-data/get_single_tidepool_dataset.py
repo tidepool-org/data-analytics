@@ -221,12 +221,6 @@ def get_data(
             pd.to_datetime(endDate) - pd.Timedelta(weeks_of_data*7, "d")
         )
 
-#        pd.datetime(
-#            endDate.year,
-#            endDate.month,
-#            endDate.day - int(weeks_of_data*7)
-#            )
-
         df, _ = get_data_api(
             userid_of_shared_user,
             startDate,
