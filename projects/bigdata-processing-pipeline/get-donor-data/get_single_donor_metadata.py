@@ -202,30 +202,50 @@ def get_shared_metadata(
 
 
 # %% START OF CODE
-# create output folders if they don't exist
-date_stamp = args.date_stamp
-phi_date_stamp = "PHI-" + date_stamp
-donor_folder = os.path.join(args.data_path, phi_date_stamp + "-donor-data")
-
-metadata_path = os.path.join(
-    donor_folder,
-    phi_date_stamp + "-metadata"
-)
-make_folder_if_doesnt_exist(metadata_path)
-
-# get metadata
-meta_df, userid = get_shared_metadata(
+def get_and_save_metadata(
+    date_stamp=args.date_stamp,
+    data_path=args.data_path,
     donor_group=args.donor_group,
     userid_of_shared_user=args.userid_of_shared_user,
     auth=args.auth,
     email=args.email,
     password=args.password
-)
+):
+    # create output folders if they don't exist
+    phi_date_stamp = "PHI-" + date_stamp
+    donor_folder = os.path.join(data_path, phi_date_stamp + "-donor-data")
 
-# save data
-meta_output_path = os.path.join(
-    metadata_path,
-    userid + ".csv"
-)
+    metadata_path = os.path.join(
+        donor_folder,
+        phi_date_stamp + "-metadata"
+    )
+    make_folder_if_doesnt_exist(metadata_path)
 
-meta_df.to_csv(meta_output_path)
+    # get metadata
+    meta_df, userid = get_shared_metadata(
+        donor_group=donor_group,
+        userid_of_shared_user=userid_of_shared_user,
+        auth=auth,
+        email=email,
+        password=password
+    )
+
+    # save data
+    meta_output_path = os.path.join(
+        metadata_path,
+        userid + ".csv"
+    )
+
+    meta_df.to_csv(meta_output_path)
+
+
+if __name__ == "__main__":
+    get_and_save_metadata(
+        date_stamp=args.date_stamp,
+        data_path=args.data_path,
+        donor_group=args.donor_group,
+        userid_of_shared_user=args.userid_of_shared_user,
+        auth=args.auth,
+        email=args.email,
+        password=args.password
+    )
