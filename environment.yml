@@ -11,12 +11,13 @@ dependencies:
 - xlsxwriter
 - matplotlib
 - scikit-learn
+- pip
 - plotly
-- r
-- r-essentials
+- plotly::plotly-orca
+- poppler
+- psutil
 - pytest
 - pytest-cov
 
 - pip:
   - python-dotenv
-  - -e git+https://github.com/tidepool-org/data-analytics#egg=tidals\&subdirectory=tidepool-analysis-tools

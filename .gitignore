@@ -21,9 +21,16 @@ work-record-archive
 export
 internal
 data
+figures
+isf-basal-figures
+fonts
+wip
+projects/parsers/output/
 
 # Test
 htmlcov
 .pytest_cache
 
 
+
+projects/get-donors-pump-settings/temp-plot\.html
