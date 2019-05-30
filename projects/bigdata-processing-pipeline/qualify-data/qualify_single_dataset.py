@@ -9,6 +9,7 @@ qualify donor data
 import os
 import argparse
 import json
+import ast
 import pandas as pd
 import datetime as dt
 import numpy as np
@@ -64,7 +65,7 @@ parser.add_argument(
     "-s",
     "--save-dayStats",
     dest="save_dayStats",
-    default=False,
+    default="False",
     help="save the day stats used for qualifying (True/False)"
 )
 
@@ -735,7 +736,7 @@ if os.path.exists(file_path):
                 # % SAVE RESULTS
                 tier = metadata[qualCriteria["tierAbbr"] + ".topTier"].values[0]
                 contiguousData.index.name = "dayIndex"
-                if args.save_dayStats:
+                if ast.literal_eval(args.save_dayStats):
                     contiguousData.to_csv(
                         os.path.join(dayStats_path, userid + ".csv")
                     )
