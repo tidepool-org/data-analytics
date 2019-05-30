@@ -60,7 +60,7 @@ def qualify_data(userid):
         [
              "python", qualify_path,
              "-d", args.date_stamp,
-             "-u", "PHI-" + userid,
+             "-u", userid,
              "-o", args.data_path
          ],
         stdout=sub.PIPE,
