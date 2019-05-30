@@ -8,6 +8,8 @@ import datetime as dt
 import os
 import argparse
 import time
+import json
+import glob
 import subprocess as sub
 import pandas as pd
 from multiprocessing import Pool
@@ -38,12 +40,25 @@ parser.add_argument(
     help="the output path where the data is stored"
 )
 
+parser.add_argument("-q",
+                    "--qualification-criteria",
+                    dest="qualification_criteria",
+                    default=os.path.abspath(
+                        os.path.join(
+                        os.path.dirname(__file__),
+                        "tidepool-qualification-criteria.json")
+                    ),
+                    type=argparse.FileType('r'),
+                    help="JSON file to be processed, see " +
+                         "tidepool-qualification-critier.json " +
+                         "for a list of required fields")
+
 parser.add_argument(
     "-s",
-    "--save-donor-list",
-    dest="save_donor_list",
-    default=True,
-    help="specify if you want to save the donor list (True/False)"
+    "--save-dayStats",
+    dest="save_dayStats",
+    default="False",
+    help="save the day stats used for qualifying (True/False)"
 )
 
 args = parser.parse_args()
@@ -61,6 +76,8 @@ def qualify_data(userid):
              "python", qualify_path,
              "-d", args.date_stamp,
              "-u", userid,
+#             "-q", args.qualification_criteria,
+             "-s", args.save_dayStats,
              "-o", args.data_path
          ],
         stdout=sub.PIPE,
@@ -89,6 +106,15 @@ uniqueDonorList_path = os.path.join(
     phi_date_stamp + "-uniqueDonorList.csv"
 )
 
+qualCriteria = json.load(args.qualification_criteria)
+qualCriteria_df = pd.DataFrame(qualCriteria)
+qualifiedOn = dt.datetime.now().strftime("%Y-%m-%d")
+
+qualify_path = os.path.join(
+    donor_folder,
+    args.date_stamp + "-qualified-by-" + qualCriteria["name"] + "-criteria"
+)
+
 final_donor_list = pd.read_csv(uniqueDonorList_path, low_memory=False)
 
 # use multiple cores to process
@@ -102,3 +128,21 @@ endTime = time.time()
 print("finshed at " + dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 total_duration = round((endTime - startTime) / 60, 1)
 print("total duration was %s minutes" % total_duration)
+
+# save all metadata
+all_metadata = pd.DataFrame()
+metadata_path = os.path.join(qualify_path, "metadata")
+
+all_files = glob.glob(os.path.join(metadata_path, "*.csv"))
+for f in all_files:
+    temp_meta = pd.read_csv(f)
+    temp_meta.rename(columns={"Unnamed: 0":"userid"}, inplace=True)
+    all_metadata = pd.concat(
+        [all_metadata, temp_meta],
+        ignore_index=True,
+        sort=False
+    )
+
+all_metadata.to_csv(
+    os.path.join(donor_folder, phi_date_stamp + "-qualification-metadata.csv")
+)
