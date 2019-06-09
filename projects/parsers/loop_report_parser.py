@@ -48,8 +48,8 @@ class Sections:
     GET_NORMALIZED_DOSE_ENTRIES = "get_normalized_dose_entries"
     CACHED_DOSE_ENTRIES = "cached_dose_entries"
     STATUS_EXTENSION_DATA_MANAGER = "status_extension_data_manager"
-    INTEGRAL_RETROSPECTIVE_CORRECTION = "IntegralRetrospectiveCorrection"
-    G4_CGM_MANAGER = "G4CGMManager"
+    INTEGRAL_RETROSPECTIVE_CORRECTION = "integral_retrospective_correction"
+    G4_CGM_MANAGER = "g4_cgm_manager"
 
     """ 
         #not sure this one is used

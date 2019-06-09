@@ -7,7 +7,7 @@ dependencies: loop_report_parser.py
 license: BSD-2-Clause
 """
 
-from  loop_report_parser import parse_loop_report, Sections
+from loop_report_parser import parse_loop_report, Sections
 import os
 import re
 import json
@@ -535,7 +535,7 @@ class LoopReport:
                     loop_report_dict["override_units"] = override_units
 
                 except Exception as e:
-                    logger.debug("preMeal is not in loop data")
+                    logger.debug("override_units is not in loop data")
                     logger.debug(e)
 
 
@@ -1358,6 +1358,24 @@ class LoopReport:
             except Exception as e:
                 logger.debug("handled error CACHED_GLUCOSE_SAMPLES")
                 logger.debug(e)
+
+        if Sections.G4_CGM_MANAGER in dict:
+            try:
+                local_list = dict[Sections.G4_CGM_MANAGER]
+                # todo: implemement parser
+
+            except Exception as e:
+                logger.debug("handled error G4_CGM_MANAGER")
+                logger.debug(e)
+
+        if Sections.INTEGRAL_RETROSPECTIVE_CORRECTION in dict:
+            try:
+                local_list = dict[Sections.INTEGRAL_RETROSPECTIVE_CORRECTION]
+                #todo: implemement parser
+            except Exception as e:
+                logger.debug("handled error G4_CGM_MANAGER")
+                logger.debug(e)
+
 
         return loop_report_dict
 
