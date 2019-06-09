@@ -16,6 +16,34 @@ sensorInfo: Optional(CGMBLEKit.Glucose(glucoseMessage: CGMBLEKit.GlucoseSubMessa
 latestReading: Optional(CGMBLEKit.Glucose(glucoseMessage: CGMBLEKit.GlucoseSubMessage(timestamp: 2596408, glucoseIsDisplayOnly: false, glucose: 85, state: 6, trend: -1), timeMessage: CGMBLEKit.TransmitterTimeRxMessage(status: 0, currentTime: 2596413, sessionStartTime: 1820222), transmitterID: "00AA0A", status: CGMBLEKit.TransmitterStatus.ok, sessionStartDate: 2019-01-19 15:39:54 +0000, lastCalibration: nil, readDate: 2019-01-28 15:16:20 +0000))
 transmitter: Optional(CGMBLEKit.Transmitter)
 providesBLEHeartbeat: true
+
+## G4CGMManager
+shareManager: ## ShareClientManager
+latestBackfill: nil
+
+latestReading: Optional(G4ShareSpy.GlucoseG4(sequence: 335096, glucose: 75, isDisplayOnly: false, trend: 4, time: 2019-01-14 22:21:27 +0000, wallTime: 2019-01-14 23:20:12 +0000, systemTime: 316739656))
+receiver: G4ShareSpy.Receiver
+providesBLEHeartbeat: true
+
+## IntegralRetrospectiveCorrection
+
+Enabled: true
+Last updated: 2019-01-14 22:22:41 +0000
+Status: effect computed successfully.
+currentDiscrepancyGain: 1.0
+persistentDiscrepancyGain: 5.0
+correctionTimeConstant [min]: 90.0
+proportionalGain: 0.7714890209590539
+integralForget: 0.9459594689067654
+integralGain: 0.22851097904094608
+differentialGain: 2.0
+Integration performed over 2 most recent discrepancies having the same sign as the latest discrepancy value. Earliest-to-most-recent recentDiscrepancyValues [mg/dL]: [-2.4322013873640103, -13.183917919339311]
+proportionalCorrection [mg/dL]: -10.171247927995612
+integralCorrection [mg/dL]: -3.5384198101391116
+differentialCorrection [mg/dL]: -21.503433063950602
+totalGlucoseCorrectionEffect: Optional(-35.2131 mg/dL)
+integralCorrectionEffectDuration [min]: Optional(70.0)
+
 ## DexCGMManager
 shareManager: Optional(## ShareClientManager
 latestBackfill: Optional(ShareClient.ShareGlucose(glucose: 98, trend: 5, timestamp: 2018-12-13 21:55:17 +0000))

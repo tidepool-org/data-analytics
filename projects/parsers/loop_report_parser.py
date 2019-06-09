@@ -48,6 +48,8 @@ class Sections:
     GET_NORMALIZED_DOSE_ENTRIES = "get_normalized_dose_entries"
     CACHED_DOSE_ENTRIES = "cached_dose_entries"
     STATUS_EXTENSION_DATA_MANAGER = "status_extension_data_manager"
+    INTEGRAL_RETROSPECTIVE_CORRECTION = "IntegralRetrospectiveCorrection"
+    G4_CGM_MANAGER = "G4CGMManager"
 
     """ 
         #not sure this one is used
@@ -321,6 +323,18 @@ def parse_loop_report(path: str, file_name: str):
                     g6_cgm_manager = {}
                     current_section = "g6_cgm_manager"
                     all_sections["g6_cgm_manager"] = g6_cgm_manager
+                    new_line = False
+
+                elif line.startswith("## G4CGMManager"):
+                    g4_cgm_manager = {}
+                    current_section = "g4_cgm_manager"
+                    all_sections["g4_cgm_manager"] = g4_cgm_manager
+                    new_line = False
+
+                elif line.startswith("## IntegralRetrospectiveCorrection"):
+                    integral_retrospective_correction = {}
+                    current_section = "integral_retrospective_correction"
+                    all_sections["integral_retrospective_correction"] = integral_retrospective_correction
                     new_line = False
 
                 elif line.startswith("## ShareClientManager"):

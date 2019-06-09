@@ -7,7 +7,7 @@ dependencies: loop_report_parser.py
 license: BSD-2-Clause
 """
 
-from loop_report_parser import parse_loop_report, Sections
+from  loop_report_parser import parse_loop_report, Sections
 import os
 import re
 import json
@@ -517,6 +517,27 @@ class LoopReport:
                 except Exception as e:
                     logger.debug("preMeal is not in loop data")
                     logger.debug(e)
+
+
+                try:
+                    unit = substr.index("unit")
+
+                    start_index = unit + 8
+                    end_index = start_index
+                    check = ""
+
+                    while check != '"':
+                        end_index += 1
+                        check = substr[end_index]
+
+                    override_units = substr[start_index : end_index]
+
+                    loop_report_dict["override_units"] = override_units
+
+                except Exception as e:
+                    logger.debug("preMeal is not in loop data")
+                    logger.debug(e)
+
 
             except Exception as e:
                 logger.debug("handled error loop data manager")
