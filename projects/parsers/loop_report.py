@@ -1361,8 +1361,59 @@ class LoopReport:
 
         if Sections.G4_CGM_MANAGER in dict:
             try:
-                local_list = dict[Sections.G4_CGM_MANAGER]
-                # todo: implemement parser
+
+                temp_dict = dict[Sections.G4_CGM_MANAGER]
+                dictionary_complete = {}
+                cgmblekit = temp_dict["latestReading"]
+                if "receiver" in temp_dict:
+                    dictionary_complete["receiver"] = temp_dict["receiver"]
+
+                if "providesBLEHeartbeat" in temp_dict:
+                    dictionary_complete["providesBLEHeartbeat"] = temp_dict["providesBLEHeartbeat"]
+
+                if "latestBackfill" in temp_dict:
+                    dictionary_complete["latestBackfill"] = temp_dict["latestBackfill"]
+
+                latestReading_dict = temp_dict["latestReading"]
+                latestReading_dict = latestReading_dict.replace(
+                    "Optional(G4ShareSpy.GlucoseG4(",
+                    "",
+                )
+                latestReading_dict = latestReading_dict.replace("))", "")
+                split_list = latestReading_dict.split(",")
+                dictionary = {}
+                latestReading = {}
+                for item in split_list:
+                    item = item.replace(")", "")
+                    keyvalue = item.split(":")
+                    m = keyvalue[0].strip("'")
+                    m = m.replace('"', "").strip()
+                    dictionary[m] = keyvalue[1].strip("\"'")
+
+                if "sequence" in dictionary:
+                    latestReading["sequence"] = dictionary["sequence"]
+
+                if "glucose" in dictionary:
+                    latestReading["glucose"] = dictionary["glucose"]
+
+                if "isDisplayOnly" in dictionary:
+                    latestReading["isDisplayOnly"] = dictionary["isDisplayOnly"]
+
+                if "trend" in dictionary:
+                    latestReading["trend"] = dictionary["trend"]
+
+                if "time" in dictionary:
+                    latestReading["time"] = dictionary["time"]
+
+                if "wallTime" in dictionary:
+                    latestReading["wallTime"] = dictionary["wallTime"]
+
+                if "systemTime" in dictionary:
+                    latestReading["systemTime"] = dictionary["systemTime"]
+
+                dictionary_complete["latestReading"] = latestReading
+
+                loop_report_dict["g4_cgm_manager"] = dictionary_complete
 
             except Exception as e:
                 logger.debug("handled error G4_CGM_MANAGER")
