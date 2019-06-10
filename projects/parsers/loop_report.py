@@ -1361,10 +1361,8 @@ class LoopReport:
 
         if Sections.G4_CGM_MANAGER in dict:
             try:
-
                 temp_dict = dict[Sections.G4_CGM_MANAGER]
                 dictionary_complete = {}
-                cgmblekit = temp_dict["latestReading"]
                 if "receiver" in temp_dict:
                     dictionary_complete["receiver"] = temp_dict["receiver"]
 
@@ -1422,7 +1420,7 @@ class LoopReport:
         if Sections.INTEGRAL_RETROSPECTIVE_CORRECTION in dict:
             try:
                 local_list = dict[Sections.INTEGRAL_RETROSPECTIVE_CORRECTION]
-                #todo: implemement parser
+                loop_report_dict["integral_retrospective_correction"] = local_list
             except Exception as e:
                 logger.debug("handled error G4_CGM_MANAGER")
                 logger.debug(e)
