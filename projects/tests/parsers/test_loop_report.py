@@ -59,7 +59,6 @@ def test_parse_by_file():
     assert loop_dict["override_range_premeal_maximum"] == 80.0
     assert loop_dict["override_units"] == 'mg/dL'
 
-
     assert (
         loop_dict["retrospective_glucose_discrepancies_summed"]
         == get_retrospective_glucose_discrepancies_summed()
