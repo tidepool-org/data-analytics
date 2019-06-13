@@ -235,7 +235,7 @@ def accept_and_get_list(args):
     total_donors = len(set(unique_donors["userID"]) - set(accounts_to_ignore))
 
     final_donor_list = pd.DataFrame(
-        set(unique_donors["userID"]) - set(accounts_to_ignore),
+        list(set(unique_donors["userID"]) - set(accounts_to_ignore)),
         columns=["userID"]
     )
 
