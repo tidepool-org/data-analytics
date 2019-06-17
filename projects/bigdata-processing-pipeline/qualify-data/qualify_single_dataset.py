@@ -710,8 +710,11 @@ if os.path.exists(file_path):
 
             # fill in nan's with 0s
             for dataType in ["bolus", "cgm", "calculator", "basal.temp"]:
-                contiguousData[dataType + ".count"] = \
-                    contiguousData[dataType + ".count"].fillna(0)
+                dataType = dataType + ".count"
+
+                if dataType in list(contiguousData):
+                    contiguousData[dataType] = \
+                        contiguousData[dataType].fillna(0)
 
             if ((len(contiguousData) > 0) &
                (sum(contiguousData["cgm.count"] > 0) > 0) &
