@@ -263,6 +263,7 @@ def getListOfDexcomCGMDays(df):
         df["dexcomCGM"] = df.deviceId.str.contains("|".join(searchfor))
         percentDexcomCGM = df.dexcomCGM.sum() / totalCgms * 100
     else:
+        df["dexcomCGM"] = False
         percentDexcomCGM = 0
         print("no deviceId associated with cgm data")
     return df, percentDexcomCGM
