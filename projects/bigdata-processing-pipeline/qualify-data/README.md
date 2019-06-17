@@ -1,7 +1,6 @@
 # qualify-data
 Python code for qualifying donated data.
 
-Here are the list of python files and their usage:
 * **tidepool-qualification-criteria.json**
   * A set of criteria are used as follows:
     * **"name"** _(string)_ - Used in the naming of metadata and files (default: "Tidepool")
