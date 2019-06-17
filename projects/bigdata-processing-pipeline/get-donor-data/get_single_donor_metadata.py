@@ -233,7 +233,7 @@ def get_and_save_metadata(
     # save data
     meta_output_path = os.path.join(
         metadata_path,
-        userid + ".csv"
+        'PHI-' + userid + ".csv"
     )
 
     meta_df.to_csv(meta_output_path)
