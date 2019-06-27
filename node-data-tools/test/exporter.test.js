@@ -53,7 +53,6 @@ const wb = new Excel.Workbook();
   // eslint-disable-next-line no-restricted-syntax
   for (const data of sortedInputData) {
     TidepoolDataTools.normalizeBgData(data, program.units);
-    TidepoolDataTools.convertDurations(data);
     // Normalize `time` field (turn it into UTC)
     data.time = moment(data.time).utc().toISOString();
   }
