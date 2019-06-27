@@ -101,7 +101,6 @@ const wb = new Excel.Workbook();
 
   if (sortedInputData.length !== sortedOutputData.length) {
     console.log('Number of input and output records don\'t match!');
-    process.exit(1);
   }
 
   for (let i = 0; i < sortedInputData.length; i++) {
