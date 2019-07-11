@@ -1,11 +1,15 @@
 # Environments
 .env
+
 # Jupyter Notebook
 .ipynb_checkpoints
+
 # R Environment
 .RHistory
+
 # Python
 __pycache__
+
 # Distribution / packaging
 build
 dist
@@ -17,3 +21,9 @@ work-record-archive
 export
 internal
 data
+
+# Test
+htmlcov
+.pytest_cache
+
+
