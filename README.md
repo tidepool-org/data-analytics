@@ -1,5 +1,5 @@
 # data-analytics
-Welcome to the Tidepool Data Analytics Respository. This is the home
+Welcome to the Tidepool Data Analytics Repository. This is the home
 for the code we use to download, clean, and analyze data for the Tidepool
 Big Data Donation project.
 
