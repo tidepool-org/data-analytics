@@ -111,6 +111,127 @@ uniqueDonorPath = os.path.join(donorFolder,
 
 
 # %% define functions
+def get_data_from_api(
+    email=np.nan,
+    password=np.nan,
+    weeks_of_data=4,
+    userid_of_shared_user=np.nan,
+):
+
+    if pd.isnull(email):
+        email=input("Enter Tidepool email address:\n")
+
+    if pd.isnull(password):
+        password=getpass.getpass("Enter password:\n")
+
+    df = pd.DataFrame()
+    url1 = "https://api.tidepool.org/auth/login"
+    url3 = "https://api.tidepool.org/auth/logout"
+
+    myResponse = requests.post(url1, auth=(email, password))
+
+    if(myResponse.ok):
+        xtoken = myResponse.headers["x-tidepool-session-token"]
+
+        if pd.isnull(userid_of_shared_user):
+            userid = json.loads(myResponse.content.decode())["userid"]
+        else:
+            userid = userid_of_shared_user
+
+        endDate = pd.datetime.now()
+
+        if weeks_of_data > 52:
+            years_of_data = np.floor(weeks_of_data)
+            for years in range(1, years_of_data + 1):
+                startDate = endDate - pd.Timedelta(365, unit="d")
+
+                url2 = "https://api.tidepool.org/data/" + userid + \
+                    "?endDate=" + endDate.strftime("%Y-%m-%d") + \
+                    "T23:59:59.000Z&startDate=" + \
+                    startDate.strftime("%Y-%m-%d") + "T00:00:00.000Z"
+
+                headers = {
+                    "x-tidepool-session-token": xtoken,
+                    "Content-Type": "application/json"
+                    }
+
+                myResponse2 = requests.get(url2, headers=headers)
+                if(myResponse2.ok):
+
+                    usersData = json.loads(myResponse2.content.decode())
+                    tempDF = pd.DataFrame(usersData)
+                    df = pd.concat([df, tempDF], ignore_index=True)
+
+                else:
+                    print("ERROR in year ", years, myResponse2.status_code)
+
+                endDate = startDate - pd.Timedelta(1, unit="d")
+
+        else:
+            startDate = endDate - pd.Timedelta(weeks_of_data*7, unit="d")
+            url2 = "https://api.tidepool.org/data/" + userid + \
+                "?endDate=" + endDate.strftime("%Y-%m-%d") + \
+                "T23:59:59.000Z&startDate=" + \
+                startDate.strftime("%Y-%m-%d") + "T00:00:00.000Z"
+
+            headers = {
+                "x-tidepool-session-token": xtoken,
+                "Content-Type": "application/json"
+                }
+
+            myResponse2 = requests.get(url2, headers=headers)
+            if(myResponse2.ok):
+                usersData = json.loads(myResponse2.content.decode())
+                df = pd.DataFrame(usersData)
+            else:
+                print("ERROR in getting data ", years, myResponse2.status_code)
+    else:
+        print("ERROR in getting token ", myResponse.status_code)
+        myResponse2 = np.nan
+
+    myResponse3 = requests.post(url3, auth=(email, password))
+
+    responses = [myResponse, myResponse2, myResponse3]
+
+    return df, responses
+
+
+
+
+
+
+def get_donor_list(email, password):
+    donorMetaData = pd.DataFrame(columns=["userID"])
+    url1 = "https://api.tidepool.org/auth/login"
+    myResponse = requests.post(url1, auth=(email, password))
+
+    if(myResponse.ok):
+        xtoken = myResponse.headers["x-tidepool-session-token"]
+        userid = json.loads(myResponse.content.decode())["userid"]
+        url2 = "https://api.tidepool.org/access/groups/" + userid
+        headers = {
+            "x-tidepool-session-token": xtoken,
+            "Content-Type": "application/json"
+        }
+
+        myResponse2 = requests.get(url2, headers=headers)
+        if(myResponse2.ok):
+
+            donors_list = json.loads(myResponse2.content.decode())
+
+        else:
+            print(email, "ERROR", myResponse2.status_code)
+            sys.exit("Error with API2 for " + email + ":" + str(myResponse2.status_code))
+    else:
+        print(email, "ERROR", myResponse.status_code)
+        sys.exit("Error with API1 for " + email + ":" + str(myResponse.status_code))
+
+    return pd.DataFrame(list(donors_list.keys()), columns=["userID"])
+
+
+
+
+
 def get_donor_info(email, password, donorMetadataColumns):
     donorMetaData = pd.DataFrame(columns=donorMetadataColumns)
     url1 = "https://api.tidepool.org/auth/login"
@@ -178,12 +299,18 @@ def get_donor_info(email, password, donorMetadataColumns):
                                      ignore_index=True)
         else:
             print(donorGroup, "ERROR", myResponse2.status_code)
-            sys.exit("Error with" + donorGroup + ":" + str(myResponse2.status_code))
+            sys.exit("Error with 2nd API call" + donorGroup + ":" + str(myResponse2.status_code))
     else:
         print(donorGroup, "ERROR", myResponse.status_code)
-        sys.exit("Error with" + donorGroup + ":" + str(myResponse.status_code))
+        sys.exit("Error with 1st API call" + donorGroup + ":" + str(myResponse.status_code))
 
     return donorMetaData
+
+
+data, responses = get_data_from_api(
+    email="bigdata@tidepool.org",
+    password=environmentalVariables.get_environmental_variables("")
+)
 
 
 # %% loop through each donor group to get a list of donors, bdays, and ddays

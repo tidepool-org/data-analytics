@@ -12,11 +12,9 @@ dependencies:
 - matplotlib
 - scikit-learn
 - plotly
-- r
-- r-essentials
+- pip
 - pytest
 - pytest-cov
 
 - pip:
   - python-dotenv
-  - -e git+https://github.com/tidepool-org/data-analytics#egg=tidals\&subdirectory=tidepool-analysis-tools
