@@ -6,11 +6,14 @@ and then pulls of their datasets for further processing.
 
 # %% REQUIRED LIBRARIES
 from accept_new_donors_and_get_donor_list import accept_and_get_list
-from get_single_donor_metadata import get_and_save_metadata
-from get_single_tidepool_dataset import get_and_save_dataset
 import datetime as dt
+import pandas as pd
+import subprocess as sub
 import os
+import glob
+import time
 import argparse
+from multiprocessing import Pool
 
 
 # %% USER INPUTS (choices to be made in order to run the code)
@@ -49,23 +52,88 @@ parser.add_argument(
 args = parser.parse_args()
 
 
-# %%% REQUIRED LIBRARIES
+# %% FUNCTIONS
+def run_process(func_name, userid, donor_group):
+    func_path = os.path.join(".", func_name)
+
+    p = sub.Popen(
+        [
+             "python", func_path,
+             "-d", args.date_stamp,
+             "-dg", donor_group,
+             "-u", userid,
+             "-o", args.data_path
+         ],
+        stdout=sub.PIPE,
+        stderr=sub.PIPE
+    )
+
+    output, errors = p.communicate()
+    output = output.decode("utf-8")
+    errors = errors.decode("utf-8")
+
+    if errors == '':
+        print(output)
+    else:
+        print(errors)
+
+    return
+
+
+def get_all_data(userid, donor_group):
+
+    run_process("get_single_donor_metadata.py", userid, donor_group)
+    run_process("get_single_tidepool_dataset.py", userid, donor_group)
+
+    return
+
+
+# %% GET LATEST DONOR LIST
 final_donor_list = accept_and_get_list(args)
 
-for userid, donor_group in zip(
+
+# %% GET DONOR META DATA AND DATASETS
+# use multiple cores to process
+startTime = time.time()
+print("starting at " + dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+pool = Pool(os.cpu_count())
+pool.starmap(get_all_data, zip(
     final_donor_list["userID"],
     final_donor_list["donorGroup"]
-):
-    get_and_save_metadata(
-        date_stamp=args.date_stamp,
-        data_path=args.data_path,
-        donor_group=donor_group,
-        userid_of_shared_user=userid
+))
+pool.close()
+endTime = time.time()
+print(
+  "finshed pulling data at " + dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+)
+total_duration = round((endTime - startTime) / 60, 1)
+print("total duration was %s minutes" % total_duration)
+
+
+# %% COMBINE AND SAVE ALL DONOR METADATA
+print("combining all metadata")
+phi_date_stamp = "PHI-" + args.date_stamp
+donor_folder = os.path.join(args.data_path, phi_date_stamp + "-donor-data")
+
+metadata_path = os.path.join(
+    args.data_path,
+    "PHI-" + "2019-07-13" + "-donor-data",
+    "PHI-" + "2019-07-13" + "-metadata"
+
+)
+
+all_files = glob.glob(os.path.join(metadata_path, "*.csv"))
+all_metadata = pd.DataFrame()
+for f in all_files:
+    temp_meta = pd.read_csv(f)
+    temp_meta.rename(columns={"Unnamed: 0": "userid"}, inplace=True)
+    all_metadata = pd.concat(
+        [all_metadata, temp_meta],
+        ignore_index=True,
+        sort=False
     )
 
-    get_and_save_dataset(
-        date_stamp=args.date_stamp,
-        data_path=args.data_path,
-        donor_group=donor_group,
-        userid_of_shared_user=userid
-    )
+all_metadata.to_csv(
+    os.path.join(donor_folder, phi_date_stamp + "-donor-metadata.csv")
+)
+print("saving metadata...code complete")
