@@ -56,7 +56,7 @@ parser.add_argument(
 parser.add_argument(
     "-u",
     "--userid",
-    dest="userid_of_shared_user",
+    dest="userid",
     default=np.nan,
     help="userid of account shared with the donor group or master account"
 )
@@ -111,6 +111,55 @@ def make_folder_if_doesnt_exist(folder_paths):
     return
 
 
+def create_output_folder(
+        data_path=args.data_path,
+        date_stamp=args.date_stamp,
+        folder_name="not-specified",
+        phi=True
+):
+    if phi:
+        date_stamp = "PHI-" + date_stamp
+    donor_folder = os.path.join(data_path, date_stamp + "-donor-data")
+    dataset_path = os.path.join(
+        donor_folder,
+        date_stamp + "-" + folder_name
+    )
+    make_folder_if_doesnt_exist(dataset_path)
+
+    return dataset_path
+
+
+def save_df(
+        df,
+        userid=args.userid,
+        data_path=args.data_path,
+        date_stamp=args.date_stamp,
+        folder_name="not-specified",
+        phi=True
+):
+
+    output_folder = create_output_folder(
+        data_path=data_path,
+        date_stamp=date_stamp,
+        folder_name=folder_name,
+        phi=phi
+    )
+
+    # if the data contains phi, add prefix to the file
+    if phi:
+        phi_prefix = 'PHI-'
+    else:
+        phi_prefix = ''
+    output_path = os.path.join(
+        output_folder,
+        phi_prefix + userid + "-dataSummary.csv.gz"
+    )
+
+    df.to_csv(output_path)
+
+    return output_path
+
+
 def get_data_api(userid, startDate, endDate, headers):
 
     startDate = startDate.strftime("%Y-%m-%d") + "T00:00:00.000Z"
@@ -145,7 +194,7 @@ def get_data_api(userid, startDate, endDate, headers):
 def get_data(
     weeks_of_data=10*52,
     donor_group=np.nan,
-    userid_of_shared_user=np.nan,
+    userid=np.nan,
     auth=np.nan,
     email=np.nan,
     password=np.nan,
@@ -180,8 +229,8 @@ def get_data(
     else:
         sys.exit("Error with " + auth[0] + ":" + str(api_response.status_code))
 
-    if pd.isnull(userid_of_shared_user):
-        userid_of_shared_user = userid_master
+    if pd.isnull(userid):
+        userid = userid_master
         print(
             "getting data for the master account since no shared " +
             "user account was given"
@@ -204,7 +253,7 @@ def get_data(
                 endDate.day + 1
             )
             year_df, endDate = get_data_api(
-                userid_of_shared_user,
+                userid,
                 startDate,
                 endDate,
                 headers
@@ -222,7 +271,7 @@ def get_data(
         )
 
         df, _ = get_data_api(
-            userid_of_shared_user,
+            userid,
             startDate,
             endDate,
             headers
@@ -241,7 +290,7 @@ def get_data(
             auth[0] + ":" + str(api_response.status_code)
         )
 
-    return df, userid_of_shared_user
+    return df, userid
 
 
 # %% START OF CODE
@@ -250,39 +299,31 @@ def get_and_save_dataset(
     data_path=args.data_path,
     weeks_of_data=args.weeks_of_data,
     donor_group=args.donor_group,
-    userid_of_shared_user=args.userid_of_shared_user,
+    userid=args.userid,
     auth=args.auth,
     email=args.email,
     password=args.password
 ):
-    # create output folders if they don't exist
-
-    phi_date_stamp = "PHI-" + date_stamp
-    donor_folder = os.path.join(data_path, phi_date_stamp + "-donor-data")
-
-    dataset_path = os.path.join(
-        donor_folder,
-        phi_date_stamp + "-csvData"
-    )
-    make_folder_if_doesnt_exist(dataset_path)
 
     # get dataset
     data, userid = get_data(
         weeks_of_data=weeks_of_data,
         donor_group=donor_group,
-        userid_of_shared_user=userid_of_shared_user,
+        userid=userid,
         auth=auth,
         email=email,
         password=password
     )
 
     # save data
-    dataset_output_path = os.path.join(
-        dataset_path,
-        'PHI-' + userid + ".csv"
+    _ = save_df(
+            data,
+            userid=userid,
+            data_path=data_path,
+            date_stamp=date_stamp,
+            folder_name="csvData",
+            phi=True
     )
-
-    data.to_csv(dataset_output_path)
 
 
 if __name__ == "__main__":
@@ -291,7 +332,7 @@ if __name__ == "__main__":
         data_path=args.data_path,
         weeks_of_data=args.weeks_of_data,
         donor_group=args.donor_group,
-        userid_of_shared_user=args.userid_of_shared_user,
+        userid=args.userid,
         auth=args.auth,
         email=args.email,
         password=args.password
