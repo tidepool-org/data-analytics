@@ -117,12 +117,11 @@ donor_folder = os.path.join(args.data_path, phi_date_stamp + "-donor-data")
 
 metadata_path = os.path.join(
     args.data_path,
-    "PHI-" + "2019-07-13" + "-donor-data",
-    "PHI-" + "2019-07-13" + "-metadata"
-
+    phi_date_stamp + "-donor-data",
+    phi_date_stamp + "-metadata"
 )
 
-all_files = glob.glob(os.path.join(metadata_path, "*.csv"))
+all_files = glob.glob(os.path.join(metadata_path, "*.csv.gz"))
 all_metadata = pd.DataFrame()
 for f in all_files:
     temp_meta = pd.read_csv(f)
@@ -137,3 +136,32 @@ all_metadata.to_csv(
     os.path.join(donor_folder, phi_date_stamp + "-donor-metadata.csv")
 )
 print("saving metadata...code complete")
+
+
+# %% COMBINE AND SAVE ALL DATASET INFO (METADATA)
+print("combining all dataset metadata")
+
+metadata_path = os.path.join(
+    args.data_path,
+    phi_date_stamp + "-donor-data",
+    phi_date_stamp + "-datasetSummary"
+)
+
+all_files = glob.glob(os.path.join(metadata_path, "*.csv.gz"))
+dataset_metadata = pd.DataFrame()
+for f in all_files:
+    temp_meta = pd.read_csv(f)
+    temp_meta.rename(columns={"Unnamed: 0": "col_name"}, inplace=True)
+    userid = f[-32:-22]
+    temp_meta["userid"] = userid
+    dataset_metadata = pd.concat(
+        [dataset_metadata, temp_meta],
+        ignore_index=True,
+        sort=False
+    )
+
+dataset_metadata.to_csv(
+    os.path.join(donor_folder, phi_date_stamp + "-all-dataset-info.csv")
+)
+print("saving all-dataset-info-metadata...code complete")
+
