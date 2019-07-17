@@ -16,6 +16,7 @@ import sys
 import requests
 import json
 import argparse
+import pdb
 envPath = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if envPath not in sys.path:
     sys.path.insert(0, envPath)
@@ -247,7 +248,7 @@ def accept_and_get_list(args):
     )
 
     # polish up the final donor list
-    final_donor_list.sort_values(by="donorGroup", inplace=True)
+    final_donor_list.sort_values(by="userID", inplace=True)
     final_donor_list.reset_index(drop=True, inplace=True)
 
     if args.save_donor_list:
