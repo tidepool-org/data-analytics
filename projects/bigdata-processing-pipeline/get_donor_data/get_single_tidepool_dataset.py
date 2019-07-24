@@ -10,7 +10,7 @@ to get the most recent donor list
 # %% REQUIRED LIBRARIES
 try:
     from get_single_dataset_info import expand_data, save_df
-except:
+except: # TODO: there has to be a better way to do this
     from get_donor_data.get_single_dataset_info import expand_data, save_df
 import pandas as pd
 import datetime as dt
