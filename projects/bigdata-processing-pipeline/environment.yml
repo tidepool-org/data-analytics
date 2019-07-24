@@ -3,9 +3,8 @@ channels:
   - defaults
 dependencies:
   - python=3.7.3
-  - numpy=1.16.4
   - pandas=0.24.2
+  - spyder=3.3.6
   - pip=19.1.1
-  - spyder=3.3.5
   - pip:
     - python-dotenv==0.10.3
