@@ -8,7 +8,10 @@ to get the most recent donor list
 """
 
 # %% REQUIRED LIBRARIES
-from get_single_dataset_info import expand_data, save_df
+try:
+    from get_single_dataset_info import expand_data, save_df
+except:
+    from get_donor_data.get_single_dataset_info import expand_data, save_df
 import pandas as pd
 import datetime as dt
 import numpy as np
