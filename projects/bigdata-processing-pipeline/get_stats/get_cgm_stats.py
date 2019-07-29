@@ -8,12 +8,13 @@ calculate cgm statsistics for a single tidepool (donor) dataset
 # %% REQUIRED LIBRARIES
 import os
 import sys
+import sys
 import hashlib
 import pytz
 import numpy as np
 import pandas as pd
 import datetime as dt
-
+import pdb
 
 # TODO: figure out how to get rid of these path dependcies
 get_donor_data_path = os.path.abspath(
@@ -204,6 +205,117 @@ def get_local_time(df):
     return local_time
 
 
+def round_time(
+        df,
+        time_interval_minutes=5,
+        start_with_first_record=True,
+        return_calculation_columns=False
+):
+    '''
+    A general purpose round time function that rounds the "time"
+    field to nearest <time_interval_minutes> minutes
+    INPUTS:
+        * a dataframe (df) or time series that contains only one time field
+        that you want to round
+        * time_interval_minutes (defaults to 5 minutes given that most cgms
+        output every 5 minutes)
+        * start_with_first_record starts the rounding with the first record
+        if True, and the last record if False (defaults to True)
+        * return_calculation_columns specifies whether the extra columns
+        used to make calculations are returned
+    refactored name(s) to meet style guide
+    '''
+    # if a time series is passed in, convert to dataframe
+    if "Series" in get_type(df):
+        df = pd.DataFrame(df)
+    columns_ = list(df)
+    if len(columns_) > 1:
+        sys.exit(
+            "Error: df should only have one time column"
+        )
+    else:
+        df.rename(columns={columns_[0]: "t"}, inplace=True)
+
+    df.sort_values(
+        by="t",
+        ascending=start_with_first_record,
+        inplace=True
+    )
+
+    df.reset_index(drop=False, inplace=True)
+    df.rename(columns={"index": "originalIndex"}, inplace=True)
+
+    # calculate the time between consecutive records
+    df["t_shift"] = df["t"].shift(1)
+    df["timeBetweenRecords"] = round(
+        (df["t"] - df["t_shift"]).dt.days*(86400/(60 * time_interval_minutes))
+        + (df["t"] - df["t_shift"]).dt.seconds/(60 * time_interval_minutes)
+    ) * time_interval_minutes
+
+    # separate the data into chunks if timeBetweenRecords is greater than
+    # 2 times the <time_interval_minutes> minutes so the rounding process
+    # starts over
+    big_gaps = list(
+        df.query("abs(timeBetweenRecords) > "
+                 + str(time_interval_minutes * 2)).index
+    )
+    big_gaps.insert(0, 0)
+    big_gaps.append(len(df))
+
+    for gap_index in range(0, len(big_gaps) - 1):
+        chunk = df["t"][big_gaps[gap_index]:big_gaps[gap_index+1]]
+        first_chunk = df["t"][big_gaps[gap_index]]
+
+        # calculate the time difference between
+        # each time record and the first record
+        df.loc[
+            big_gaps[gap_index]:big_gaps[gap_index+1],
+            "minutesFromFirstRecord"
+        ] = (
+            (chunk - first_chunk).dt.days*(86400/60)
+            + (chunk - first_chunk).dt.seconds/60
+        )
+
+        # then round to the nearest X Minutes
+        # NOTE: the ".000001" ensures that mulitples of 2:30 always rounds up.
+        df.loc[
+            big_gaps[gap_index]:big_gaps[gap_index+1],
+            "roundedMinutesFromFirstRecord"
+        ] = round(
+            (df.loc[
+                big_gaps[gap_index]:big_gaps[gap_index+1],
+                "minutesFromFirstRecord"
+            ] / time_interval_minutes) + 0.000001
+        ) * (time_interval_minutes)
+
+        rounded_first_record = (
+            first_chunk + pd.Timedelta("1microseconds")
+        ).round(str(time_interval_minutes) + "min")
+
+        df.loc[
+            big_gaps[gap_index]:big_gaps[gap_index+1],
+            "roundedTime"
+        ] = rounded_first_record + pd.to_timedelta(
+            df.loc[
+                big_gaps[gap_index]:big_gaps[gap_index+1],
+                "roundedMinutesFromFirstRecord"
+            ], unit="m"
+        )
+
+    if return_calculation_columns is False:
+        df.drop(
+            columns=[
+                "timeBetweenRecords",
+                "minutesFromFirstRecord",
+                "roundedMinutesFromFirstRecord"
+            ], inplace=True
+        )
+    # sort back to the original index
+    df.sort_values(by="originalIndex", inplace=True)
+
+    return df["roundedTime"].values
+
+
 # %% GET DATA FROM API
 '''
 get metadata and data for a donor that has shared with bigdata
@@ -263,6 +375,14 @@ data["localTime"] = get_local_time(
     data[['utcTime', 'inferredTimezone']].copy()
 )
 
+# round all data to the nearest 5 minutes
+data["roundedTime"] = round_time(
+    data["localTime"].copy(),
+    time_interval_minutes=5,
+    start_with_first_record=True,
+    return_calculation_columns=False
+)
+
 
 
 
@@ -272,8 +392,8 @@ data["localTime"] = get_local_time(
 ## round to the nearest 5 minutes
 ## TODO: once roundTime is pushed to tidals repository then this line can be replaced
 ## with td.clean.round_time
-#data = round_time(data, timeIntervalMinutes=5, timeField="time",
-#                  roundedTimeFieldName="roundedTime", startWithFirstRecord=True,
+#data = round_time(data, time_interval_minutes=5, time_field="time",
+#                  rounded_field_name="roundedTime", start_with_first_record=True,
 #                  verbose=False)
 #
 #data["roundedLocalTime"] = data["roundedTime"] + pd.to_timedelta(data["tzo"], unit="m")
