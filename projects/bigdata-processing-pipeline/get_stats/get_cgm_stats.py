@@ -345,9 +345,11 @@ def add_upload_time(df):
 
     upload_times.reset_index(inplace=True)
     upload_times.rename(
-        columns={"utcTime": "uploadTime"},
+        columns={"utcTime": "uploadTime",
+                 "index": "uploadId"},
         inplace=True
     )
+
     df = pd.merge(df, upload_times, how='left', on='uploadId')
 
     return df["uploadTime"].values
