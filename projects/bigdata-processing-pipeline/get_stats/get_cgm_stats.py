@@ -316,6 +316,43 @@ def round_time(
     return df["roundedTime"].values
 
 
+def add_upload_time(df):
+    '''
+    this is taken from a colab notebook that is not in our github
+    given that it has been refactored to account for bug where there are
+    no upload records
+    NOTE: this is a new fix introduced with healthkit data...we now have
+    data that does not have an upload record
+
+    '''
+
+    if "upload" in df.type.unique():
+        upload_times = pd.DataFrame(
+            df[df.type == "upload"].groupby("uploadId")["utcTime"].max()
+        )
+    else:
+        upload_times = pd.DataFrame(columns=["utcTime"])
+
+    unique_uploadIds = set(df["uploadId"].unique())
+    unique_uploadRecords = set(
+        df.loc[df["type"] == "upload", "uploadId"].unique()
+    )
+    uploadIds_missing_uploadRecords = unique_uploadIds - unique_uploadRecords
+
+    for upId in uploadIds_missing_uploadRecords:
+        last_upload_time = df.loc[df["uploadId"] == upId, "utcTime"].max()
+        upload_times.loc[upId, "utcTime"] = last_upload_time
+
+    upload_times.reset_index(inplace=True)
+    upload_times.rename(
+        columns={"utcTime": "uploadTime"},
+        inplace=True
+    )
+    df = pd.merge(df, upload_times, how='left', on='uploadId')
+
+    return df["uploadTime"].values
+
+
 # %% GET DATA FROM API
 '''
 get metadata and data for a donor that has shared with bigdata
@@ -362,6 +399,7 @@ data, n_cal_readings = tslim_calibration_fix(data)
 metadata["nTandemAndPayloadCalReadings"] = n_cal_readings
 
 
+
 # %% TIME RELATED ITEMS
 data["utcTime"] = to_utc_datetime(data[["time"]].copy())
 if "timezone" not in list(data):
@@ -383,26 +421,31 @@ data["roundedTime"] = round_time(
     return_calculation_columns=False
 )
 
+# add upload time to the data, which is needed to get rid of duplicates
+data["uploadTime"] = add_upload_time(data[
+    ["type", "uploadId", "utcTime"]
+].copy())
 
 
+# %% TIME CATEGORIES
 
-
-#data["day"] = pd.DatetimeIndex(data["localTime"]).date
-#
-## round to the nearest 5 minutes
-## TODO: once roundTime is pushed to tidals repository then this line can be replaced
-## with td.clean.round_time
-#data = round_time(data, time_interval_minutes=5, time_field="time",
-#                  rounded_field_name="roundedTime", start_with_first_record=True,
-#                  verbose=False)
-#
-#data["roundedLocalTime"] = data["roundedTime"] + pd.to_timedelta(data["tzo"], unit="m")
+# add the day of the localTime that starts at 12am
+#data["day12AM"] = pd.DatetimeIndex(data["localTime"]).date
+#data["day6AM"] = data["localTime"] - pd.Timedelta(6, unit="hours")
 #data.sort_values("uploadTime", ascending=False, inplace=True)
 #
 ## AGE, & YLW
 #data["age"] = np.floor((data["localTime"] - bDate).dt.days/365.25).astype(int)
 #data["ylw"] = np.floor((data["localTime"] - dDate).dt.days/365.25).astype(int)
 
+
+## group data by type
+#if "uploadId" not in data:
+#    sys.exit(
+#        "Error: expected that uploadId is in data"
+#    )
+#
+#type_groups = data.groupby("type")
 
 # %% CGM DATA
 
