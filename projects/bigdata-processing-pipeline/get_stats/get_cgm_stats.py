@@ -176,8 +176,39 @@ def to_utc_datetime(df):
     return utc_tz_unaware
 
 
-def get_timezone_offset(currentDate, currentTimezone):
+# apply the large timezone offset correction (AKA Darin's fix)
+def timezone_offset_bug_fix(df):
+    '''
+    this is taken from estimate-local-time.py
+    TODO: add in unit testing where there is no TZP that is > 840 or < -720
+    '''
 
+    if "timezoneOffset" in list(df):
+
+        while ((df.timezoneOffset > 840).sum() > 0):
+            df.loc[df.timezoneOffset > 840, ["conversionOffset"]] = (
+                df.loc[df.timezoneOffset > 840, ["conversionOffset"]]
+                - (1440 * 60 * 1000)
+                )
+
+            df.loc[df.timezoneOffset > 840, ["timezoneOffset"]] = (
+                df.loc[df.timezoneOffset > 840, ["timezoneOffset"]] - 1440
+            )
+
+        while ((df.timezoneOffset < -720).sum() > 0):
+            df.loc[df.timezoneOffset < -720, ["conversionOffset"]] = (
+                df.loc[df.timezoneOffset < -720, ["conversionOffset"]]
+                + (1440 * 60 * 1000)
+            )
+
+            df.loc[df.timezoneOffset < -720, ["timezoneOffset"]] = (
+                df.loc[df.timezoneOffset < -720, ["timezoneOffset"]] + 1440
+            )
+
+    return df
+
+
+def get_timezone_offset(currentDate, currentTimezone):
     # edge case for 'US/Pacific-New'
     if currentTimezone == 'US/Pacific-New':
         currentTimezone = 'US/Pacific'
@@ -371,7 +402,7 @@ donor_metadata, _ = get_shared_metadata(
 data, _ = get_data(
     donor_group=donor_group,
     userid=userid,
-    weeks_of_data=4
+    weeks_of_data=52
     )
 
 
@@ -400,17 +431,23 @@ metadata["nNegativeDurations"] = n_negative_durations
 data, n_cal_readings = tslim_calibration_fix(data)
 metadata["nTandemAndPayloadCalReadings"] = n_cal_readings
 
+# fix large timzoneOffset bug
+data = timezone_offset_bug_fix(data)
 
 
 # %% TIME RELATED ITEMS
 data["utcTime"] = to_utc_datetime(data[["time"]].copy())
 if "timezone" not in list(data):
     data["timezone"] = np.nan
+
+
+
+
+# estimate local time (simple method)
 data["inferredTimezone"] = get_and_fill_timezone(
     data[["timezone", "payload"]].copy()
 )
-# estimate local time (simple method)
-# TODO: this really needs to be sped up
+# TODO: this really needs to be sped up AND/OR use complex version
 data["localTime"] = get_local_time(
     data[['utcTime', 'inferredTimezone']].copy()
 )
@@ -430,6 +467,7 @@ data["uploadTime"] = add_upload_time(data[
 
 
 # %% TIME CATEGORIES
+contiguousDays = createContiguousDaySeries(data)
 
 # add the day of the localTime that starts at 12am
 #data["day12AM"] = pd.DatetimeIndex(data["localTime"]).date
