@@ -213,7 +213,7 @@ NOTE: functions assume you have an .env with bigdata account credentials
 userid = "0d4524bc11"
 donor_group = "bigdata"
 
-metadata, _ = get_shared_metadata(
+donor_metadata, _ = get_shared_metadata(
     donor_group=donor_group,
     userid_of_shared_user=userid  # TODO: this should be refactored in several places to be userid
 )
