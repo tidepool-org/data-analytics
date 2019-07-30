@@ -8,13 +8,11 @@ calculate cgm statsistics for a single tidepool (donor) dataset
 # %% REQUIRED LIBRARIES
 import os
 import sys
-import sys
 import hashlib
 import pytz
 import numpy as np
 import pandas as pd
 import datetime as dt
-import pdb
 
 # TODO: figure out how to get rid of these path dependcies
 get_donor_data_path = os.path.abspath(
@@ -25,6 +23,7 @@ if get_donor_data_path not in sys.path:
 import environmentalVariables
 from get_donor_data.get_single_donor_metadata import get_shared_metadata
 from get_donor_data.get_single_tidepool_dataset import get_data
+
 
 # %% CONSTANTS
 MGDL_PER_MMOLL = 18.01559
@@ -133,23 +132,37 @@ def tslim_calibration_fix(df):
     return df, n_cal_readings
 
 
-def get_and_fill_timezone(df):
-    '''
-    this is new to deal with healthkit data
-    requires that a data frame that contains payload and HKTimeZone is passed
-    '''
+def get_healthkit_timezone(df):
     df = expand_embedded_dict(df, "payload", "HKTimeZone")
     if "timezone" not in list(df):
         if "payload.HKTimeZone" in list(df):
+            hk_tz_idx = df["payload.HKTimeZone"].notnull()
+            df.loc[hk_tz_idx, "deviceType"] = "healthkit"
             df.rename(columns={"payload.HKTimeZone": "timezone"}, inplace=True)
+
         else:
             df["timezone"] = np.nan
+            df["deviceType"] = np.nan
     else:
         if "payload.HKTimeZone" in list(df):
             hk_tz_idx = df["payload.HKTimeZone"].notnull()
             df.loc[hk_tz_idx, "timezone"] = (
                 df.loc[hk_tz_idx, "payload.HKTimeZone"]
             )
+            df.loc[hk_tz_idx, "deviceType"] = "healthkit"
+        else:
+            df["timezone"] = np.nan
+            df["deviceType"] = np.nan
+
+    return df[["timezone", "deviceType"]]
+
+
+def get_and_fill_timezone(df):
+    '''
+    this is new to deal with healthkit data
+    requires that a data frame that contains payload and HKTimeZone is passed
+    '''
+    df = get_healthkit_timezone(df)
 
     df["timezone"].fillna(method='ffill', inplace=True)
     df["timezone"].fillna(method='bfill', inplace=True)
@@ -206,24 +219,6 @@ def timezone_offset_bug_fix(df):
             )
 
     return df
-
-
-def get_timezone_offset(currentDate, currentTimezone):
-    # edge case for 'US/Pacific-New'
-    if currentTimezone == 'US/Pacific-New':
-        currentTimezone = 'US/Pacific'
-
-    tz = pytz.timezone(currentTimezone)
-
-    tzoNum = int(
-        tz.localize(currentDate + dt.timedelta(days=1)).strftime("%z")
-    )
-    tzoHours = np.floor(tzoNum / 100)
-    tzoMinutes = round((tzoNum / 100 - tzoHours) * 100, 0)
-    tzoSign = np.sign(tzoHours)
-    tzo = int((tzoHours * 60) + (tzoMinutes * tzoSign))
-
-    return tzo
 
 
 def get_local_time(df):
@@ -386,6 +381,706 @@ def add_upload_time(df):
     return df["uploadTime"].values
 
 
+# %% ESTIMATE LOCAL TIME FUNCTIONS
+def create_contiguous_day_series(df):
+    first_day = df["date"].min()
+    last_day = df["date"].max()
+    rng = pd.date_range(first_day, last_day).date
+    contiguousDaySeries = \
+        pd.DataFrame(rng, columns=["date"]).sort_values(
+                "date", ascending=False).reset_index(drop=True)
+
+    return contiguousDaySeries
+
+
+def add_device_type(df):
+    col_headings = list(df)
+    if "deviceType" not in col_headings:
+        df["deviceType"] = np.nan
+    if "deviceTags" in col_headings:
+        # first make sure deviceTag is in string format
+        df["deviceTags"] = df.deviceTags.astype(str)
+        # filter by type not null device tags
+        ud = df[df["deviceTags"].notnull()].copy()
+        # define a device type (e.g., pump, cgm, or healthkit)
+        ud.loc[
+            ((ud["deviceTags"].str.contains("pump"))
+             & (ud["deviceType"].isnull())),
+            ["deviceType"]
+        ] = "pump"
+
+        # define a device type (e.g., cgm)
+        ud.loc[
+            ((ud["deviceTags"].str.contains("cgm"))
+             & (ud["deviceType"].isnull())),
+            ["deviceType"]
+        ] = "cgm"
+
+        return ud["deviceType"]
+    else:
+        return np.nan
+
+
+def get_timezone_offset(currentDate, currentTimezone):
+
+    tz = pytz.timezone(currentTimezone)
+    # here we add 1 day to the current date to account for changes to/from DST
+    tzoNum = int(
+        tz.localize(currentDate + dt.timedelta(days=1)).strftime("%z")
+    )
+    tzoHours = np.floor(tzoNum / 100)
+    tzoMinutes = round((tzoNum / 100 - tzoHours) * 100, 0)
+    tzoSign = np.sign(tzoHours)
+    tzo = int((tzoHours * 60) + (tzoMinutes * tzoSign))
+
+    return tzo
+
+
+def add_device_day_series(df, dfContDays, deviceTypeName):
+    if len(df) > 0:
+        dfDayGroups = df.groupby("date")
+        if "timezoneOffset" in df:
+            dfDaySeries = pd.DataFrame(dfDayGroups["timezoneOffset"].median())
+        else:
+            dfDaySeries = pd.DataFrame(columns=["timezoneOffset"])
+
+        if "upload" in deviceTypeName:
+            if "timezone" in df:
+#                if dfDayGroups.timezone.count().values[0] > 0:  # NOT SURE WHY THIS IS HERE
+                dfDaySeries["timezone"] = (
+                    dfDayGroups.timezone.describe()["top"]
+                )
+                # get the timezone offset for the timezone
+                for i in dfDaySeries.index:
+                    if pd.notnull(dfDaySeries.loc[i, "timezone"]):
+                        tzo = get_timezone_offset(
+                                pd.to_datetime(i),
+                                dfDaySeries.loc[i, "timezone"])
+                        dfDaySeries.loc[i, ["timezoneOffset"]] = tzo
+                if "timeProcessing" in dfDaySeries:
+                    dfDaySeries["timeProcessing"] = \
+                        dfDayGroups.timeProcessing.describe()["top"]
+                else:
+                    dfDaySeries["timeProcessing"] = np.nan
+
+        dfDaySeries = dfDaySeries.add_prefix(deviceTypeName + "."). \
+            rename(columns={deviceTypeName + ".date": "date"})
+
+        dfContDays = pd.merge(dfContDays, dfDaySeries.reset_index(),
+                              on="date", how="left")
+
+    else:
+        dfContDays[deviceTypeName + ".timezoneOffset"] = np.nan
+
+    return dfContDays
+
+
+def impute_upload_records(df, contDays, deviceTypeName):
+    daySeries = \
+        add_device_day_series(df, contDays, deviceTypeName)
+
+    if ((len(df) > 0) & (deviceTypeName + ".timezone" in daySeries)):
+        for i in daySeries.index[1:]:
+            if pd.isnull(daySeries[deviceTypeName + ".timezone"][i]):
+                daySeries.loc[i, [deviceTypeName + ".timezone"]] = (
+                    daySeries.loc[i-1, deviceTypeName + ".timezone"]
+                )
+            if pd.notnull(daySeries[deviceTypeName + ".timezone"][i]):
+                tz = daySeries.loc[i, deviceTypeName + ".timezone"]
+                tzo = get_timezone_offset(
+                    pd.to_datetime(daySeries.loc[i, "date"]),
+                    tz
+                )
+                daySeries.loc[i, deviceTypeName + ".timezoneOffset"] = tzo
+
+            if pd.notnull(daySeries[deviceTypeName + ".timeProcessing"][i-1]):
+                daySeries.loc[i, deviceTypeName + ".timeProcessing"] = \
+                    daySeries.loc[i-1, deviceTypeName + ".timeProcessing"]
+
+    else:
+        daySeries[deviceTypeName + ".timezone"] = np.nan
+        daySeries[deviceTypeName + ".timeProcessing"] = np.nan
+
+    return daySeries
+
+
+def add_home_timezone(df, contDays):
+
+    if "timezone" in df:
+        homeTimezone = df["timezone"].describe()["top"]
+        tzo = contDays.date.apply(
+                lambda x: get_timezone_offset(pd.to_datetime(x), homeTimezone))
+
+        contDays["home.imputed.timezoneOffset"] = tzo
+        contDays["home.imputed.timezone"] = homeTimezone
+
+    else:
+        contDays["home.imputed.timezoneOffset"] = np.nan
+        contDays["home.imputed.timezone"] = np.nan
+    contDays["home.imputed.timeProcessing"] = np.nan
+
+    return contDays
+
+
+def estimateTzAndTzoWithUploadRecords(cDF):
+
+    cDF["est.type"] = np.nan
+    cDF["est.gapSize"] = np.nan
+    cDF["est.timezoneOffset"] = cDF["upload.timezoneOffset"]
+    cDF["est.annotations"] = np.nan
+
+    if "upload.timezone" in cDF:
+        cDF.loc[cDF["upload.timezone"].notnull(), ["est.type"]] = "UPLOAD"
+        cDF["est.timezone"] = cDF["upload.timezone"]
+        cDF["est.timeProcessing"] = cDF["upload.timeProcessing"]
+    else:
+        cDF["est.timezone"] = np.nan
+        cDF["est.timeProcessing"] = np.nan
+
+    cDF.loc[((cDF["est.timezoneOffset"] !=
+              cDF["home.imputed.timezoneOffset"]) &
+            (pd.notnull(cDF["est.timezoneOffset"]))),
+            "est.annotations"] = "travel"
+
+    return cDF
+
+
+def assignTzoFromImputedSeries(df, i, imputedSeries):
+    df.loc[i, ["est.type"]] = "DEVICE"
+
+    df.loc[i, ["est.timezoneOffset"]] = \
+        df.loc[i, imputedSeries + ".timezoneOffset"]
+
+    df.loc[i, ["est.timezone"]] = \
+        df.loc[i, imputedSeries + ".timezone"]
+
+    df.loc[i, ["est.timeProcessing"]] = \
+        df.loc[i, imputedSeries + ".timeProcessing"]
+
+    return df
+
+
+def compareDeviceTzoToImputedSeries(df, sIdx, device):
+    for i in sIdx:
+        # if the device tzo = imputed tzo, then chose the imputed tz and tzo
+        # note, dst is accounted for in the imputed tzo
+        for imputedSeries in ["pump.upload.imputed", "cgm.upload.imputed",
+                              "healthkit.upload.imputed", "home.imputed"]:
+            # if the estimate has not already been made
+            if pd.isnull(df.loc[i, "est.timezone"]):
+
+                if df.loc[i, device + ".timezoneOffset"] == \
+                  df.loc[i, imputedSeries + ".timezoneOffset"]:
+
+                    assignTzoFromImputedSeries(df, i, imputedSeries)
+
+                    df = addAnnotation(df, i,
+                                       "tz-inferred-from-" + imputedSeries)
+
+                # if the imputed series has a timezone estimate, then see if
+                # the current day is a dst change day
+                elif (pd.notnull(df.loc[i, imputedSeries + ".timezone"])):
+                    imputedTimezone = df.loc[i, imputedSeries + ".timezone"]
+                    if isDSTChangeDay(df.loc[i, "date"], imputedTimezone):
+
+                        dstRange = getRangeOfTZOsForTimezone(imputedTimezone)
+                        if ((df.loc[i, device + ".timezoneOffset"] in dstRange)
+                          & (df.loc[i, imputedSeries + ".timezoneOffset"] in dstRange)):
+
+                            assignTzoFromImputedSeries(df, i, imputedSeries)
+
+                            df = addAnnotation(df, i, "dst-change-day")
+                            df = addAnnotation(
+                                    df, i, "tz-inferred-from-" + imputedSeries)
+
+    return df
+
+
+def estimateTzAndTzoWithDeviceRecords(cDF):
+
+    # 2A. use the TZO of the pump or cgm device if it exists on a given day. In
+    # addition, compare the TZO to one of the imputed day series (i.e., the
+    # upload and home series to see if the TZ can be inferred)
+    for deviceType in ["pump", "cgm"]:
+        # find the indices of days where a TZO estimate has not been made AND
+        # where the device (e.g., pump or cgm) TZO has data
+        sIndices = cDF[((cDF["est.timezoneOffset"].isnull()) &
+                        (cDF[deviceType + ".timezoneOffset"].notnull()))].index
+        # compare the device TZO to the imputed series to infer time zone
+        cDF = compareDeviceTzoToImputedSeries(cDF, sIndices, deviceType)
+
+    # 2B. if the TZ cannot be inferred with 2A, then see if the TZ can be
+    # inferred from the previous day's TZO. If the device TZO is equal to the
+    # previous day's TZO, AND if the previous day has a TZ estimate, use the
+    # previous day's TZ estimate for the current day's TZ estimate
+    for deviceType in ["pump", "cgm"]:
+        sIndices = cDF[((cDF["est.timezoneOffset"].isnull()) &
+                        (cDF[deviceType + ".timezoneOffset"].notnull()))].index
+
+        cDF = compareDeviceTzoToPrevDayTzo(cDF, sIndices, deviceType)
+
+    # 2C. after 2A and 2B, check the DEVICE estimates to make sure that the
+    # pump and cgm tzo do not differ by more than 60 minutes. If they differ
+    # by more that 60 minutes, then mark the estimate as UNCERTAIN. Also, we
+    # allow the estimates to be off by 60 minutes as there are a lot of cases
+    # where the devices are off because the user changes the time for DST,
+    # at different times
+    sIndices = cDF[((cDF["est.type"] == "DEVICE") &
+                    (cDF["pump.timezoneOffset"].notnull()) &
+                    (cDF["cgm.timezoneOffset"].notnull()) &
+                    (cDF["pump.timezoneOffset"] != cDF["cgm.timezoneOffset"])
+                    )].index
+
+    tzoDiffGT60 = abs(cDF.loc[sIndices, "cgm.timezoneOffset"] -
+                      cDF.loc[sIndices, "pump.timezoneOffset"]) > 60
+
+    idx = tzoDiffGT60.index[tzoDiffGT60]
+
+    cDF.loc[idx, ["est.type"]] = "UNCERTAIN"
+    for i in idx:
+        cDF = addAnnotation(cDF, i, "pump-cgm-tzo-mismatch")
+
+    return cDF
+
+
+def imputeTzAndTzo(cDF):
+
+    sIndices = cDF[cDF["est.timezoneOffset"].isnull()].index
+    hasTzoIndices = cDF[cDF["est.timezoneOffset"].notnull()].index
+    if len(hasTzoIndices) > 0:
+        if len(sIndices) > 0:
+            lastDay = max(sIndices)
+
+            while ((sIndices.min() < max(hasTzoIndices)) &
+                   (len(sIndices) > 0)):
+
+                currentDay, prevDayWithDay, nextDayIdx = \
+                    getImputIndices(cDF, sIndices, hasTzoIndices)
+
+                cDF = imputeByTimezone(cDF, currentDay,
+                                       prevDayWithDay, nextDayIdx)
+
+                sIndices = cDF[((cDF["est.timezoneOffset"].isnull()) &
+                                (~cDF["est.annotations"].str.contains(
+                                "unable-to-impute-tzo").fillna(False)))].index
+
+                hasTzoIndices = cDF[cDF["est.timezoneOffset"].notnull()].index
+
+            # try to impute to the last day (earliest day) in the dataset
+            # if the last record has a timezone that is the home record, then
+            # impute using the home timezone
+            if len(sIndices) > 0:
+                currentDay = min(sIndices)
+                prevDayWithDay = currentDay - 1
+                gapSize = lastDay - currentDay
+
+                for i in range(currentDay, lastDay + 1):
+                    if cDF.loc[prevDayWithDay, "est.timezoneOffset"] == \
+                      cDF.loc[prevDayWithDay, "home.imputed.timezoneOffset"]:
+
+                        cDF.loc[i, ["est.type"]] = "IMPUTE"
+
+                        cDF.loc[i, ["est.timezoneOffset"]] = \
+                            cDF.loc[i, "home.imputed.timezoneOffset"]
+
+                        cDF.loc[i, ["est.timezone"]] = \
+                            cDF.loc[i, "home.imputed.timezone"]
+
+                        cDF = addAnnotation(cDF, i, "gap=" + str(gapSize))
+                        cDF.loc[i, ["est.gapSize"]] = gapSize
+
+                    else:
+                        cDF.loc[i, ["est.type"]] = "UNCERTAIN"
+                        cDF = addAnnotation(cDF, i, "unable-to-impute-tzo")
+    else:
+        cDF["est.type"] = "UNCERTAIN"
+        cDF["est.annotations"] = "unable-to-impute-tzo"
+
+    return cDF
+
+
+def getRangeOfTZOsForTimezone(tz):
+    minMaxTzo = [getTimezoneOffset(pd.to_datetime("1/1/2017"), tz),
+                 getTimezoneOffset(pd.to_datetime("5/1/2017"), tz)]
+
+    rangeOfTzo = np.arange(int(min(minMaxTzo)), int(max(minMaxTzo))+1, 15)
+
+    return rangeOfTzo
+
+
+def getListOfDSTChangeDays(cDF):
+
+    # get a list of DST change days for the home time zone
+    dstChangeDays = \
+        cDF[abs(cDF["home.imputed.timezoneOffset"] -
+                cDF["home.imputed.timezoneOffset"].shift(-1)) > 0].date
+
+    return dstChangeDays
+
+
+def correctEstimatesAroundDst(df, cDF):
+
+    # get a list of DST change days for the home time zone
+    dstChangeDays = getListOfDSTChangeDays(cDF)
+
+    # loop through the df within 2 days of a daylight savings time change
+    for d in dstChangeDays:
+        dstIndex = df[(df.date > (d + dt.timedelta(days=-2))) &
+                      (df.date < (d + dt.timedelta(days=2)))].index
+        for dIdx in dstIndex:
+            if pd.notnull(df.loc[dIdx, "est.timezone"]):
+                tz = pytz.timezone(df.loc[dIdx, "est.timezone"])
+                tzRange = getRangeOfTZOsForTimezone(str(tz))
+                minHoursToLocal = min(tzRange)/60
+                tzoNum = int(tz.localize(df.loc[dIdx, "utcTime"] +
+                             dt.timedelta(hours=minHoursToLocal)).strftime("%z"))
+                tzoHours = np.floor(tzoNum / 100)
+                tzoMinutes = round((tzoNum / 100 - tzoHours) * 100, 0)
+                tzoSign = np.sign(tzoHours)
+                tzo = int((tzoHours * 60) + (tzoMinutes * tzoSign))
+                localTime = \
+                    df.loc[dIdx, "utcTime"] + pd.to_timedelta(tzo, unit="m")
+                df.loc[dIdx, ["est.localTime"]] = localTime
+                df.loc[dIdx, ["est.timezoneOffset"]] = tzo
+    return df
+
+
+def applyLocalTimeEstimates(df, cDF):
+    df = pd.merge(df, cDF, how="left", on="date")
+    df["est.localTime"] = \
+        df["utcTime"] + pd.to_timedelta(df["est.timezoneOffset"], unit="m")
+
+    df = correctEstimatesAroundDst(df, cDF)
+
+    return df["est.localTime"].values
+
+
+def isDSTChangeDay(currentDate, currentTimezone):
+    tzoCurrentDay = getTimezoneOffset(pd.to_datetime(currentDate),
+                                      currentTimezone)
+    tzoPreviousDay = getTimezoneOffset(pd.to_datetime(currentDate) +
+                                       dt.timedelta(days=-1), currentTimezone)
+
+    return (tzoCurrentDay != tzoPreviousDay)
+
+
+def tzoRangeWithComparisonTz(df, i, comparisonTz):
+    # if we have a previous timezone estimate, then calcuate the range of
+    # timezone offset values for that time zone
+    if pd.notnull(comparisonTz):
+        rangeTzos = getRangeOfTZOsForTimezone(comparisonTz)
+    else:
+        comparisonTz = np.nan
+        rangeTzos = np.array([])
+
+    return rangeTzos
+
+
+def tzAndTzoRangePreviousDay(df, i):
+    # if we have a previous timezone estimate, then calcuate the range of
+    # timezone offset values for that time zone
+    comparisonTz = df.loc[i-1, "est.timezone"]
+
+    rangeTzos = tzoRangeWithComparisonTz(df, i, comparisonTz)
+
+    return comparisonTz, rangeTzos
+
+
+def assignTzoFromPreviousDay(df, i, previousDayTz):
+
+    df.loc[i, ["est.type"]] = "DEVICE"
+    df.loc[i, ["est.timezone"]] = previousDayTz
+    df.loc[i, ["est.timezoneOffset"]] = \
+        getTimezoneOffset(pd.to_datetime(df.loc[i, "date"]), previousDayTz)
+
+    df.loc[i, ["est.timeProcessing"]] = df.loc[i-1, "est.timeProcessing"]
+    df = addAnnotation(df, i, "tz-inferred-from-prev-day")
+
+    return df
+
+
+def assignTzoFromDeviceTzo(df, i, device):
+
+    df.loc[i, ["est.type"]] = "DEVICE"
+    df.loc[i, ["est.timezoneOffset"]] = \
+        df.loc[i, device + ".timezoneOffset"]
+    df.loc[i, ["est.timeProcessing"]] = \
+        df.loc[i, device + ".upload.imputed.timeProcessing"]
+
+    df = addAnnotation(df, i, "likely-travel")
+    df = addAnnotation(df, i, "tzo-from-" + device)
+
+    return df
+
+
+def compareDeviceTzoToPrevDayTzo(df, sIdx, device):
+
+    for i in sIdx[sIdx > 0]:
+
+        # first see if the previous record has a tzo
+        if (pd.notnull(df.loc[i-1, "est.timezoneOffset"])):
+
+            previousDayTz, dstRange = tzAndTzoRangePreviousDay(df, i)
+            timeDiff = abs((df.loc[i, device + ".timezoneOffset"]) -
+                           df.loc[i-1, "est.timezoneOffset"])
+
+            # next see if the previous record has a tz
+            if (pd.notnull(df.loc[i-1, "est.timezone"])):
+
+                if timeDiff == 0:
+                    assignTzoFromPreviousDay(df, i, previousDayTz)
+
+                # see if the previous day's tzo and device tzo are within the
+                # dst range (as that is a common problem with this data)
+                elif ((df.loc[i, device + ".timezoneOffset"] in dstRange)
+                      & (df.loc[i-1, "est.timezoneOffset"] in dstRange)):
+
+                    # then see if it is DST change day
+                    if isDSTChangeDay(df.loc[i, "date"], previousDayTz):
+
+                        df = addAnnotation(df, i, "dst-change-day")
+                        assignTzoFromPreviousDay(df, i, previousDayTz)
+
+                    # if it is not DST change day, then mark this as uncertain
+                    else:
+                        # also, check to see if the difference between device.
+                        # tzo and prev.tzo is less than the expected dst
+                        # difference. There is a known issue where the BtUTC
+                        # procedure puts clock drift into the device.tzo,
+                        # and as a result the tzo can be off by 15, 30,
+                        # or 45 minutes.
+                        if (((df.loc[i, device + ".timezoneOffset"] ==
+                              min(dstRange)) |
+                            (df.loc[i, device + ".timezoneOffset"] ==
+                             max(dstRange))) &
+                           ((df.loc[i-1, "est.timezoneOffset"] ==
+                             min(dstRange)) |
+                            (df.loc[i-1, "est.timezoneOffset"] ==
+                             max(dstRange)))):
+
+                            df.loc[i, ["est.type"]] = "UNCERTAIN"
+                            df = addAnnotation(df, i,
+                                               "likely-dst-error-OR-travel")
+
+                        else:
+
+                            df.loc[i, ["est.type"]] = "UNCERTAIN"
+                            df = addAnnotation(df, i,
+                                               "likely-15-min-dst-error")
+
+                # next see if time difference between device.tzo and prev.tzo
+                # is off by 720 minutes, which is indicative of a common
+                # user AM/PM error
+                elif timeDiff == 720:
+                    df.loc[i, ["est.type"]] = "UNCERTAIN"
+                    df = addAnnotation(df, i, "likely-AM-PM-error")
+
+                # if it doesn't fall into any of these cases, then the
+                # tzo difference is likely due to travel
+                else:
+                    df = assignTzoFromDeviceTzo(df, i, device)
+
+            elif timeDiff == 0:
+                df = assignTzoFromDeviceTzo(df, i, device)
+
+        # if there is no previous record to compare with check for dst errors,
+        # and if there are no errors, it is likely a travel day
+        else:
+
+            comparisonTz, dstRange = tzAndTzoRangeWithHomeTz(df, i)
+            timeDiff = abs((df.loc[i, device + ".timezoneOffset"]) -
+                           df.loc[i, "home.imputed.timezoneOffset"])
+
+            if ((df.loc[i, device + ".timezoneOffset"] in dstRange)
+               & (df.loc[i, "home.imputed.timezoneOffset"] in dstRange)):
+
+                # see if it is DST change day
+                if isDSTChangeDay(df.loc[i, "date"], comparisonTz):
+
+                    df = addAnnotation(df, i, "dst-change-day")
+                    df.loc[i, ["est.type"]] = "DEVICE"
+                    df.loc[i, ["est.timezoneOffset"]] = \
+                        df.loc[i, device + ".timezoneOffset"]
+                    df.loc[i, ["est.timezone"]] = \
+                        df.loc[i, "home.imputed.timezone"]
+                    df.loc[i, ["est.timeProcessing"]] = \
+                        df.loc[i, device + ".upload.imputed.timeProcessing"]
+
+                # if it is not DST change day, then mark this as uncertain
+                else:
+                    # also, check to see if the difference between device.
+                    # tzo and prev.tzo is less than the expected dst
+                    # difference. There is a known issue where the BtUTC
+                    # procedure puts clock drift into the device.tzo,
+                    # and as a result the tzo can be off by 15, 30,
+                    # or 45 minutes.
+                    if (((df.loc[i, device + ".timezoneOffset"] ==
+                          min(dstRange)) |
+                        (df.loc[i, device + ".timezoneOffset"] ==
+                         max(dstRange))) &
+                       ((df.loc[i, "home.imputed.timezoneOffset"] ==
+                         min(dstRange)) |
+                        (df.loc[i, "home.imputed.timezoneOffset"] ==
+                         max(dstRange)))):
+
+                        df.loc[i, ["est.type"]] = "UNCERTAIN"
+                        df = addAnnotation(df, i, "likely-dst-error-OR-travel")
+
+                    else:
+
+                        df.loc[i, ["est.type"]] = "UNCERTAIN"
+                        df = addAnnotation(df, i, "likely-15-min-dst-error")
+
+            # next see if time difference between device.tzo and prev.tzo
+            # is off by 720 minutes, which is indicative of a common
+            # user AM/PM error
+            elif timeDiff == 720:
+                df.loc[i, ["est.type"]] = "UNCERTAIN"
+                df = addAnnotation(df, i, "likely-AM-PM-error")
+
+            # if it doesn't fall into any of these cases, then the
+            # tzo difference is likely due to travel
+
+            else:
+                df = assignTzoFromDeviceTzo(df, i, device)
+
+    return df
+
+
+def getImputIndices(df, sIdx, hIdx):
+
+    lastDayIdx = len(df) - 1
+
+    currentDayIdx = sIdx.min()
+    tempList = pd.Series(hIdx) - currentDayIdx
+    prevDayIdx = currentDayIdx - 1
+    nextDayIdx = \
+        min(currentDayIdx + min(tempList[tempList >= 0]), lastDayIdx)
+
+    return currentDayIdx, prevDayIdx, nextDayIdx
+
+
+def imputeByTimezone(df, currentDay, prevDaywData, nextDaywData):
+
+    gapSize = (nextDaywData - currentDay)
+
+    if prevDaywData >= 0:
+
+        if df.loc[prevDaywData, "est.timezone"] == \
+          df.loc[nextDaywData, "est.timezone"]:
+
+            tz = df.loc[prevDaywData, "est.timezone"]
+
+            for i in range(currentDay, nextDaywData):
+
+                df.loc[i, ["est.timezone"]] = tz
+
+                df.loc[i, ["est.timezoneOffset"]] = \
+                    getTimezoneOffset(pd.to_datetime(df.loc[i, "date"]), tz)
+
+                df.loc[i, ["est.type"]] = "IMPUTE"
+
+                df = addAnnotation(df, i, "gap=" + str(gapSize))
+                df.loc[i, ["est.gapSize"]] = gapSize
+
+        # TODO: this logic should be updated to handle the edge case
+        # where the day before and after the gap have differing TZ, but
+        # the same TZO. In that case the gap should be marked as UNCERTAIN
+        elif df.loc[prevDaywData, "est.timezoneOffset"] == \
+          df.loc[nextDaywData, "est.timezoneOffset"]:
+
+            for i in range(currentDay, nextDaywData):
+
+                df.loc[i, ["est.timezoneOffset"]] = \
+                    df.loc[prevDaywData, "est.timezoneOffset"]
+
+                df.loc[i, ["est.type"]] = "IMPUTE"
+
+                df = addAnnotation(df, i, "gap=" + str(gapSize))
+                df.loc[i, ["est.gapSize"]] = gapSize
+
+        else:
+            for i in range(currentDay, nextDaywData):
+                df.loc[i, ["est.type"]] = "UNCERTAIN"
+                df = addAnnotation(df, i, "unable-to-impute-tzo")
+
+    else:
+        for i in range(currentDay, nextDaywData):
+            df.loc[i, ["est.type"]] = "UNCERTAIN"
+            df = addAnnotation(df, i, "unable-to-impute-tzo")
+
+    return df
+
+
+def addAnnotation(df, idx, annotationMessage):
+    if pd.notnull(df.loc[idx, "est.annotations"]):
+        df.loc[idx, ["est.annotations"]] = df.loc[idx, "est.annotations"] + \
+            ", " + annotationMessage
+    else:
+        df.loc[idx, ["est.annotations"]] = annotationMessage
+
+    return df
+
+
+def getTimezoneOffset(currentDate, currentTimezone):
+
+    tz = pytz.timezone(currentTimezone)
+    # here we add 1 day to the current date to account for changes to/from DST
+    tzoNum = int(tz.localize(currentDate + dt.timedelta(days=1)).strftime("%z"))
+    tzoHours = np.floor(tzoNum / 100)
+    tzoMinutes = round((tzoNum / 100 - tzoHours) * 100, 0)
+    tzoSign = np.sign(tzoHours)
+    tzo = int((tzoHours * 60) + (tzoMinutes * tzoSign))
+
+    return tzo
+
+
+def estimate_local_time(df):
+    df["date"] = df["utcTime"].dt.date  # TODO: change this to utcDate later
+    contiguous_days = create_contiguous_day_series(df)
+
+    df["deviceType"] = add_device_type(df)
+    cDays = add_device_day_series(df, contiguous_days, "upload")
+
+    # create day series for cgm df
+    if "timezoneOffset" not in list(df):
+        df["timezoneOffset"] = np.nan
+
+    cgmdf = df[(df["type"] == "cbg") & (df["timezoneOffset"].notnull())].copy()
+    cDays = add_device_day_series(cgmdf, cDays, "cgm")
+
+    # create day series for pump df
+    pumpdf = df[(df.type == "bolus") & (df.timezoneOffset.notnull())].copy()
+    cDays = add_device_day_series(pumpdf, cDays, "pump")
+
+    # interpolate between upload records of the same deviceType, and create a
+    # day series for interpolated pump, non-hk-cgm, and healthkit uploads
+    for deviceType in ["pump", "cgm", "healthkit"]:
+        tempUploaddf = df[df["deviceType"] == deviceType].copy()
+        cDays = impute_upload_records(
+            tempUploaddf, cDays, deviceType + ".upload.imputed"
+        )
+
+    # add a home timezone that also accounts for daylight savings time changes
+    cDays = add_home_timezone(df, cDays)
+
+    # 1. USE UPLOAD RECORDS TO ESTIMATE TZ AND TZO
+    cDays = estimateTzAndTzoWithUploadRecords(cDays)
+
+    # 2. USE DEVICE TZOs TO ESTIMATE TZO AND TZ (IF POSSIBLE)
+    # estimates can be made from pump and cgm df that have a TZO
+    # NOTE: the healthkit and dexcom-api cgm df are excluded
+    cDays = estimateTzAndTzoWithDeviceRecords(cDays)
+
+    # 3. impute, infer, or interpolate gaps in the estimated tzo and tz
+    cDays = imputeTzAndTzo(cDays)
+
+    # 4. APPLY LOCAL TIME ESTIMATES TO ALL df
+    local_time = applyLocalTimeEstimates(df, cDays)
+
+    return local_time, cDays
+
+
 # %% GET DATA FROM API
 '''
 get metadata and data for a donor that has shared with bigdata
@@ -402,11 +1097,14 @@ donor_metadata, _ = get_shared_metadata(
 data, _ = get_data(
     donor_group=donor_group,
     userid=userid,
-    weeks_of_data=52
-    )
+    weeks_of_data=52*10
+)
 
 
 # %% CREATE META DATAFRAME (metadata)
+'''
+this is useful for keeping track of the type and amount of cleaning done
+'''
 metadata = pd.DataFrame(index=[userid])
 
 
@@ -428,32 +1126,30 @@ else:
 metadata["nNegativeDurations"] = n_negative_durations
 
 # Tslim calibration bug fix
-data, n_cal_readings = tslim_calibration_fix(data)
+data, n_cal_readings = tslim_calibration_fix(data.copy())
 metadata["nTandemAndPayloadCalReadings"] = n_cal_readings
 
-# fix large timzoneOffset bug
-data = timezone_offset_bug_fix(data)
+# fix large timzoneOffset bug in utcbootstrapping
+data = timezone_offset_bug_fix(data.copy())
+
+# add healthkit timezome information
+data[["timezone", "deviceType"]] = get_healthkit_timezone(data.copy())
 
 
 # %% TIME RELATED ITEMS
 data["utcTime"] = to_utc_datetime(data[["time"]].copy())
-if "timezone" not in list(data):
-    data["timezone"] = np.nan
 
+# add upload time to the data, which is needed for:
+# getting rid of duplicates and useful for getting local time
+data["uploadTime"] = add_upload_time(data[
+    ["type", "uploadId", "utcTime"]
+].copy())
 
-
-
-# estimate local time (simple method)
-data["inferredTimezone"] = get_and_fill_timezone(
-    data[["timezone", "payload"]].copy()
-)
-# TODO: this really needs to be sped up AND/OR use complex version
-data["localTime"] = get_local_time(
-    data[['utcTime', 'inferredTimezone']].copy()
-)
+# estimate local time (refactor of estimate-local-time.py)
+data["localTime"], local_time_metadata = estimate_local_time(data.copy())
 
 # round all data to the nearest 5 minutes
-data["roundedTime"] = round_time(
+data["roundedLocalTime"] = round_time(
     data["localTime"].copy(),
     time_interval_minutes=5,
     start_with_first_record=True,
@@ -461,47 +1157,6 @@ data["roundedTime"] = round_time(
 )
 
 # add upload time to the data, which is needed to get rid of duplicates
-data["uploadTime"] = add_upload_time(data[
-    ["type", "uploadId", "utcTime"]
-].copy())
-
-
-# %% TIME CATEGORIES
-contiguousDays = createContiguousDaySeries(data)
-
-# add the day of the localTime that starts at 12am
-#data["day12AM"] = pd.DatetimeIndex(data["localTime"]).date
-#data["day6AM"] = data["localTime"] - pd.Timedelta(6, unit="hours")
-#data.sort_values("uploadTime", ascending=False, inplace=True)
-#
-## AGE, & YLW
-#data["age"] = np.floor((data["localTime"] - bDate).dt.days/365.25).astype(int)
-#data["ylw"] = np.floor((data["localTime"] - dDate).dt.days/365.25).astype(int)
-
-
-## group data by type
-#if "uploadId" not in data:
-#    sys.exit(
-#        "Error: expected that uploadId is in data"
-#    )
-#
-#type_groups = data.groupby("type")
-
-# %% CGM DATA
-
-#def removeInvalidCgmValues(df):
-#
-#    nBefore = len(df)
-#    # remove values < 38 and > 402 mg/dL
-#    df = df.drop(df[((df.type == "cbg") &
-#                     (df.value < 2.109284236597303))].index)
-#    df = df.drop(df[((df.type == "cbg") &
-#                     (df.value > 22.314006924003046))].index)
-#    nRemoved = nBefore - len(df)
-#
-#    return df, nRemoved
-
-# get rid of cgm values too low/high (< 38 & > 402 mg/dL)
-#data, nInvalidCgmValues = removeInvalidCgmValues(data)
-#metadata["nInvalidCgmValues"] = nInvalidCgmValues
-
+data["uploadTime"] = add_upload_time(
+    data[["type", "uploadId", "utcTime"]].copy()
+)
