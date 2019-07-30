@@ -381,6 +381,48 @@ def add_upload_time(df):
     return df["uploadTime"].values
 
 
+def remove_invalid_cgm_values(df):
+
+    nBefore = len(df)
+    # remove values < 38 and > 402 mg/dL
+    df = df.drop(df[((df.type == "cbg") &
+                     (df["mg/dL"] < 38))].index)
+    df = df.drop(df[((df.type == "cbg") &
+                     (df["mg/dL"] > 402))].index)
+    nRemoved = nBefore - len(df)
+
+    return df, nRemoved
+
+
+def removeDuplicates(df, criteriaDF):
+    nBefore = len(df)
+    df = df.loc[~(df[criteriaDF].duplicated())]
+    df = df.reset_index(drop=True)
+    nDuplicatesRemoved = nBefore - len(df)
+
+    return df, nDuplicatesRemoved
+
+
+def removeCgmDuplicates(df, timeCriterion):
+    if timeCriterion in df:
+        df.sort_values(by=[timeCriterion, "uploadTime"],
+                       ascending=[False, False],
+                       inplace=True)
+        dfIsNull = df[df[timeCriterion].isnull()]
+        dfNotNull = df[df[timeCriterion].notnull()]
+        dfNotNull, nDuplicatesRemoved = (
+            removeDuplicates(dfNotNull, [timeCriterion, "value"])
+        )
+        df = pd.concat([dfIsNull, dfNotNull])
+        df.sort_values(by=[timeCriterion, "uploadTime"],
+                       ascending=[False, False],
+                       inplace=True)
+    else:
+        nDuplicatesRemoved = 0
+
+    return df, nDuplicatesRemoved
+
+
 # %% ESTIMATE LOCAL TIME FUNCTIONS
 def create_contiguous_day_series(df):
     first_day = df["date"].min()
@@ -1097,7 +1139,7 @@ donor_metadata, _ = get_shared_metadata(
 data, _ = get_data(
     donor_group=donor_group,
     userid=userid,
-    weeks_of_data=52*10
+    weeks_of_data=4  # 52*10
 )
 
 
@@ -1160,3 +1202,59 @@ data["roundedLocalTime"] = round_time(
 data["uploadTime"] = add_upload_time(
     data[["type", "uploadId", "utcTime"]].copy()
 )
+
+# %% TIME CATEGORIES
+# AGE, & YLW
+bDate = pd.to_datetime(donor_metadata["birthday"].values[0][0:7])
+dDate = pd.to_datetime(donor_metadata["diagnosisDate"].values[0][0:7])
+data["age"] = np.floor((data["roundedLocalTime"] - bDate).dt.days/365.25)
+data["ylw"] = np.floor((data["roundedLocalTime"] - dDate).dt.days/365.25)
+
+# hour of the day
+data["hour"] = data["roundedLocalTime"].dt.hour
+
+# add the day of the localTime that starts at 12am
+data["day12AM"] = data["roundedLocalTime"].dt.date
+# NOTE: for day of week Monday = 0 and Sunday = 6
+data["dayofweek12AM"] = data["roundedLocalTime"].dt.dayofweek
+data["weekend12AM"] = data["dayofweek12AM"] > 4
+
+# day that starts at 6am
+data["6amTime"] = data["roundedLocalTime"] - pd.Timedelta(6, unit="hours")
+data["day6AM"] = data["6amTime"].dt.date
+data["dayofweek6AM"] = data["6amTime"].dt.dayofweek
+data["weekend6AM"] = data["dayofweek6AM"] > 4
+
+
+# %% GROUP DATA BY TYPE
+# first sort by upload time (used when removing dumplicates)
+data.sort_values("uploadTime", ascending=False, inplace=True)
+groups = data.groupby(by="type")
+
+
+# %% CGM DATA
+# filter by cgm
+cgm = groups.get_group("cbg").dropna(axis=1, how="all")
+
+# calculate cgm in mg/dL
+cgm["mg/dL"] = round(cgm["value"] * MGDL_PER_MMOLL).astype(int)
+
+# get rid of cgm values too low/high (< 38 & > 402 mg/dL)
+cgm, nInvalidCgmValues = remove_invalid_cgm_values(cgm)
+metadata["nInvalidCgmValues"] = nInvalidCgmValues
+
+# get rid of duplicates that have the same ["deviceTime", "value"]
+cgm, n_cgm_dups_removed = (removeCgmDuplicates(cgm, "deviceTime"))
+metadata["nCgmDuplicatesRemovedDeviceTime"] = n_cgm_dups_removed
+
+# get rid of duplicates that have the same ["time", "value"]
+cgm, n_cgm_dups_removed = removeCgmDuplicates(cgm, "time")
+metadata["nCgmDuplicatesRemovedUtcTime"] = n_cgm_dups_removed
+
+# get rid of duplicates that have the same "roundedTime"
+cgm, n_cgm_dups_removed = removeDuplicates(cgm, "roundedLocalTime")
+metadata["nCgmDuplicatesRemovedRoundedTime"] = n_cgm_dups_removed
+
+
+# %% GET CGM STATS
+
