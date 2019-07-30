@@ -1139,7 +1139,7 @@ donor_metadata, _ = get_shared_metadata(
 data, _ = get_data(
     donor_group=donor_group,
     userid=userid,
-    weeks_of_data=4  # 52*10
+    weeks_of_data=52*10
 )
 
 
@@ -1198,10 +1198,6 @@ data["roundedLocalTime"] = round_time(
     return_calculation_columns=False
 )
 
-# add upload time to the data, which is needed to get rid of duplicates
-data["uploadTime"] = add_upload_time(
-    data[["type", "uploadId", "utcTime"]].copy()
-)
 
 # %% TIME CATEGORIES
 # AGE, & YLW
@@ -1237,7 +1233,7 @@ groups = data.groupby(by="type")
 cgm = groups.get_group("cbg").dropna(axis=1, how="all")
 
 # calculate cgm in mg/dL
-cgm["mg/dL"] = round(cgm["value"] * MGDL_PER_MMOLL).astype(int)
+cgm["mg/dL"] = round(cgm["value"] * MGDL_PER_MMOLL)
 
 # get rid of cgm values too low/high (< 38 & > 402 mg/dL)
 cgm, nInvalidCgmValues = remove_invalid_cgm_values(cgm)
@@ -1257,4 +1253,22 @@ metadata["nCgmDuplicatesRemovedRoundedTime"] = n_cgm_dups_removed
 
 
 # %% GET CGM STATS
+# create a contiguous 5 minute time series
+first_day = cgm["roundedLocalTime"].min()
+last_day = cgm["roundedLocalTime"].max()
+rng = pd.date_range(first_day, last_day, freq="5min")
+contiguous_data = (
+    pd.DataFrame(rng, columns=["roundedLocalTime"]).sort_values(
+        "roundedLocalTime", ascending=False
+    ).reset_index(drop=True)
+)
 
+# merge with cgm data
+cgm_series = pd.merge(
+    contiguous_data,
+    cgm,
+    on="roundedLocalTime",
+    how="left"
+)
+
+#cgm_series["hourly.mean"] = cgm_series["mg/dL"].rolling(12).mean()
