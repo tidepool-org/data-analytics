@@ -411,12 +411,30 @@ class LoopReport:
                     if temp:
                         loop_report_dict["retrospective_correction_enabled"] = temp.group(1)
 
-                    loop_report_dict["suspend_threshold"] = float(
-                        re.search(
-                            r"Loop.GlucoseThreshold\(value: (.+?), unit",
-                            loop_data_manager["settings"],
-                        ).group(1)
-                    )
+                    try:
+                        loop_report_dict["suspend_threshold"] = float(
+                            re.search(
+                                r"Loop.GlucoseThreshold\(value: (.+?), unit",
+                                loop_data_manager["settings"],
+                            ).group(1)
+
+                        )
+                    except Exception as e:
+                        logger.debug("handled error LOOP_DATA_MANAGER - suspend_threshold_unit - Loop.GlucoseThreshold miss")
+                        logger.debug(e)
+
+                    try:
+
+                        if  "suspend_threshold" not in loop_report_dict or loop_report_dict["suspend_threshold"] is None or loop_report_dict["suspend_threshold"] == "":
+                            loop_report_dict["suspend_threshold"] = float(
+                                re.search(
+                                    r"LoopCore.GlucoseThreshold\(value: (.+?), unit",
+                                    loop_data_manager["settings"],
+                                ).group(1)
+                            )
+                    except Exception as e:
+                        logger.debug("handled error LOOP_DATA_MANAGER - suspend_threshold_unit -  LoopCore.GlucoseThreshold miss")
+                        logger.debug(e)
                 except Exception as e:
                     logger.debug("handled error LOOP_DATA_MANAGER - retrospective_correction_enabled")
                     logger.debug(e)
