@@ -120,6 +120,20 @@ def test_parse_by_file():
             loop_dict["integral_retrospective_correction"] == get_integral_retrospective_correction()
     )
 
+    assert(loop_dict["carbRatioScheduleApplyingOverrideHistory_timeZone"], -25200)
+
+    assert (loop_dict["carbRatioScheduleApplyingOverrideHistory_schedule"], "[{'value': 8.0, 'startTime': 0.0}]")
+
+    assert (loop_dict["carbRatioScheduleApplyingOverrideHistory_units"], 'g')
+
+    assert (loop_dict["basalProfileApplyingOverrideHistory_timeZone"], -25200)
+    assert (loop_dict["basalProfileApplyingOverrideHistory_schedule"], "[{'startTime': 0.0, 'value': 45.0}, {'startTime': 16200.0, 'value': 45.0}, {'value': 55.0, 'startTime': 32400.0}]")
+    assert (loop_dict["basalProfileApplyingOverrideHistory_units"], 'mg/dL')
+
+    assert (loop_dict["basalProfileApplyingOverrideHistory_timeZone"], -25200)
+    assert (loop_dict["basalProfileApplyingOverrideHistory_schedule"], "[{'startTime': 0.0, 'value': 45.0}, {'startTime': 16200.0, 'value': 45.0}, {'value': 55.0, 'startTime': 32400.0}]")
+
+
 def get_integral_retrospective_correction():
     return {'Enabled': ' true', 'Last updated': ' 2019-01-14 22:22:41 +0000', 'Status': ' effect computed successfully.', 'currentDiscrepancyGain': ' 1.0', 'persistentDiscrepancyGain': ' 5.0', 'correctionTimeConstant [min]': ' 90.0', 'proportionalGain': ' 0.7714890209590539', 'integralForget': ' 0.9459594689067654', 'integralGain': ' 0.22851097904094608', 'differentialGain': ' 2.0', 'Integration performed over 2 most recent discrepancies having the same sign as the latest discrepancy value. Earliest-to-most-recent recentDiscrepancyValues [mg/dL]': ' [-2.4322013873640103, -13.183917919339311]', 'proportionalCorrection [mg/dL]': ' -10.171247927995612', 'integralCorrection [mg/dL]': ' -3.5384198101391116', 'differentialCorrection [mg/dL]': ' -21.503433063950602', 'totalGlucoseCorrectionEffect': ' Optional(-35.2131 mg/dL)', 'integralCorrectionEffectDuration [min]': ' Optional(70.0)'}
 

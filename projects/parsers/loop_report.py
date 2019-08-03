@@ -173,6 +173,62 @@ class LoopReport:
                     ).group(1)
                 )
 
+                print("stop") #NEW ADD
+                basalProfileApplyingOverrideHistory = json.loads(
+                    dose_store["basalProfileApplyingOverrideHistory"]
+                        .replace("[", "{")
+                        .replace("]", "}")
+                        .replace("{{", "{")
+                        .replace("}}", "}")
+                        .replace(": {", ": [{")
+                        .replace("}}", "}]}")
+                        .replace('}, "timeZone"', '}], "timeZone"')
+                )
+                loop_report_dict["basalProfileApplyingOverrideHistory_timeZone"] = basalProfileApplyingOverrideHistory["timeZone"]
+                loop_report_dict["basalProfileApplyingOverrideHistory_schedule"] = basalProfileApplyingOverrideHistory["items"]
+
+
+
+                 #{'timeZone': -25200, 'items': [{'startTime': 0.0, 'value': 0.85}, {'value': 0.85, 'startTime': 10800.0},  {'startTime': 43200.0, 'value': 0.5}]}
+
+            except:
+                logger.debug("handled error dose store")
+
+        if Sections.CARB_STORE in dict:
+            try:
+                carb_store = dict[Sections.CARB_STORE]
+                print("stop") #NEW ADD
+                basalProfileApplyingOverrideHistory = json.loads(
+                    carb_store["insulinSensitivityScheduleApplyingOverrideHistory"]
+                        .replace("[", "{")
+                        .replace("]", "}")
+                        .replace("{{", "{")
+                        .replace("}}", "}")
+                        .replace(": {", ": [{")
+                        .replace("}}", "}]}")
+                        .replace('}, "timeZone"', '}], "timeZone"')
+                )
+                loop_report_dict["basalProfileApplyingOverrideHistory_timeZone"] = basalProfileApplyingOverrideHistory["timeZone"]
+                loop_report_dict["basalProfileApplyingOverrideHistory_schedule"] = basalProfileApplyingOverrideHistory["items"]
+                loop_report_dict["basalProfileApplyingOverrideHistory_units"] = basalProfileApplyingOverrideHistory["unit"]
+
+                carbRatioScheduleApplyingOverrideHistory = json.loads(
+                    carb_store["carbRatioScheduleApplyingOverrideHistory"]
+                        .replace("[", "{")
+                        .replace("]", "}")
+                        .replace("{{", "{")
+                        .replace("}}", "}")
+                        .replace(": {", ": [{")
+                        .replace("}}", "}]}")
+                        .replace('}, "timeZone"', '}], "timeZone"')
+                )
+                loop_report_dict["carbRatioScheduleApplyingOverrideHistory_timeZone"] = carbRatioScheduleApplyingOverrideHistory[
+                    "timeZone"]
+                loop_report_dict["carbRatioScheduleApplyingOverrideHistory_schedule"] = carbRatioScheduleApplyingOverrideHistory[
+                    "items"]
+                loop_report_dict["carbRatioScheduleApplyingOverrideHistory_units"] = carbRatioScheduleApplyingOverrideHistory[
+                    "unit"]
+
             except:
                 logger.debug("handled error dose store")
 
@@ -1442,6 +1498,8 @@ class LoopReport:
             except Exception as e:
                 logger.debug("handled error G4_CGM_MANAGER")
                 logger.debug(e)
+
+
 
 
         return loop_report_dict
