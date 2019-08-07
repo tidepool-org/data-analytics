@@ -76,17 +76,67 @@ def remove_negative_durations(df):
     return df, n_negative_durations
 
 
-def expand_embedded_dict(df, field, key_):
+def expand_embedded_dict(ts, key_):
+    '''Expanded a single field that has embedded json
+
+    Args:
+        ts: a pandas time series of the field that has embedded json
+        key_: the key that you want to expand
+
+    Raise:
+        TypeError: if you don't pass in a pandas time series
+
+    Returns:
+        key_ts: a new time series of the key of interest
+
+    NOTE:
+        this is new function
+    TODO:
+        could be refactored to allow multiple keys or all keys to be returned
+        could be refactored for speed as the current process
     '''
-    this is new, should be refactored for speed as the current process
-    creates a dataframe of all of keys instead of just the key of interest
+
+    if "Series" not in type(ts).__name__:
+        raise TypeError('Expecting a pandas time series object')
+    key_ts = pd.Series(name=ts.name + "." + key_, index=ts.index)
+    notnull_idx = ts.notnull()
+    # TODO: maybe sped up by only getting the one field of interest?
+    # though, the current method is fairly quick and compact
+    temp_df = pd.DataFrame(ts[notnull_idx].tolist())
+    if key_ in list(temp_df):
+        key_ts[notnull_idx] = temp_df[key_].values
+
+    return key_ts
+
+
+def get_embedded_field(ts, embedded_field):
+    '''get a field that is nested in more than 1 embedded dictionary (json)
+
+    Args:
+        ts: a pandas time series of the field that has embedded json
+        embedded_field (str): the location of the field that is deeply nested
+            (e.g., "origin.payload.device.model")
+
+    Raise:
+        ValueError: if you don't pass in a pandas time series
+
+    Returns:
+        new_ts: a new time series of the key of interest
+
+    NOTE:
+        this is new function
+        the "." notation is used to reference nested json
+
     '''
-    if field in list(df):
-        notnull_idx = df[field].notnull()
-        temp_df = pd.DataFrame(df.loc[notnull_idx, field].tolist())  # TODO: this can be sped up by only getting the field key of interest
-        if key_ in list(temp_df):
-            df[field + "." + key_] = temp_df[key_]
-    return df
+    field_list = embedded_field.split(".")
+    if len(field_list) < 2:
+        raise ValueError('Expecting at least 1 embedded field')
+
+    new_ts = expand_embedded_dict(ts, field_list[1])
+    for i in range(2, len(field_list)):
+        new_ts = expand_embedded_dict(new_ts, field_list[i])
+
+    return new_ts
 
 
 def tslim_calibration_fix(df):
@@ -101,9 +151,11 @@ def tslim_calibration_fix(df):
     '''
 
     # expand payload field one level
-    df = expand_embedded_dict(df, "payload", "calibration_reading")
+    df["payload.calibration_reading"] = (
+        expand_embedded_dict(df["payload"], "calibration_reading")
+    )
 
-    if "payload.calibration_reading" in list(df):
+    if df["payload.calibration_reading"].notnull().sum() > 0:
 
         search_for = ['tan']
         tandem_data_index = (
@@ -133,7 +185,12 @@ def tslim_calibration_fix(df):
 
 
 def get_healthkit_timezone(df):
-    df = expand_embedded_dict(df, "payload", "HKTimeZone")
+    '''
+    TODO: refactor to account for more efficient way to get embedded json
+    '''
+    df["payload.HKTimeZone"] = (
+        expand_embedded_dict(df["payload"], "HKTimeZone")
+    )
     if "timezone" not in list(df):
         if "payload.HKTimeZone" in list(df):
             hk_tz_idx = df["payload.HKTimeZone"].notnull()
