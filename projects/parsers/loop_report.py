@@ -198,7 +198,7 @@ class LoopReport:
             try:
                 carb_store = dict[Sections.CARB_STORE]
                 print("stop") #NEW ADD
-                basalProfileApplyingOverrideHistory = json.loads(
+                insulinSensitivityScheduleApplyingOverrideHistory = json.loads(
                     carb_store["insulinSensitivityScheduleApplyingOverrideHistory"]
                         .replace("[", "{")
                         .replace("]", "}")
@@ -208,9 +208,9 @@ class LoopReport:
                         .replace("}}", "}]}")
                         .replace('}, "timeZone"', '}], "timeZone"')
                 )
-                loop_report_dict["basalProfileApplyingOverrideHistory_timeZone"] = basalProfileApplyingOverrideHistory["timeZone"]
-                loop_report_dict["basalProfileApplyingOverrideHistory_schedule"] = basalProfileApplyingOverrideHistory["items"]
-                loop_report_dict["basalProfileApplyingOverrideHistory_units"] = basalProfileApplyingOverrideHistory["unit"]
+                loop_report_dict["insulinSensitivityScheduleApplyingOverrideHistory_timeZone"] = insulinSensitivityScheduleApplyingOverrideHistory["timeZone"]
+                loop_report_dict["insulinSensitivityScheduleApplyingOverrideHistory_schedule"] = insulinSensitivityScheduleApplyingOverrideHistory["items"]
+                loop_report_dict["insulinSensitivityScheduleApplyingOverrideHistory_units"] = insulinSensitivityScheduleApplyingOverrideHistory["unit"]
 
                 carbRatioScheduleApplyingOverrideHistory = json.loads(
                     carb_store["carbRatioScheduleApplyingOverrideHistory"]
