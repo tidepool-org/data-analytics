@@ -480,6 +480,27 @@ def removeCgmDuplicates(df, timeCriterion):
     return df, nDuplicatesRemoved
 
 
+# get rid of spike data
+def remove_spike_data(df):
+    nBefore = len(df)
+    spike_locations = [
+        "origin.payload.device.name",
+        "origin.payload.device.manufacturer",
+        "origin.payload.sourceRevision.source.name",
+    ]
+    for spike_loc in spike_locations:
+
+        df[spike_loc] = get_embedded_field(df["origin"], spike_loc)
+        spike_idx = df.loc[
+            df[spike_loc].notnull(),
+            spike_loc
+        ].str.lower().str.contains("spike")
+        df.drop(df.iloc[np.where(spike_idx)[0]].index, inplace=True)
+    nRemoved = nBefore - len(df)
+
+    return df, nRemoved
+
+
 # %% ESTIMATE LOCAL TIME FUNCTIONS
 def create_contiguous_day_series(df):
     first_day = df["date"].min()
@@ -1291,6 +1312,10 @@ cgm = groups.get_group("cbg").dropna(axis=1, how="all")
 
 # calculate cgm in mg/dL
 cgm["mg/dL"] = round(cgm["value"] * MGDL_PER_MMOLL)
+
+# get rid of spike data
+cgm, nSpike = remove_spike_data(cgm)
+metadata["nSpike"] = nSpike
 
 # get rid of cgm values too low/high (< 38 & > 402 mg/dL)
 cgm, nInvalidCgmValues = remove_invalid_cgm_values(cgm)
