@@ -173,63 +173,120 @@ class LoopReport:
                     ).group(1)
                 )
 
-                print("stop") #NEW ADD
-                basalProfileApplyingOverrideHistory = json.loads(
-                    dose_store["basalProfileApplyingOverrideHistory"]
-                        .replace("[", "{")
-                        .replace("]", "}")
-                        .replace("{{", "{")
-                        .replace("}}", "}")
-                        .replace(": {", ": [{")
-                        .replace("}}", "}]}")
-                        .replace('}, "timeZone"', '}], "timeZone"')
-                )
-                loop_report_dict["basalProfileApplyingOverrideHistory_timeZone"] = basalProfileApplyingOverrideHistory["timeZone"]
-                loop_report_dict["basalProfileApplyingOverrideHistory_schedule"] = basalProfileApplyingOverrideHistory["items"]
+                ####carbRatioScheduleApplyingOverrideHistory###
+                substr = carb_store["basalProfileApplyingOverrideHistory"]
+                value = "timeZone";
+                start_index = substr.index(value)
+                value_temp = substr[start_index:]
+                value_temp = value_temp.replace('"', '')
+                last_index = 0
+                if value_temp.find(",") == -1:
+                    last_index = value_temp.index("]")
+                else:
+                    last_index = value_temp.find(",")
+                loop_report_dict["basalProfileApplyingOverrideHistory_timeZone"] = value_temp[len(
+                    value) + 1:last_index]
 
 
-
-                 #{'timeZone': -25200, 'items': [{'startTime': 0.0, 'value': 0.85}, {'value': 0.85, 'startTime': 10800.0},  {'startTime': 43200.0, 'value': 0.5}]}
+                value = "items";
+                substr = carb_store["basalProfileApplyingOverrideHistory"]
+                start_index = substr.index(value)
+                value_temp = substr[start_index:]
+                last_index = value_temp.index("]]")
+                items_val = '{"items": [' + value_temp[len(value) + 2:last_index + 2].replace(" ", "") \
+                    .replace("(", "{").replace("]", "}").replace("[", "{").replace("{{", "{").replace("}}", "}") + ']}'
+                loop_report_dict["basalProfileApplyingOverrideHistory_items"] = json.loads(items_val)[
+                    "items"]
 
             except:
                 logger.debug("handled error dose store")
-
         if Sections.CARB_STORE in dict:
             try:
+                """ 
+                ["timeZone": -25200, "items": [["startTime": 0.0, "value": 60.0], [
+                    "startTime": 23400.0, "value": 40.0], [
+                    "value": 66.66666666666667, "startTime": 28369.19808101654], [
+                    "startTime": 35569.19808101654, "value": 40.0], [
+                    "value": 80.0, "startTime": 50400.0]], "unit": "mg/dL"]
+
+                ["timeZone": -25200, "unit": "mg/dL",
+                "items": [["startTime": 0.0, "value": 45.0], ["value": 45.0, "startTime": 16200.0], [
+                    "startTime": 32400.0, "value": 55.0]]]
+                """
+
                 carb_store = dict[Sections.CARB_STORE]
-                print("stop") #NEW ADD
-                insulinSensitivityScheduleApplyingOverrideHistory = json.loads(
-                    carb_store["insulinSensitivityScheduleApplyingOverrideHistory"]
-                        .replace("[", "{")
-                        .replace("]", "}")
-                        .replace("{{", "{")
-                        .replace("}}", "}")
-                        .replace(": {", ": [{")
-                        .replace("}}", "}]}")
-                        .replace('}, "timeZone"', '}], "timeZone"')
-                )
-                loop_report_dict["insulinSensitivityScheduleApplyingOverrideHistory_timeZone"] = insulinSensitivityScheduleApplyingOverrideHistory["timeZone"]
-                loop_report_dict["insulinSensitivityScheduleApplyingOverrideHistory_schedule"] = insulinSensitivityScheduleApplyingOverrideHistory["items"]
-                loop_report_dict["insulinSensitivityScheduleApplyingOverrideHistory_units"] = insulinSensitivityScheduleApplyingOverrideHistory["unit"]
+                ###insulinSensitivityScheduleApplyingOverrideHistory###
+                substr = carb_store["insulinSensitivityScheduleApplyingOverrideHistory"]
+                value = "timeZone";
+                start_index = substr.index(value)
+                value_temp = substr[start_index:]
+                value_temp = value_temp.replace('"', '')
+                last_index = 0
+                if value_temp.find(",") == -1:
+                    last_index = value_temp.index("]")
+                else:
+                    last_index = value_temp.find(",")
 
-                carbRatioScheduleApplyingOverrideHistory = json.loads(
-                    carb_store["carbRatioScheduleApplyingOverrideHistory"]
-                        .replace("[", "{")
-                        .replace("]", "}")
-                        .replace("{{", "{")
-                        .replace("}}", "}")
-                        .replace(": {", ": [{")
-                        .replace("}}", "}]}")
-                        .replace('}, "timeZone"', '}], "timeZone"')
-                )
-                loop_report_dict["carbRatioScheduleApplyingOverrideHistory_timeZone"] = carbRatioScheduleApplyingOverrideHistory[
-                    "timeZone"]
-                loop_report_dict["carbRatioScheduleApplyingOverrideHistory_schedule"] = carbRatioScheduleApplyingOverrideHistory[
+                loop_report_dict["insulinSensitivityScheduleApplyingOverrideHistory_timeZone"] = value_temp[len(value) + 1:last_index]
+
+                value = "unit";
+                substr = carb_store["insulinSensitivityScheduleApplyingOverrideHistory"]
+                start_index = substr.index(value)
+                value_temp = substr[start_index:]
+                value_temp = value_temp.replace('"', '')
+                last_index = value_temp.index("]")
+                if last_index > 12:
+                    last_index = value_temp.index(",")
+                loop_report_dict["insulinSensitivityScheduleApplyingOverrideHistory_units"] = value_temp[len(value) + 1:last_index]
+
+                value = "items";
+                start_index = substr.index(value)
+                value_temp = substr[start_index:]
+                last_index = value_temp.index("]]")
+                items_val = '{"items": [' + value_temp[len(value) + 2:last_index+2].replace(" ", "")\
+                    .replace("(", "{").replace("]", "}").replace("[", "{").replace("{{", "{").replace("}}", "}") + ']}'
+                loop_report_dict["insulinSensitivityScheduleApplyingOverrideHistory_items"] =json.loads(items_val)["items"]
+
+
+                ####carbRatioScheduleApplyingOverrideHistory###
+                substr = carb_store["carbRatioScheduleApplyingOverrideHistory"]
+                value = "timeZone";
+                start_index = substr.index(value)
+                value_temp = substr[start_index:]
+                value_temp = value_temp.replace('"', '')
+                last_index = 0
+                if value_temp.find(",") == -1:
+                    last_index = value_temp.index("]")
+                else:
+                    last_index = value_temp.find(",")
+
+                loop_report_dict["carbRatioScheduleApplyingOverrideHistory_timeZone"] = value_temp[len(
+                    value) + 1:last_index]
+
+                value = "unit";
+                substr = carb_store["carbRatioScheduleApplyingOverrideHistory"]
+                start_index = substr.index(value)
+                value_temp = substr[start_index:]
+                value_temp = value_temp.replace('"', '')
+                last_index = value_temp.index("]")
+                if last_index > 12:
+                    last_index = value_temp.index(",")
+                loop_report_dict["carbRatioScheduleApplyingOverrideHistory_units"] = value_temp[len(value) + 1:last_index]
+
+                value = "items";
+                substr = carb_store["carbRatioScheduleApplyingOverrideHistory"]
+                start_index = substr.index(value)
+                value_temp = substr[start_index:]
+                last_index = value_temp.index("]]")
+                items_val = '{"items": [' + value_temp[len(value) + 2:last_index + 2].replace(" ", "") \
+                    .replace("(", "{").replace("]", "}").replace("[", "{").replace("{{", "{").replace("}}", "}") + ']}'
+                loop_report_dict["carbRatioScheduleApplyingOverrideHistory_items"] = json.loads(items_val)[
                     "items"]
-                loop_report_dict["carbRatioScheduleApplyingOverrideHistory_units"] = carbRatioScheduleApplyingOverrideHistory[
-                    "unit"]
 
-            except:
+
+
+            except Exception as error:
+
                 logger.debug("handled error dose store")
 
         minimed_pump_manager = None
