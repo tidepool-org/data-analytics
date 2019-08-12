@@ -566,22 +566,22 @@ def add_device_day_series(df, dfContDays, deviceTypeName):
 
         if "upload" in deviceTypeName:
             if "timezone" in df:
-#                if dfDayGroups.timezone.count().values[0] > 0:  # NOT SURE WHY THIS IS HERE
-                dfDaySeries["timezone"] = (
-                    dfDayGroups.timezone.describe()["top"]
-                )
-                # get the timezone offset for the timezone
-                for i in dfDaySeries.index:
-                    if pd.notnull(dfDaySeries.loc[i, "timezone"]):
-                        tzo = get_timezone_offset(
-                                pd.to_datetime(i),
-                                dfDaySeries.loc[i, "timezone"])
-                        dfDaySeries.loc[i, ["timezoneOffset"]] = tzo
-                if "timeProcessing" in dfDaySeries:
-                    dfDaySeries["timeProcessing"] = \
-                        dfDayGroups.timeProcessing.describe()["top"]
-                else:
-                    dfDaySeries["timeProcessing"] = np.nan
+                if dfDayGroups.timezone.count().max() > 0:
+                    dfDaySeries["timezone"] = (
+                        dfDayGroups.timezone.describe()["top"]
+                    )
+                    # get the timezone offset for the timezone
+                    for i in dfDaySeries.index:
+                        if pd.notnull(dfDaySeries.loc[i, "timezone"]):
+                            tzo = get_timezone_offset(
+                                    pd.to_datetime(i),
+                                    dfDaySeries.loc[i, "timezone"])
+                            dfDaySeries.loc[i, ["timezoneOffset"]] = tzo
+                    if "timeProcessing" in dfDaySeries:
+                        dfDaySeries["timeProcessing"] = \
+                            dfDayGroups.timeProcessing.describe()["top"]
+                    else:
+                        dfDaySeries["timeProcessing"] = np.nan
 
         dfDaySeries = dfDaySeries.add_prefix(deviceTypeName + "."). \
             rename(columns={deviceTypeName + ".date": "date"})
