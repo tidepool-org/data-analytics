@@ -7,7 +7,7 @@ dependencies: loop_report_parser.py
 license: BSD-2-Clause
 """
 
-from loop_report_parser import parse_loop_report, Sections
+from .loop_report_parser import parse_loop_report, Sections
 import os
 import re
 import json
@@ -150,6 +150,8 @@ class LoopReport:
         if Sections.DOSE_STORE in dict:
             try:
                 dose_store = dict[Sections.DOSE_STORE]
+
+
                 basal_profile = json.loads(
                     dose_store["basalProfile"]
                     .replace("[", "{")
@@ -173,8 +175,8 @@ class LoopReport:
                     ).group(1)
                 )
 
-                ####carbRatioScheduleApplyingOverrideHistory###
-                substr = carb_store["basalProfileApplyingOverrideHistory"]
+
+                substr = dose_store["basalProfileApplyingOverrideHistory"]
                 value = "timeZone";
                 start_index = substr.index(value)
                 value_temp = substr[start_index:]
@@ -188,8 +190,9 @@ class LoopReport:
                     value) + 1:last_index]
 
 
+
                 value = "items";
-                substr = carb_store["basalProfileApplyingOverrideHistory"]
+                substr = dose_store["basalProfileApplyingOverrideHistory"]
                 start_index = substr.index(value)
                 value_temp = substr[start_index:]
                 last_index = value_temp.index("]]")
@@ -197,6 +200,8 @@ class LoopReport:
                     .replace("(", "{").replace("]", "}").replace("[", "{").replace("{{", "{").replace("}}", "}") + ']}'
                 loop_report_dict["basalProfileApplyingOverrideHistory_items"] = json.loads(items_val)[
                     "items"]
+
+                print("test")
 
             except:
                 logger.debug("handled error dose store")
