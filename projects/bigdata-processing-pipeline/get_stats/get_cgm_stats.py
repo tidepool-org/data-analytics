@@ -482,21 +482,26 @@ def removeCgmDuplicates(df, timeCriterion):
 
 # get rid of spike data
 def remove_spike_data(df):
-    nBefore = len(df)
-    spike_locations = [
-        "origin.payload.device.name",
-        "origin.payload.device.manufacturer",
-        "origin.payload.sourceRevision.source.name",
-    ]
-    for spike_loc in spike_locations:
+    if "origin" in list(df):
+        nBefore = len(df)
+        spike_locations = [
+            "origin.payload.device.name",
+            "origin.payload.device.manufacturer",
+            "origin.payload.sourceRevision.source.name",
+        ]
+        for spike_loc in spike_locations:
 
-        df[spike_loc] = get_embedded_field(df["origin"], spike_loc)
-        spike_idx = df.loc[
-            df[spike_loc].notnull(),
-            spike_loc
-        ].str.lower().str.contains("spike")
-        df.drop(df.iloc[np.where(spike_idx)[0]].index, inplace=True)
-    nRemoved = nBefore - len(df)
+            df[spike_loc] = get_embedded_field(df["origin"], spike_loc)
+            spike_idx = df.loc[
+                df[spike_loc].notnull(),
+                spike_loc
+            ].astype(str).str.lower().str.contains("spike")
+
+            df.drop((spike_idx == True).index, inplace=True)
+        nRemoved = nBefore - len(df)
+
+    else:
+        nRemoved = np.nan
 
     return df, nRemoved
 
