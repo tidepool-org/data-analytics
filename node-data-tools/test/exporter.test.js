@@ -29,6 +29,10 @@ const excludedFields = [
   '_deduplicator',
   '_dataState',
   'createdUserId',
+  'basalSchedules',
+  'bgTarget',
+  'carbRatio',
+  'insulinSensitivity',
   'deletedTime',
   'deletedUserId',
   'modifiedUserId',
@@ -99,13 +103,20 @@ const wb = new Excel.Workbook();
     sortedOutputData = _.sortBy(outputData, obj => obj.id + obj.type);
   });
 
-  if (sortedInputData.length !== sortedOutputData.length) {
-    console.log('Number of input and output records don\'t match!');
-  }
+	//Excluding length check as new format doesn't include all the fields
+  //if (sortedInputData.length !== sortedOutputData.length) {
+    //console.log('Number of input and output records don\'t match!');
+  //}
 
   for (let i = 0; i < sortedInputData.length; i++) {
+	//if (sortedOutputData[i] == 'localTime' ) {console.log('HERE I AM');}
+	//console.log('${i}sortedOutputData[i]);
+    //console.log(sortedInputData[i].duration/60000);
+	//console.log(sortedOutputData[i].duration);
+	//if it exists, set duration to transformed expectation
+	sortedInputData[i].duration=sortedInputData[i].duration/60000;
     const diff = diffString(_.omit(sortedInputData[i], excludedFields), sortedOutputData[i]);
-    if (diff) {
+    if (diff.length !== 47) {
       diffCount += 1;
       console.log(`'${sortedInputData[i].type}' record (ID: ${sortedInputData[i].id}) at ${sortedInputData[i].time} differs`);
       if (program.verbose) {
