@@ -201,7 +201,7 @@ class LoopReport:
                 loop_report_dict["basalProfileApplyingOverrideHistory_items"] = json.loads(items_val)[
                     "items"]
 
-                print("test")
+
 
             except:
                 logger.debug("handled error dose store")
