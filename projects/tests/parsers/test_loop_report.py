@@ -121,19 +121,15 @@ def test_parse_by_file():
     )
 
     assert(loop_dict["carbRatioScheduleApplyingOverrideHistory_timeZone"], -25200)
-
-    assert (loop_dict["carbRatioScheduleApplyingOverrideHistory_schedule"], "[{'value': 8.0, 'startTime': 0.0}]")
-
+    assert (loop_dict["carbRatioScheduleApplyingOverrideHistory_items"], "[{'value': 8.0, 'startTime': 0.0}]")
     assert (loop_dict["carbRatioScheduleApplyingOverrideHistory_units"], 'g')
 
-
-
     assert (loop_dict["insulinSensitivityScheduleApplyingOverrideHistory_timeZone"], -25200)
-    assert (loop_dict["insulinSensitivityScheduleApplyingOverrideHistory_schedule"], "[{'startTime': 0.0, 'value': 45.0}, {'startTime': 16200.0, 'value': 45.0}, {'value': 55.0, 'startTime': 32400.0}]")
+    assert (loop_dict["insulinSensitivityScheduleApplyingOverrideHistory_items"], "[{'startTime': 0.0, 'value': 45.0}, {'startTime': 16200.0, 'value': 45.0}, {'value': 55.0, 'startTime': 32400.0}]")
     assert (loop_dict["insulinSensitivityScheduleApplyingOverrideHistory_units"], 'mg/dL')
 
     assert (loop_dict["basalProfileApplyingOverrideHistory_timeZone"], -25200)
-    assert (loop_dict["basalProfileApplyingOverrideHistory_schedule"], "[{'startTime': 0.0, 'value': 0.85}, {'value': 0.85, 'startTime': 10800.0}, {'startTime': 43200.0, 'value': 0.5}]")
+    assert (loop_dict["basalProfileApplyingOverrideHistory_items"], "[{'startTime': 0.0, 'value': 0.85}, {'value': 0.85, 'startTime': 10800.0}, {'startTime': 43200.0, 'value': 0.5}]")
 
 
 def get_integral_retrospective_correction():
