@@ -1698,13 +1698,15 @@ for d_idx in range(0, len(all_files)):
             # merge with cgm data
             cgm_series = pd.merge(
                 contiguous_data,
-                temp_cgm[
-                    ["roundedUtcTime", "hashid", "cgmModel", "age", "mg/dL"]
-                ],
+                temp_cgm[[
+                    "roundedUtcTime", "hashid",
+                    "cgmModel", "age", "ylw", "mg/dL"
+                 ]],
                 on="roundedUtcTime",
                 how="left"
             )
-            #
+
+            # sort so that the oldest data point is on top
             cgm_series.sort_values(
                 "roundedUtcTime", ascending=True, inplace=True
             )
@@ -1786,6 +1788,24 @@ for d_idx in range(0, len(all_files)):
                 ignore_index=True
             )
 
+        # sort so that the oldest data point is on top
+        all_cgm_series.sort_values(
+            "roundedUtcTime", ascending=False, inplace=True
+        )
+        all_cgm_series.reset_index(drop=True, inplace=True)
+
+        # add in check to see if there are duplicates between cgm devices
+        nUnique_cgm_times = len(all_cgm_series["roundedUtcTime"].unique())
+        metadata["duplicateCgmDataIssue"] = (
+            nUnique_cgm_times != len(all_cgm_series)
+        )
+
+        # get metadata for cgm stats
+        metadata["lastCgm.date"] = all_cgm_series.loc[0, "roundedUtcTime"]
+        metadata["lastCgm.age"] = all_cgm_series.loc[0, "age"]
+        metadata["lastCgm.ylw"] = all_cgm_series.loc[0, "ylw"]
+
+        pdb.set_trace()
         # save distribution data
         all_cgm_series.to_csv(os.path.join(
             output_distribution,
