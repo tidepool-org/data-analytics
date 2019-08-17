@@ -13,7 +13,7 @@ import pytz
 import numpy as np
 import pandas as pd
 import datetime as dt
-import ast
+import glob
 import pdb
 # TODO: figure out how to get rid of these path dependcies
 get_donor_data_path = os.path.abspath(
@@ -24,7 +24,7 @@ if get_donor_data_path not in sys.path:
 import environmentalVariables
 from get_donor_data.get_single_donor_metadata import get_shared_metadata
 from get_donor_data.get_single_tidepool_dataset import get_data
-
+from get_donor_data.get_single_tidepool_dataset_json import make_folder_if_doesnt_exist
 
 # %% CONSTANTS
 MGDL_PER_MMOLL = 18.01559
@@ -1465,22 +1465,39 @@ timezone_aliases = pd.read_csv(
 
 
 # %% GET DATA FROM JSON FILE
-
 data_path = os.path.join("..", "data")
 all_donor_metadata = pd.read_csv(
     os.path.join(
         data_path,
+        "PHI-2019-07-17-donor-data",
         "PHI-2019-07-17-donor-metadata.csv"),
     low_memory=False
 )
 
 # glob through the json files that are available
-import glob
-all_files = glob.glob(os.path.join(
+all_files = glob.glob(
+    os.path.join(
+        data_path,
+        "dremio",
+        "**",
+        "*.json"
+    ),
+    recursive=True
+)
+
+output_metadata = os.path.join(
     data_path,
-    "PHI-2019-07-17-json-data",
-    "*.json"
-))
+    "PHI-2019-07-17-donor-data",
+    "PHI-2019-07-17-cgm-metadata"
+)
+output_distribution = os.path.join(
+    data_path,
+    "PHI-2019-07-17-donor-data",
+    "PHI-2019-07-17-cgm-distributions"
+)
+
+make_folder_if_doesnt_exist([output_metadata, output_distribution])
+
 
 # %%
 for d_idx in range(0, len(all_files)):
@@ -1502,7 +1519,6 @@ for d_idx in range(0, len(all_files)):
     data["userid"] = userid
     data["hashid"] = hashid
 
-
     #  CLEAN DATA
     data_fields = list(data)
 
@@ -1522,7 +1538,6 @@ for d_idx in range(0, len(all_files)):
 
     # convert deprecated timezones to their aliases
     data = convert_deprecated_timezone_to_alias(data, timezone_aliases)
-
 
     #  TIME RELATED ITEMS
     data["utcTime"] = to_utc_datetime(data[["time"]].copy())
@@ -1552,7 +1567,6 @@ for d_idx in range(0, len(all_files)):
         return_calculation_columns=False
     )
 
-
     #  TIME CATEGORIES
     # AGE, & YLW
     bDate = pd.to_datetime(donor_metadata["birthday"].values[0][0:7])
@@ -1561,15 +1575,15 @@ for d_idx in range(0, len(all_files)):
     else:
         data["age"] = np.floor((data["roundedUtcTime"] - bDate).dt.days/365.25)
 
-
     #  GROUP DATA BY TYPE
     # first sort by upload time (used when removing dumplicates)
     data.sort_values("uploadTime", ascending=False, inplace=True)
     groups = data.groupby(by="type")
 
-
     #  CGM DATA
     if "cbg" in data["type"].unique():
+        metadata["cgmData"] = True
+
         # filter by cgm
         cgm = groups.get_group("cbg").dropna(axis=1, how="all")
 
@@ -1622,7 +1636,7 @@ for d_idx in range(0, len(all_files)):
         # break up all traces by cgm model
         all_cgm_series = pd.DataFrame()
         cgm_models = cgm.groupby(by="cgmModel")
-#        for cgm_model in cgm["cgmModel"].unique():
+
         for cgm_model in cgm_models.groups.keys():
             print(cgm_model)
             temp_cgm = cgm_models.get_group(cgm_model)
@@ -1697,13 +1711,12 @@ for d_idx in range(0, len(all_files)):
                 cgm_series["mg/dL"], value_bins, labels=value_bin_names
             )
 
-
             # get the previous val
             cgm_series["previousVal"] = cgm_series["mg/dL"].shift(1)
 
             # get difference between current and previous val
             cgm_series["diffFromPrevVal"] = (
-                cgm_series["mg/dL"] -  cgm_series["previousVal"]
+                cgm_series["mg/dL"] - cgm_series["previousVal"]
             )
 
             # calculate the rate from previous value (mg/dL/min)
@@ -1746,7 +1759,7 @@ for d_idx in range(0, len(all_files)):
 
             # get difference or relative increase/decrease of next value
             cgm_series["relativeNextValue"] = (
-                cgm_series["nextVal"] -  cgm_series["mg/dL"]
+                cgm_series["nextVal"] - cgm_series["mg/dL"]
             )
 
             # rate of next value
@@ -1762,15 +1775,25 @@ for d_idx in range(0, len(all_files)):
                 ignore_index=True
             )
 
-
-        # %% END OF CODE
+        # save distribution data
+        all_cgm_series.to_csv(os.path.join(
+            output_distribution,
+            "PHI-" + userid + "-cgm-distribution.csv"
+        ))
         print(metadata.T)
 
     else:
+        metadata["cgmData"] = False
         print(d_idx, "no cgm data")
 
     # combine metadata
     all_metadata = pd.concat([all_metadata, metadata], sort=False)
+
+    # save metadata
+    all_metadata.to_csv(os.path.join(
+        output_metadata,
+        "PHI-" + userid + "-cgm-metadata.csv"
+    ))
     print("finished", d_idx, userid)
 
 
