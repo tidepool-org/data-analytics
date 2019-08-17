@@ -1432,15 +1432,6 @@ def estimate_local_time(df):
     return local_time, cDays
 
 
-# %% START OF CODE
-all_metadata = pd.DataFrame()
-
-timezone_aliases = pd.read_csv(
-    "wikipedia-timezone-aliases-2018-04-28.csv",
-    low_memory=False
-)
-
-
 # %% GET DATA FROM API
 #'''
 #get metadata and data for a donor that has shared with bigdata
@@ -1499,25 +1490,38 @@ output_distribution = os.path.join(
 make_folder_if_doesnt_exist([output_metadata, output_distribution])
 
 
+# %% START OF CODE
+timezone_aliases = pd.read_csv(
+    "wikipedia-timezone-aliases-2018-04-28.csv",
+    low_memory=False
+)
+
+donor_metadata_columns = [
+    'userid',
+    'diagnosisType',
+    'diagnosisDate',
+    'biologicalSex',
+    'birthday',
+    'targetTimezone',
+    'targetDevices',
+    'isOtherPerson',
+]
+
 # %%
 for d_idx in range(0, len(all_files)):
     data = pd.read_json(all_files[d_idx])
     userid = all_files[d_idx][-15:-5]
-    donor_metadata = all_donor_metadata[
-        all_donor_metadata["userid"] == userid
+    metadata = all_donor_metadata.loc[
+        all_donor_metadata["userid"] == userid,
+        donor_metadata_columns
     ]
     print("\n", "starting", userid)
-
-    #  CREATE META DATAFRAME (metadata)
-    '''
-    this is useful for keeping track of the type and amount of cleaning done
-    '''
-    metadata = pd.DataFrame(index=[userid])
 
     #  HASH USER ID
     hashid = hash_userid(userid, os.environ['BIGDATA_SALT'])
     data["userid"] = userid
     data["hashid"] = hashid
+    metadata["hashid"] = hashid
 
     #  CLEAN DATA
     data_fields = list(data)
@@ -1569,11 +1573,18 @@ for d_idx in range(0, len(all_files)):
 
     #  TIME CATEGORIES
     # AGE, & YLW
-    bDate = pd.to_datetime(donor_metadata["birthday"].values[0][0:7])
-    if data["roundedUtcTime"].notnull().sum() == 0:
-        data["age"] = np.nan
-    else:
+    # TODO: make this a function
+    if metadata["birthday"].values is not None:
+        bDate = pd.to_datetime(metadata["birthday"].values[0][0:7])
         data["age"] = np.floor((data["roundedUtcTime"] - bDate).dt.days/365.25)
+    else:
+        data["age"] = np.nan
+
+    if metadata["diagnosisDate"].values is not None:
+        dDate = pd.to_datetime(metadata["diagnosisDate"].values[0][0:7])
+        data["ylw"] = np.floor((data["roundedUtcTime"] - dDate).dt.days/365.25)
+    else:
+        data["ylw"] = np.nan
 
     #  GROUP DATA BY TYPE
     # first sort by upload time (used when removing dumplicates)
@@ -1786,15 +1797,11 @@ for d_idx in range(0, len(all_files)):
         metadata["cgmData"] = False
         print(d_idx, "no cgm data")
 
-    # combine metadata
-    all_metadata = pd.concat([all_metadata, metadata], sort=False)
-
     # save metadata
-    all_metadata.to_csv(os.path.join(
+    metadata.to_csv(os.path.join(
         output_metadata,
         "PHI-" + userid + "-cgm-metadata.csv"
     ))
+
     print("finished", d_idx, userid)
-
-
 
