@@ -652,10 +652,8 @@ def remove_invalid_cgm_values(df):
 
     nBefore = len(df)
     # remove values < 38 and > 402 mg/dL
-    df = df.drop(df[((df.type == "cbg") &
-                     (df["mg/dL"] < 38))].index)
-    df = df.drop(df[((df.type == "cbg") &
-                     (df["mg/dL"] > 402))].index)
+    df = df.drop(df[((df.type == "cbg") & (df["mg/dL"] < 38))].index)
+    df = df.drop(df[((df.type == "cbg") & (df["mg/dL"] > 402))].index)
     nRemoved = nBefore - len(df)
 
     return df, nRemoved
@@ -701,13 +699,11 @@ def remove_spike_data(df):
         ]
         for spike_loc in spike_locations:
             df[spike_loc] = get_embedded_field(df["origin"], spike_loc)
-
-            spike_idx = df.loc[
-                df[spike_loc].notnull(),
-                spike_loc
-            ].astype(str).str.lower().str.contains("spike")
-
-            df.drop((spike_idx == True).index, inplace=True)
+            notnull_idx = df[spike_loc].notnull()
+            df_notnull = df[notnull_idx]
+            is_spike = df_notnull[spike_loc].astype(str).str.lower().str.contains("spike")
+            spike_idx = df_notnull[is_spike].index
+            df.drop(spike_idx, inplace=True)
 
         nRemoved = nBefore - len(df)
 
