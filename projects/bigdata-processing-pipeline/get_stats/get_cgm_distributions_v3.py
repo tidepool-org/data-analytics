@@ -2192,6 +2192,33 @@ for d_idx in [0]:
                     ).sum() / w_len
                 )
 
+                # quantiles
+                # NOTE: this will increase run time, so only run if you need
+                # 3-4X the processing time since it has to sort the data
+                # TODO: make this an option to the function, once it is made
+                # create a rolling object
+                roll39_401 = ts39_401.rolling(min_periods=3, window=w_len)
+
+                # min
+                all_cgm[w_name + ".min"] = roll39_401.min()
+
+                # 10, 25, 75, and 90th percentiles
+                all_cgm[w_name + ".10th"] = roll39_401.quantile(0.10)
+                all_cgm[w_name + ".25th"] = roll39_401.quantile(0.25)
+                all_cgm[w_name + ".75th"] = roll39_401.quantile(0.75)
+                all_cgm[w_name + ".90th"] = roll39_401.quantile(0.90)
+
+                # max
+                all_cgm[w_name + ".max"] = roll39_401.max()
+
+                # median
+                all_cgm[w_name + ".median"] = roll39_401.median()
+
+                # iqr
+                all_cgm[w_name + ".iqr"] = (
+                    all_cgm[w_name + ".75th"] - all_cgm[w_name + ".25th"]
+                )
+
                 # points that are 39 or 401 should NOT be used most
                 # calculations because the actual number is <= 39 or >= 401
                 # (cgm < 40) OR (cgm > 400)
@@ -2231,31 +2258,6 @@ for d_idx in [0]:
 
                 # create a rolling object
                 roll40_400 = ts40_400.rolling(min_periods=w_min, window=w_len)
-
-                # quantiles
-                # NOTE: this will increase run time, so only run if you need
-                # 3-4X the processing time since it has to sort the data
-                # TODO: make this an option to the function, once it is made
-
-                # min
-                all_cgm[w_name + ".min"] = roll40_400.min()
-
-                # 10, 25, 75, and 90th percentiles
-                all_cgm[w_name + ".10th"] = roll40_400.quantile(0.10)
-                all_cgm[w_name + ".25th"] = roll40_400.quantile(0.25)
-                all_cgm[w_name + ".75th"] = roll40_400.quantile(0.75)
-                all_cgm[w_name + ".90th"] = roll40_400.quantile(0.90)
-
-                # max
-                all_cgm[w_name + ".max"] = roll40_400.max()
-
-                # median
-                all_cgm[w_name + ".median"] = roll40_400.median()
-
-                # iqr
-                all_cgm[w_name + ".iqr"] = (
-                    all_cgm[w_name + ".75th"] - all_cgm[w_name + ".25th"]
-                )
 
                 # mean
                 all_cgm[w_name + ".mean"] = roll40_400.mean()
