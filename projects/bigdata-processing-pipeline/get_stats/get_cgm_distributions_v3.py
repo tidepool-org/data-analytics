@@ -2232,19 +2232,51 @@ for d_idx in [0]:
                 )
 
                 # %% make an episodes dataframe, and then get stats
-                all_cgm["notnull"] = all_cgm["mg/dL"].notnull()
-                all_cgm["hypoEpisodeStart"] = (
-                    (all_cgm["cgm < 54"]) & (all_cgm["cgm >= 54"].shift(1))
-                    & (all_cgm["notnull"]) & (all_cgm["notnull"].shift(1))
+                episode_ts = all_cgm[[
+                    "roundedUtcTime", "mg/dL", "hasCgm",
+                    "cgm < 54", "cgm >= 54"
+                ]].copy()
+
+                # put consecutive data that matches in groups
+                episode_ts["tempGroups"] = (
+                    (episode_ts["cgm < 54"] != episode_ts["cgm < 54"].shift()).cumsum()
                 )
-#                ts["startCrossPoint"] = ((df.mg_dL.shift(1) >= episodeThreshold) &
-#                                      (df.mg_dL < episodeThreshold))
-#
-#                df["endCrossPoint"] = ((df.mg_dL.shift(1) < episodeThreshold) &
-#                                    (df.mg_dL >= episodeThreshold))
+                episode_ts["episodeGroup"] = (
+                    episode_ts["tempGroups"] * episode_ts["cgm < 54"]
+                )
+                episode_groups = episode_ts.groupby("episodeGroup")
+                episodes = (
+                    episode_groups["roundedUtcTime"].count().reset_index()
+                )
+                episodes["duration"] = episodes["roundedUtcTime"] * 5
+                episodes.rename(
+                    columns={"roundedUtcTime": "episodeCounts"}, inplace=True
+                )
+
+                episode_ts = pd.merge(
+                    episode_ts,
+                    episodes,
+                    on="episodeGroup",
+                    how="left"
+                )
+                episode_ts["episodeDuration"] = (
+                    episode_ts["duration"] * episode_ts["cgm < 54"]
+                )
+
+                # merge episodes back into all_cgm
+                all_cgm = pd.merge(
+                    all_cgm,
+                    episode_ts[[
+                        'roundedUtcTime',
+                        'episodeGroup',
+                        'episodeDuration'
+                    ]],
+                    on="roundedUtcTime",
+                    how="left"
+                )
 
 
-                # save cgm stats data
+                # %% save cgm stats data
                 all_cgm.to_csv(os.path.join(
                     output_stats,
                     "PHI-" + userid + "-cgm-stats.csv.gz"
