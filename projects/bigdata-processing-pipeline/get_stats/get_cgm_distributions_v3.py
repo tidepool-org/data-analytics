@@ -38,6 +38,49 @@ and whether they were refactored
 '''
 
 
+def get_episodes(df, episode_criterion, min_duration):
+
+    # put consecutive data that matches in groups
+    df["tempGroups"] = ((
+        df[episode_criterion] != df[episode_criterion].shift()
+    ).cumsum())
+
+    df["episodeId"] = (
+        df["tempGroups"] * df[episode_criterion]
+    )
+
+    # group by the episode groups
+    episode_groups = df.groupby("episodeId")
+    episodes = episode_groups["roundedUtcTime"].count().reset_index()
+    episodes["duration"] = episodes["roundedUtcTime"] * 5
+    episodes.rename(columns={"roundedUtcTime": "episodeCounts"}, inplace=True)
+
+    df = pd.merge(df, episodes, on="episodeId", how="left")
+    df["episodeDuration"] = (
+        df["duration"] * df[episode_criterion]
+    )
+
+    # get rolling stats on episodes
+    df["isEpisode"] = (
+        df["episodeDuration"] >= min_duration
+    )
+
+    # get the hypo episode starts so we only count each episode once
+    df["episodeStart"] = (
+        (df[episode_criterion])
+        & (~df[episode_criterion].shift(1).fillna(False))
+        & (df["hasCgm"])
+        & (df["hasCgm"].shift(1))
+    )
+
+    df = df[[
+        "isEpisode", "episodeStart",
+        "episodeId", "episodeDuration"
+    ]].add_prefix("episode." + episode_criterion + ".")
+
+    return df
+
+
 def get_slope(y):
     if "array" not in type(y).__name__:
         raise TypeError('Expecting a numpy array')
@@ -1903,8 +1946,7 @@ for d_idx in [0]:
                 "PHI-" + userid + "-cgm-distribution.csv.gz"
             ))
 
-
-            # %% get cgm stats
+            # get cgm stats
             # create a contiguous 5 minute time series of ALL cgm data
             first_day = combined_cgm_series["roundedUtcTime"].min()
             metadata["firstCgm." + cgm_model] = first_day
@@ -2231,50 +2273,25 @@ for d_idx in [0]:
                     all_cgm[w_name + ".std"] / all_cgm[w_name + ".mean"]
                 )
 
-                # %% make an episodes dataframe, and then get stats
-                episode_ts = all_cgm[[
-                    "roundedUtcTime", "mg/dL", "hasCgm",
-                    "cgm < 54", "cgm >= 54"
-                ]].copy()
+                # make an episodes dataframe, and then get stats
+                # get episodes < 54
+                episode_ts = get_episodes(
+                    all_cgm[["roundedUtcTime", "hasCgm", "cgm < 54"]].copy(),
+                    "cgm < 54",
+                    15
+                )
+                all_cgm = pd.concat([all_cgm, episode_ts], axis=1)
 
-                # put consecutive data that matches in groups
-                episode_ts["tempGroups"] = (
-                    (episode_ts["cgm < 54"] != episode_ts["cgm < 54"].shift()).cumsum()
+                # get episodes < 70
+                episode_ts = get_episodes(
+                    all_cgm[["roundedUtcTime", "hasCgm", "cgm < 70"]].copy(),
+                    "cgm < 70",
+                    15
                 )
-                episode_ts["episodeGroup"] = (
-                    episode_ts["tempGroups"] * episode_ts["cgm < 54"]
-                )
-                episode_groups = episode_ts.groupby("episodeGroup")
-                episodes = (
-                    episode_groups["roundedUtcTime"].count().reset_index()
-                )
-                episodes["duration"] = episodes["roundedUtcTime"] * 5
-                episodes.rename(
-                    columns={"roundedUtcTime": "episodeCounts"}, inplace=True
-                )
+                all_cgm = pd.concat([all_cgm, episode_ts], axis=1)
 
-                episode_ts = pd.merge(
-                    episode_ts,
-                    episodes,
-                    on="episodeGroup",
-                    how="left"
-                )
-                episode_ts["episodeDuration"] = (
-                    episode_ts["duration"] * episode_ts["cgm < 54"]
-                )
-
-                # merge episodes back into all_cgm
-                all_cgm = pd.merge(
-                    all_cgm,
-                    episode_ts[[
-                        'roundedUtcTime',
-                        'episodeGroup',
-                        'episodeDuration'
-                    ]],
-                    on="roundedUtcTime",
-                    how="left"
-                )
-
+                # get rolling stats on episodes
+                pdb.set_trace()
 
                 # %% save cgm stats data
                 all_cgm.to_csv(os.path.join(
