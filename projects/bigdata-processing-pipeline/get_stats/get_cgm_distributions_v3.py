@@ -1490,8 +1490,21 @@ output_distribution = os.path.join(
     "PHI-2019-07-17-donor-data",
     "PHI-2019-07-17-cgm-distributions"
 )
+debug_duplicates = os.path.join(
+    data_path,
+    "PHI-2019-07-17-donor-data",
+    "PHI-2019-07-17-debug-cgm-duplicates"
+)
+output_stats = os.path.join(
+    data_path,
+    "PHI-2019-07-17-donor-data",
+    "PHI-2019-07-17-cgm-stats"
+)
 
-make_folder_if_doesnt_exist([output_metadata, output_distribution])
+
+make_folder_if_doesnt_exist(
+    [output_metadata, output_distribution, debug_duplicates, output_stats]
+)
 
 
 # %% START OF CODE
@@ -1511,10 +1524,21 @@ donor_metadata_columns = [
     'isOtherPerson',
 ]
 
-# %%
-for d_idx in range(0, len(all_files)):
-    data = pd.read_json(all_files[d_idx])
-    userid = all_files[d_idx][-15:-5]
+
+## %% load test data on my computer
+## TODO: if data comes in as a .csv, the embedded json fields
+## get saved as a string and need to be unwrapped before those fields
+## can be expanded. IN OTHER WORDS: this code only works with .json data
+for d_idx in [0]:
+    userid = "0d4524bc11"
+    data = pd.read_json(os.path.join(
+            "..", "data", "dremio", userid, "PHI-{}.json".format(userid)
+    ))
+
+## %%
+#for d_idx in range(0, len(all_files)):
+#    data = pd.read_json(all_files[d_idx])
+#    userid = all_files[d_idx][-15:-5]
     metadata = all_donor_metadata.loc[
         all_donor_metadata["userid"] == userid,
         donor_metadata_columns
@@ -1576,15 +1600,17 @@ for d_idx in range(0, len(all_files)):
     )
 
     #  TIME CATEGORIES
+    data["date"] = data["roundedUtcTime"].dt.date
+
     # AGE, & YLW
     # TODO: make this a function
-    if metadata["birthday"].values is not None:
+    if metadata["birthday"].values[0] is not np.nan:
         bDate = pd.to_datetime(metadata["birthday"].values[0][0:7])
         data["age"] = np.floor((data["roundedUtcTime"] - bDate).dt.days/365.25)
     else:
         data["age"] = np.nan
 
-    if metadata["diagnosisDate"].values is not None:
+    if metadata["diagnosisDate"].values[0] is not np.nan:
         dDate = pd.to_datetime(metadata["diagnosisDate"].values[0][0:7])
         data["ylw"] = np.floor((data["roundedUtcTime"] - dDate).dt.days/365.25)
     else:
@@ -1675,13 +1701,13 @@ for d_idx in range(0, len(all_files)):
         if "deviceId" in list(cgm):
             metadata["uniqueCgmDevices"] = str(cgm["deviceId"].unique())
 
-        # %% clean distributions
+        #  clean distributions
         # break up all traces by cgm model
-        all_cgm_series = pd.DataFrame()
+        combined_cgm_series = pd.DataFrame()
         cgm_models = cgm.groupby(by="cgmModel")
 
         for cgm_model in cgm_models.groups.keys():
-            print(cgm_model)
+            print("working on", cgm_model)
             temp_cgm = cgm_models.get_group(cgm_model)
 
             # get rid of cgm values too low/high (< 38 & > 402 mg/dL)
@@ -1717,7 +1743,11 @@ for d_idx in range(0, len(all_files)):
 
             # create a contiguous 5 minute time series
             first_day = temp_cgm["roundedUtcTime"].min()
+            metadata["firstCgm." + cgm_model] = first_day
+
             last_day = temp_cgm["roundedUtcTime"].max()
+            metadata["lastCgm." + cgm_model] = last_day
+
             rng = pd.date_range(first_day, last_day, freq="5min")
             contiguous_data = pd.DataFrame(
                 rng,
@@ -1731,7 +1761,7 @@ for d_idx in range(0, len(all_files)):
             cgm_series = pd.merge(
                 contiguous_data,
                 temp_cgm[[
-                    "roundedUtcTime", "hashid",
+                    "roundedUtcTime", "hashid", "isLoopDay",
                     "cgmModel", "age", "ylw", "mg/dL"
                  ]],
                 on="roundedUtcTime",
@@ -1815,34 +1845,411 @@ for d_idx in range(0, len(all_files)):
             metadata["nCgmDataPoints." + cgm_model] = len(cgm_series)
 
             # append cgm model to a larger table
-            all_cgm_series = pd.concat(
-                [all_cgm_series, cgm_series],
+            combined_cgm_series = pd.concat(
+                [combined_cgm_series, cgm_series],
                 ignore_index=True
             )
+        if len(combined_cgm_series) > 0:
+            # sort so that the oldest data point is on top
+            # and that the G5_G6 get deleted if they are apart of a duplicate
+            combined_cgm_series["cgmModel_G5_and_G6"] = (
+                combined_cgm_series["cgmModel"] == "G5_G6"
+            )
+            combined_cgm_series.sort_values(
+                by=["roundedUtcTime", "cgmModel_G5_and_G6", "cgmModel"],
+                ascending=[False, True, False],
+                inplace=True
+            )
+            combined_cgm_series.reset_index(drop=True, inplace=True)
 
-        # sort so that the oldest data point is on top
-        all_cgm_series.sort_values(
-            "roundedUtcTime", ascending=False, inplace=True
-        )
-        all_cgm_series.reset_index(drop=True, inplace=True)
+            # add in check to see if there are duplicates between cgm devices
+            nUnique_cgm_times = len(combined_cgm_series["roundedUtcTime"].unique())
+            cgm_len = len(combined_cgm_series)
+            metadata["duplicateCgmDataIssue"] = nUnique_cgm_times != cgm_len
 
-        # add in check to see if there are duplicates between cgm devices
-        nUnique_cgm_times = len(all_cgm_series["roundedUtcTime"].unique())
-        metadata["duplicateCgmDataIssue"] = (
-            nUnique_cgm_times != len(all_cgm_series)
-        )
+            nDuplicate_cgm = cgm_len - nUnique_cgm_times
+            metadata["nDuplicateCgmDataIssues"] = nDuplicate_cgm
 
-        # get metadata for cgm stats
-        metadata["lastCgm.date"] = all_cgm_series.loc[0, "roundedUtcTime"]
-        metadata["lastCgm.age"] = all_cgm_series.loc[0, "age"]
-        metadata["lastCgm.ylw"] = all_cgm_series.loc[0, "ylw"]
+            # if there are still duplicates, get rid of them
+            if nDuplicate_cgm > 0:
+                # save the duplicates for further examination
+                combined_cgm_series.to_csv(os.path.join(
+                    debug_duplicates,
+                    "PHI-" + userid + "-cgm-series-has-cgm-duplicates.csv.gz"
+                ))
 
-        pdb.set_trace()
-        # save distribution data
-        all_cgm_series.to_csv(os.path.join(
-            output_distribution,
-            "PHI-" + userid + "-cgm-distribution.csv"
-        ))
+                cgm.to_csv(os.path.join(
+                    debug_duplicates,
+                    "PHI-" + userid + "-cgm-data-has-cgm-duplicates.csv.gz"
+                ))
+
+                # get rid of duplicates
+                combined_cgm_series, n_cgm_dups_removed = (
+                    removeDuplicates(combined_cgm_series, "roundedUtcTime")
+                )
+                metadata["nCgmDuplicatesRemovedRoundedTime.atEnd"] = (
+                    n_cgm_dups_removed
+                )
+            metadata["nCgmDataPoints.atEnd"] = len(combined_cgm_series)
+
+            # add whether data is dexcom cgm or not
+            combined_cgm_series["dexcomCgm"] = (
+                combined_cgm_series["cgmModel"].astype(str).str.contains("G4|G5|G6")
+            )
+
+            # save distribution data
+            combined_cgm_series.to_csv(os.path.join(
+                output_distribution,
+                "PHI-" + userid + "-cgm-distribution.csv.gz"
+            ))
+
+
+            # %% get cgm stats
+            # create a contiguous 5 minute time series of ALL cgm data
+            first_day = combined_cgm_series["roundedUtcTime"].min()
+            metadata["firstCgm." + cgm_model] = first_day
+
+            last_day = combined_cgm_series["roundedUtcTime"].max()
+            metadata["lastCgm." + cgm_model] = last_day
+
+            rng = pd.date_range(first_day, last_day, freq="5min")
+            contiguous_data = pd.DataFrame(
+                rng,
+                columns=["roundedUtcTime"]
+            ).sort_values(
+                "roundedUtcTime",
+                ascending=True
+            ).reset_index(drop=True)
+
+            # merge with combined_cgm_series data
+            all_cgm = pd.merge(
+                contiguous_data,
+                combined_cgm_series[[
+                    'roundedUtcTime', 'hashid', 'cgmModel', 'dexcomCgm',
+                    'age', 'ylw', 'isLoopDay', 'mg/dL',
+                ]],
+                on="roundedUtcTime",
+                how="left"
+            )
+
+            # get cgm stats
+            # get a binary (T/F) of whether we have a cgm value
+            all_cgm["hasCgm"] = all_cgm["mg/dL"].notnull()
+
+            # fill isLoopDay nan with False
+            all_cgm["isLoopDay"].fillna(False, inplace=True)
+
+            # has loop and cgm
+            all_cgm["hasLoopAndCgm"] = (
+                (all_cgm["isLoopDay"]) & (all_cgm["hasCgm"])
+            )
+
+            all_cgm["hasCgmWithoutLoop"] = (
+                (~all_cgm["isLoopDay"]) & (all_cgm["hasCgm"])
+            )
+
+            # make this a function and round ascendingly
+            ts39_401 = all_cgm["mg/dL"].copy()
+
+            # for all the less than (<) criteria
+            for cgm_threshold in [40, 54, 70]:
+                all_cgm["cgm < " + str(cgm_threshold)] = (
+                    ts39_401.lt(cgm_threshold)
+                )
+            # for all the greter than or equal to (>=) criteria
+                all_cgm["cgm >= " + str(cgm_threshold)] = (
+                    ts39_401.ge(cgm_threshold)
+                )
+
+            # for all the the less than or equal to (<=) criteria
+            for cgm_threshold in [140, 180, 250, 300, 400]:
+                all_cgm["cgm <= " + str(cgm_threshold)] = (
+                    ts39_401.le(cgm_threshold)
+                )
+            # for all the the greter than (>) criteria
+                all_cgm["cgm > " + str(cgm_threshold)] = (
+                    ts39_401.gt(cgm_threshold)
+                )
+
+            # get all of the cgm ranges
+            # (cgm >= 40) & (cgm < 54)
+            all_cgm["40 <= cgm < 54"] = (
+                (all_cgm["cgm >= 40"]) & (all_cgm["cgm < 54"])
+            )
+
+            # (cgm >= 54) & (cgm < 70)
+            all_cgm["54 <= cgm < 70"] = (
+                (all_cgm["cgm >= 54"]) & (all_cgm["cgm < 70"])
+            )
+
+            # (cgm >= 70) & (cgm <= 140)
+            all_cgm["70 <= cgm <= 140"] = (
+                (all_cgm["cgm >= 70"]) & (all_cgm["cgm <= 140"])
+            )
+
+            # (cgm >= 70) & (cgm <= 180)
+            all_cgm["70 <= cgm <= 180"] = (
+                (all_cgm["cgm >= 70"]) & (all_cgm["cgm <= 180"])
+            )
+
+            # (cgm > 180) & (cgm <= 250)
+            all_cgm["180 < cgm <= 250"] = (
+                (all_cgm["cgm > 180"]) & (all_cgm["cgm <= 250"])
+            )
+
+            # (cgm > 250) & (cgm <= 400)
+            all_cgm["250 < cgm <= 400"] = (
+                (all_cgm["cgm > 250"]) & (all_cgm["cgm <= 400"])
+            )
+
+            # derfine the windows to calculate the stats over
+            window_names = ["hour", "day", "week", "month", "quarter", "year"]
+            window_lengths = [12,    288,   288*7,  288*7*4, 288*90,   288*365]
+
+            for w_name, w_len in zip(window_names, window_lengths):
+                # require lenth of window for percent calculations
+                w_min = w_len
+
+                # get the start and end times for each window
+                all_cgm[w_name + ".startTime"] = (
+                    all_cgm["roundedUtcTime"].shift(w_len - 1)
+                )
+                all_cgm[w_name + ".endTime"] = all_cgm["roundedUtcTime"]
+
+                # add majority age for the time period
+                all_cgm[w_name + ".age"] = np.round(
+                    all_cgm["age"].rolling(
+                        min_periods=1,
+                        window=w_len
+                    ).mean()
+                )
+
+                # add majority ylw for the time period
+                all_cgm[w_name + ".ylw"] = np.round(
+                    all_cgm["ylw"].rolling(
+                        min_periods=1,
+                        window=w_len
+                    ).median()
+                )
+
+                # get percent time cgm used
+                all_cgm[w_name + ".cgmPercent"] = (
+                    all_cgm["hasCgm"].rolling(
+                        min_periods=w_min,
+                        window=w_len
+                    ).sum() / w_len
+                )
+
+                # get the total number of non-null values over this time period
+                all_cgm[w_name + ".missingCgmPercent"] = (
+                    1 - all_cgm[w_name + ".cgmPercent"]
+                )
+
+                # create (T/F) 70 and 80 percent available thresholds
+                # which will be useful for processing later
+                all_cgm[w_name + ".ge70Available"] = (
+                    all_cgm[w_name + ".cgmPercent"] >= 0.7
+                )
+
+                all_cgm[w_name + ".ge80Available"] = (
+                    all_cgm[w_name + ".cgmPercent"] >= 0.8
+                )
+
+                # get percent time Loop was used NOTE: this is
+                # approximate because we use > 24 temp basals per day
+                # ALSO: this is percent time Loop was used while cgm in use
+                all_cgm[w_name + ".loopingAndCgmPercent"] = (
+                    all_cgm["hasLoopAndCgm"].rolling(
+                        min_periods=w_min,
+                        window=w_len
+                    ).sum() / w_len
+                )
+
+                # percent of time cgm without loop
+                all_cgm[w_name + ".cgmWithoutLoopPercent"] = (
+                    all_cgm["hasCgmWithoutLoop"].rolling(
+                        min_periods=w_min,
+                        window=w_len
+                    ).sum() / w_len
+                )
+
+                # get percent time in different ranges
+                # % Time < 54
+                all_cgm[w_name + ".lt54Percent"] = (
+                    all_cgm["cgm < 54"].rolling(
+                        min_periods=w_min,
+                        window=w_len
+                    ).sum() / w_len
+                )
+
+                # % Time in 54-70 (cgm >= 54) & (cgm < 70)
+                all_cgm[w_name + ".bt54_70Percent"] = (
+                    all_cgm["54 <= cgm < 70"].rolling(
+                        min_periods=w_min,
+                        window=w_len
+                    ).sum() / w_len
+                )
+
+                # % Time in target range (cgm >= 70) & (cgm <= 180)
+                all_cgm[w_name + ".bt70_180Percent"] = (
+                    all_cgm["70 <= cgm <= 180"].rolling(
+                        min_periods=w_min,
+                        window=w_len
+                    ).sum() / w_len
+                )
+
+                # % Time in 180-250 (cgm > 180) & (cgm <= 250)
+                all_cgm[w_name + ".bt180_250Percent"] = (
+                    all_cgm["180 < cgm <= 250"].rolling(
+                        min_periods=w_min,
+                        window=w_len
+                    ).sum() / w_len
+                )
+
+                # % Time > 250
+                all_cgm[w_name + ".gt250Percent"] = (
+                    all_cgm["cgm > 250"].rolling(
+                        min_periods=w_min,
+                        window=w_len
+                    ).sum() / w_len
+                )
+
+                # check that all of the percentages add of to 1 or 100%
+                all_cgm[w_name + ".percentCheck"] = (
+                     all_cgm[w_name + ".missingCgmPercent"]
+                     + all_cgm[w_name + ".lt54Percent"]
+                     + all_cgm[w_name + ".bt54_70Percent"]
+                     + all_cgm[w_name + ".bt70_180Percent"]
+                     + all_cgm[w_name + ".bt180_250Percent"]
+                     + all_cgm[w_name + ".gt250Percent"]
+                )
+
+                # here are some other less common percent time in ranges
+                # % Time < 70
+                all_cgm[w_name + ".lt70Percent"] = (
+                    all_cgm["cgm < 70"].rolling(
+                        min_periods=w_min,
+                        window=w_len
+                    ).sum() / w_len
+                )
+
+                # % Time in target range (cgm >= 70) & (cgm <= 140)
+                all_cgm[w_name + ".tir70to140Percent"] = (
+                    all_cgm["70 <= cgm <= 140"].rolling(
+                        min_periods=w_min,
+                        window=w_len
+                    ).sum() / w_len
+                )
+
+                # percent time above a threshold
+                # % Time > 180
+                all_cgm[w_name + ".gt180Percent"] = (
+                    all_cgm["cgm > 180"].rolling(
+                        min_periods=w_min,
+                        window=w_len
+                    ).sum() / w_len
+                )
+
+                # points that are 39 or 401 should NOT be used most
+                # calculations because the actual number is <= 39 or >= 401
+                # (cgm < 40) OR (cgm > 400)
+                all_cgm["mg/dL.40to400"] = (
+                    ts39_401.replace(to_replace=39, value=np.nan)
+                )
+
+                all_cgm["mg/dL.40to400"] = (
+                    all_cgm["mg/dL.40to400"].replace(
+                        to_replace=401,
+                        value=np.nan
+                    )
+                )
+
+                # redefine the time series (ts) for the following stats
+                ts40_400 = all_cgm["mg/dL.40to400"].copy()
+                # require at least 3 points to make a stats calculation
+                w_min = 3
+
+                # recalcuate percent of measurements available
+                all_cgm[w_name + ".40to400availablePercent"] = (
+                    ts40_400.rolling(min_periods=w_min, window=w_len).count()
+                ) / w_len
+
+                # get the total number of non-null values over this time period
+                all_cgm[w_name + ".40to400missingPercent"] = (
+                    1 - all_cgm[w_name + ".40to400availablePercent"]
+                )
+
+                all_cgm[w_name + ".40to400ge70Available"] = (
+                    all_cgm[w_name + ".40to400availablePercent"] >= 0.7
+                )
+
+                all_cgm[w_name + ".40to400ge80Available"] = (
+                    all_cgm[w_name + ".40to400availablePercent"] >= 0.8
+                )
+
+                # create a rolling object
+                roll40_400 = ts40_400.rolling(min_periods=w_min, window=w_len)
+
+                # quantiles
+                # NOTE: this will increase run time, so only run if you need
+                # 3-4X the processing time since it has to sort the data
+                # TODO: make this an option to the function, once it is made
+
+                # min
+                all_cgm[w_name + ".min"] = roll40_400.min()
+
+                # 10, 25, 75, and 90th percentiles
+                all_cgm[w_name + ".10th"] = roll40_400.quantile(0.10)
+                all_cgm[w_name + ".25th"] = roll40_400.quantile(0.25)
+                all_cgm[w_name + ".75th"] = roll40_400.quantile(0.75)
+                all_cgm[w_name + ".90th"] = roll40_400.quantile(0.90)
+
+                # max
+                all_cgm[w_name + ".max"] = roll40_400.max()
+
+                # median
+                all_cgm[w_name + ".median"] = roll40_400.median()
+
+                # iqr
+                all_cgm[w_name + ".iqr"] = (
+                    all_cgm[w_name + ".75th"] - all_cgm[w_name + ".25th"]
+                )
+
+                # mean
+                all_cgm[w_name + ".mean"] = roll40_400.mean()
+
+                # GMI(%) = 3.31 + 0.02392 x [mean glucose in mg/dL]
+                all_cgm[w_name + ".gmi"] = (
+                    3.31 + (0.02392 * all_cgm[w_name + ".mean"])
+                )
+
+                # standard deviation (std)
+                all_cgm[w_name + ".std"] = roll40_400.std()
+
+                # coefficient of variation (cov) = std / mean
+                all_cgm[w_name + ".cov"] = (
+                    all_cgm[w_name + ".std"] / all_cgm[w_name + ".mean"]
+                )
+
+                # %% make an episodes dataframe, and then get stats
+                all_cgm["notnull"] = all_cgm["mg/dL"].notnull()
+                all_cgm["hypoEpisodeStart"] = (
+                    (all_cgm["cgm < 54"]) & (all_cgm["cgm >= 54"].shift(1))
+                    & (all_cgm["notnull"]) & (all_cgm["notnull"].shift(1))
+                )
+#                ts["startCrossPoint"] = ((df.mg_dL.shift(1) >= episodeThreshold) &
+#                                      (df.mg_dL < episodeThreshold))
+#
+#                df["endCrossPoint"] = ((df.mg_dL.shift(1) < episodeThreshold) &
+#                                    (df.mg_dL >= episodeThreshold))
+
+
+                # save cgm stats data
+                all_cgm.to_csv(os.path.join(
+                    output_stats,
+                    "PHI-" + userid + "-cgm-stats.csv.gz"
+                ))
+
         print(metadata.T)
 
     else:
@@ -1852,8 +2259,7 @@ for d_idx in range(0, len(all_files)):
     # save metadata
     metadata.to_csv(os.path.join(
         output_metadata,
-        "PHI-" + userid + "-cgm-metadata.csv"
+        "PHI-" + userid + "-cgm-metadata.csv.gz"
     ))
 
     print("finished", d_idx, userid)
-
