@@ -136,19 +136,20 @@ def get_embedded_field(ts, embedded_field):
 
 def add_upload_info_to_cgm_records(groups, df):
     upload_locations = [
-        "uploadId",
-        "deviceManufacturers",
-        "deviceModel",
-        "deviceSerialNumber",
-        "deviceTags"
+        "upload.uploadId",
+        "upload.deviceManufacturers",
+        "upload.deviceModel",
+        "upload.deviceSerialNumber",
+        "upload.deviceTags"
     ]
 
     if "upload" in groups["type"].unique():
-        upload = groups.get_group("upload").dropna(axis=1, how="all")
+        upload = groups.get_group("upload").dropna(axis=1, how="all").add_prefix("upload.")
         df = pd.merge(
             left=df,
             right=upload[list(set(upload_locations) & set(list(upload)))],
-            on="uploadId",
+            left_on="uploadId",
+            right_on="upload.uploadId",
             how="left"
         )
 
@@ -156,6 +157,18 @@ def add_upload_info_to_cgm_records(groups, df):
 
 
 def expand_heathkit_cgm_fields(df):
+    # TODO: refactor the code/function that originally grabs
+    # these fields, so we are only doing it once, and so
+    # we don't have to drop the columns for the code below to work.
+    drop_columns = [
+        'origin.payload.device.name',
+        'origin.payload.device.manufacturer',
+        'origin.payload.sourceRevision.source.name'
+    ]
+    for drop_col in drop_columns:
+        if drop_col in list(df):
+            df.drop(columns=[drop_col], inplace=True)
+
     healthkit_locations = [
         "origin",
         "origin.payload",
@@ -177,65 +190,85 @@ def expand_heathkit_cgm_fields(df):
 
 def get_dexcom_cgm_model(df):
     # add cgm model
-    # put this list in order of precedence when choosing sensor version
-    # NOTE: there is an edge case where "origin.payload.device.model" = G5/G6,
-    # which can be eliminated by getting model from HKMetadataKeySyncIdentifier
+
     dexcom_model_locations = [
         "deviceId",
         "deviceManufacturers",
+        "upload.deviceManufacturers",
         "deviceModel",
+        "upload.deviceModel",
         "deviceSerialNumber",
-        "payload.HKMetadataKeySyncIdentifier", # do this before "origin.payload.device.model" bc there is an edge case
-        "origin.payload.device.model",
+        "upload.deviceSerialNumber",
         "origin.payload.sourceRevision.source.name",
         "payload.transmitterGeneration",
+        "payload.HKMetadataKeySyncIdentifier",
         "payload.transmitterId",
     ]
 
     for model_location in dexcom_model_locations:
-        if model_location in list(df):
-            # only consider cells where the model location is not null
-            notnull_idx = df[model_location].notnull()
-            if notnull_idx.sum() > 0:
-                for dex_model in ["G4", "G5", "G6"]:
-                    # define a pandas stringMethod
-                    str_list = df[model_location].astype(str).str
-                    # if model has already been determined, then skip
-                    missing_model_idx = df["cgmModel"].isnull()
-                    # get index that matches model
-                    model_idx = str_list.upper().str.contains(dex_model)
+        # only check if model has NOT been determined, or if it is G5_G6
+        m_idx = (
+            (df["cgmModel"].isnull())
+            | (df["cgmModel"].astype(str).str.contains("G5_G6"))
+        )
 
-                    m_idx = (
-                        missing_model_idx & notnull_idx & model_idx
-                    )
-                    df.loc[m_idx, "cgmModel"] = dex_model
+        # get index that matches model
+        if ((model_location in list(df)) & (m_idx.sum() > 0)):
+            str_list = df[model_location].astype(str).str
 
-                    # case of "payload.transmitterId"
-                    if (
-                        ("payload.transmitterId" in model_location)
-                        | ("payload.HKMetadataKeySyncIdentifier" in model_location)
-                    ):
-                        # get string length (need 5 digits for G4 and 6 for G5, G6)
-                        if "G4" in dex_model:
-                            model_idx = str_list.len() == 5
-                        elif "G5" in dex_model:
-                            model_idx = str_list.startswith("4")
-                        elif "G6" in dex_model:
-                            model_idx = (
-                                (str_list.startswith("8"))
-                                | (str_list.startswith("2"))
-                            )
-                        m_idx = (
-                            missing_model_idx & notnull_idx & model_idx
-                        )
-                        df.loc[m_idx, "cgmModel"] = dex_model
+            # G4
+            g4_idx = str_list.contains("G4", case=False, na=False)
+            df.loc[g4_idx, "cgmModel"] = "G4"
+            df.loc[g4_idx, "cgmModelSensedFrom"] = model_location
 
-    return df["cgmModel"]
+            # G5
+            g5_idx = str_list.contains("G5", case=False, na=False)
+            df.loc[g5_idx, "cgmModel"] = "G5"
+            df.loc[g5_idx, "cgmModelSensedFrom"] = model_location
+
+            # G6
+            g6_idx = str_list.contains("G6", case=False, na=False)
+            df.loc[g6_idx, "cgmModel"] = "G6"
+            df.loc[g6_idx, "cgmModelSensedFrom"] = model_location
+
+            # edge case of g5 and g6
+            g5_g6_idx = (g5_idx & g6_idx)
+            df.loc[g5_g6_idx, "cgmModel"] = "G5_G6"
+            df.loc[g5_g6_idx, "cgmModelSensedFrom"] = model_location
+
+            # case of "transmitterId"
+            if (
+                ("transmitterId" in model_location)
+                | ("payload.HKMetadataKeySyncIdentifier" in model_location)
+            ):
+                # if length of string is 5, then it is likely a G4 sensor
+                length5_idx = str_list.len() == 5
+                df.loc[length5_idx, "cgmModel"] = "G4"
+                df.loc[length5_idx, "cgmModelSensedFrom"] = model_location
+
+                # if length of string > 5  then might be G5 or G6
+                length_gt5_idx = str_list.len() > 5
+
+                # if sensor stats with 4 then likely G5
+                starts4_idx = str_list.startswith("4")
+                df.loc[(length_gt5_idx & starts4_idx), "cgmModel"] = "G5"
+                df.loc[(length_gt5_idx & starts4_idx), "cgmModelSensedFrom"] = model_location
+
+                # if sensor stats with 2 or 8 then likely G6
+                starts2_6_idx = (
+                    (str_list.startswith("2")) | (str_list.startswith("8"))
+                )
+                df.loc[(length_gt5_idx & starts2_6_idx), "cgmModel"] = "G6"
+                df.loc[(length_gt5_idx & starts2_6_idx), "cgmModelSensedFrom"] = model_location
+
+    return df[["cgmModel", "cgmModelSensedFrom"]]
 
 
 def get_non_dexcom_cgm_model(df):
     # non-dexcom cgm model query
     model_locations = ["deviceId"]
+
+    # model types (NOTE: for medtronic getting pump type not cgm)
     models_670G = "MMT-158|MMT-178"
     models_640G = "MMT-1511|MMT-1512|MMT-1711|MMT-1712"
     models_630G = "MMT-1514|MMT-1515|MMT-1714|MMT-1715"
@@ -260,25 +293,26 @@ def get_non_dexcom_cgm_model(df):
         "LIBRE", "G4", "G5_G6", "G4"
     ]
 
-    for model_loc in model_locations:
-        if model_loc in list(df):
-            # only consider cells where the model location is not null
-            # and we are missing a cgm model
-            notnull_idx = df[model_loc].notnull()
-            if notnull_idx.sum() > 0:
-                missing_model_idx = df["cgmModel"].isnull()
-                if missing_model_idx.sum() > 0:
-                    # define a pandas stringMethod
-                    str_list = df[model_loc].astype(str).str
+    for model_location in model_locations:
+        # only check if model has NOT been determined, or if it is G5_G6
+        m_idx = (
+            (df["cgmModel"].isnull())
+            | (df["cgmModel"].astype(str).str.contains("G5_G6"))
+        )
 
-                    for non_dex_model, model_name in zip(
-                        non_dex_models, non_dex_model_names
-                    ):
-                        model_idx = str_list.contains(non_dex_model)
-                        m_idx = (missing_model_idx & notnull_idx & model_idx)
-                        df.loc[m_idx, "cgmModel"] = model_name
+        # get index that matches model
+        if ((model_location in list(df)) & (m_idx.sum() > 0)):
+            str_list = df[model_location].astype(str).str
 
-    return df["cgmModel"]
+            for non_dex_model, model_name in zip(
+                non_dex_models, non_dex_model_names
+            ):
+
+                model_idx = str_list.contains(non_dex_model, na=False)
+                df.loc[model_idx, "cgmModel"] = model_name
+                df.loc[model_idx, "cgmModelSensedFrom"] = model_location
+
+    return df[["cgmModel", "cgmModelSensedFrom"]]
 
 
 def hash_userid(userid, salt):
@@ -320,9 +354,6 @@ def remove_negative_durations(df):
         n_negative_durations = np.nan
 
     return df, n_negative_durations
-
-
-
 
 
 def tslim_calibration_fix(df):
@@ -1428,29 +1459,6 @@ def estimate_local_time(df):
     return local_time, cDays
 
 
-# %% GET DATA FROM API
-#'''
-#get metadata and data for a donor that has shared with bigdata
-#NOTE: functions assume you have an .env with bigdata account credentials
-#'''
-#
-#userid = ""
-#donor_group = ""
-#
-#donor_metadata, _ = get_shared_metadata(
-#    donor_group=donor_group,
-#    userid_of_shared_user=userid  # TODO: this should be refactored in several places to be userid
-#)
-#data, _ = get_data(
-#    donor_group=donor_group,
-#    userid=userid,
-#    weeks_of_data=52*10
-#)
-#
-## this is a dummy loop
-#for i in [0]:
-
-
 # %% GET DATA FROM JSON FILE
 data_path = os.path.join("..", "data")
 all_donor_metadata = pd.read_csv(
@@ -1523,7 +1531,7 @@ for d_idx in range(0, len(all_files)):
     data_fields = list(data)
 
     # NOTE: moving remove negative durations to type specific cleaning
-    # TODO: ask backend to change "duration" field to only include one object type
+    # TODO: ask backend to change "duration" to only include one object type
 
     # Tslim calibration bug fix
     data, n_cal_readings = tslim_calibration_fix(data.copy())
@@ -1551,13 +1559,13 @@ for d_idx in range(0, len(all_files)):
 
 #    # estimate local time (refactor of estimate-local-time.py)
 #    data["localTime"], local_time_metadata = estimate_local_time(data.copy())
-
-    # TODO: fix this issue with estimate local time
-    '''
-    //anaconda3/envs/tbddp/lib/python3.7/site-packages/pandas/core/ops.py:1649:
-    FutureWarning: elementwise comparison failed; returning scalar instead,
-    but in the future will perform elementwise comparison result = method(y)
-    '''
+#
+# TODO: fix this issue with estimate local time
+#    '''
+#    //anaconda3/envs/tbddp/lib/python3.7/site-packages/pandas/core/ops.py:1649
+#    FutureWarning: elementwise comparison failed; returning scalar instead,
+#    but in the future will perform elementwise comparison result = method(y)
+#    '''
 
     # round all data to the nearest 5 minutes
     data["roundedUtcTime"] = round_time(
@@ -1587,12 +1595,46 @@ for d_idx in range(0, len(all_files)):
     data.sort_values("uploadTime", ascending=False, inplace=True)
     groups = data.groupby(by="type")
 
-    #  CGM DATA
+    # check to see if person is looping
+    if "basal" in data["type"].unique():
+        basal = groups.get_group("basal").dropna(axis=1, how="all")
+        if "deliveryType" in list(basal):
+            bd = basal.loc[
+                basal["deliveryType"] == "temp",
+                ["date", "deliveryType"]
+            ]
+            temp_basal_counts = (
+                pd.DataFrame(
+                    bd.groupby("date").deliveryType.count()
+                ).reset_index()
+            )
+            temp_basal_counts.rename(
+                {"deliveryType": "tempBasalCounts"},
+                axis=1,
+                inplace=True
+            )
+            data = pd.merge(data, temp_basal_counts, on="date", how="left")
+            # >= 25 temp basals per day is likely looping
+            data["isLoopDay"] = data["tempBasalCounts"] >= 25
+            # redefine groups with the new data
+            groups = data.groupby(by="type")
+
+        else:
+            data["isLoopDay"] = np.nan
+    else:
+        data["isLoopDay"] = np.nan
+
+    # %% CGM DATA
     if "cbg" in data["type"].unique():
+        # sort data with
         metadata["cgmData"] = True
 
         # filter by cgm
-        cgm = groups.get_group("cbg").dropna(axis=1, how="all")
+        cgm = groups.get_group("cbg").copy()
+
+        # sort data
+        cgm.sort_values("roundedUtcTime", ascending=False, inplace=True)
+        cgm.reset_index(drop=False, inplace=True)
 
         # calculate cgm in mg/dL
         cgm["mg/dL"] = round(cgm["value"] * MGDL_PER_MMOLL)
@@ -1600,16 +1642,6 @@ for d_idx in range(0, len(all_files)):
         # get rid of spike data
         cgm, nSpike = remove_spike_data(cgm.copy())
         metadata["nSpike"] = nSpike
-
-        # TODO: refactor (above) so you don't need to drop columns
-        drop_columns = [
-            'origin.payload.device.name',
-            'origin.payload.device.manufacturer',
-            'origin.payload.sourceRevision.source.name'
-        ]
-        for drop_col in drop_columns:
-            if drop_col in list(cgm):
-                cgm.drop(columns=[drop_col], inplace=True)
 
         # assign upload cgm device info to cgm records in that upload
         cgm = add_upload_info_to_cgm_records(groups, cgm.copy())
@@ -1624,14 +1656,18 @@ for d_idx in range(0, len(all_files)):
         )
 
         # get cgm models
-        cgm["cgmModel"] = np.nan
+        cgm["cgmModel"], cgm["cgmModelSensedFrom"] = np.nan, np.nan
 
         # dexcom cgm models (G4, G5, G6)
-        cgm["cgmModel"] = get_dexcom_cgm_model(cgm.copy())
+        cgm[["cgmModel", "cgmModelSensedFrom"]] = (
+            get_dexcom_cgm_model(cgm.copy())
+        )
 
         # for non dexcom cgms
         # 670G, 640G, 630G, 530G, 523/723, libre, animas, and tandem
-        cgm["cgmModel"] = get_non_dexcom_cgm_model(cgm.copy())
+        cgm[["cgmModel", "cgmModelSensedFrom"]] = (
+            get_non_dexcom_cgm_model(cgm.copy())
+        )
 
         # get metadata on cgm models and devices
         metadata["nMissingCgmModels"] = cgm["cgmModel"].isnull().sum()
