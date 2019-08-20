@@ -61,26 +61,40 @@ args = parser.parse_args()
 def run_process(json_data_path):
     userid = json_data_path[-15:-5]
 
-    p = sub.Popen(
-        [
-             "python", "get_cgm_distributions_and_stats.py",
-             "-i", json_data_path,
-             "-u", userid,
-             "-d", args.date_stamp,
-             "-o", args.data_path
-         ],
-        stdout=sub.PIPE,
-        stderr=sub.PIPE
+    # check to see if the file was already processed
+    phi_date_stamp = "PHI-" + args.date_stamp
+
+    metadata_path = os.path.join(
+        args.data_path,
+        phi_date_stamp + "-donor-data",
+        phi_date_stamp + "-cgm-metadata"
     )
 
-    output, errors = p.communicate()
-    output = output.decode("utf-8")
-    errors = errors.decode("utf-8")
+    all_metadata_files = glob.glob(os.path.join(metadata_path, "*.csv.gz"))
+    if userid not in str(all_metadata_files):
 
-    if errors == '':
-        print(output)
+        p = sub.Popen(
+            [
+                 "python", "get_cgm_distributions_and_stats.py",
+                 "-i", json_data_path,
+                 "-u", userid,
+                 "-d", args.date_stamp,
+                 "-o", args.data_path
+             ],
+            stdout=sub.PIPE,
+            stderr=sub.PIPE
+        )
+
+        output, errors = p.communicate()
+        output = output.decode("utf-8")
+        errors = errors.decode("utf-8")
+
+        if errors == '':
+            print(output)
+        else:
+            print(errors)
     else:
-        print(errors)
+        print(userid, "was already processed")
 
     return
 
@@ -89,13 +103,16 @@ def run_process(json_data_path):
 all_files = glob.glob(args.json_data_path, recursive=True)
 
 # this is a good test to make sure run process is working before running
+#import pdb
+#args.date_stamp = "2019-07-17"
 #run_process(all_files[0])
 #pdb.set_trace()
+
 
 # use multiple cores to process
 startTime = time.time()
 print("starting at " + dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-pool = Pool(os.cpu_count())
+pool = Pool(int(os.cpu_count()/2))
 pool.map(run_process, all_files)
 pool.close()
 endTime = time.time()
