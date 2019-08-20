@@ -38,7 +38,14 @@ and whether they were refactored
 '''
 
 
-def get_episodes(df, episode_criterion, min_duration):
+def get_episodes(
+        df,
+        episode_criterion="cgm < 54",
+        min_duration=5,
+):
+    # TODO: deal with case where there are nan's in the middle of an episode
+    # it probably makes sense to interpolate between values iff the gap is
+    # <= 1 to 6 points (5 to 30 minutes)
 
     # put consecutive data that matches in groups
     df["tempGroups"] = ((
@@ -60,7 +67,7 @@ def get_episodes(df, episode_criterion, min_duration):
         df["duration"] * df[episode_criterion]
     )
 
-    # get rolling stats on episodes
+    # mark record as belonging to an episode
     df["isEpisode"] = (
         df["episodeDuration"] >= min_duration
     )
@@ -69,14 +76,25 @@ def get_episodes(df, episode_criterion, min_duration):
     df["episodeStart"] = (
         (df[episode_criterion])
         & (~df[episode_criterion].shift(1).fillna(False))
-        & (df["hasCgm"])
-        & (df["hasCgm"].shift(1))
+#        & (df["hasCgm"])
+#        & (df["hasCgm"].shift(1))
+    )
+
+    # calculate the total duration and attach to start record
+    # which is needed to get the average duration per episode
+    df["episodeTotalDuration"] = (
+        df["episodeStart"] * df["episodeDuration"]
+    )
+    df["episodeTotalDuration"].replace(0, np.nan, inplace=True)
+
+    episode_prefix = (
+        "episode." + episode_criterion
+        + ".durationThreshold=" + str(min_duration) + "."
     )
 
     df = df[[
-        "isEpisode", "episodeStart",
-        "episodeId", "episodeDuration"
-    ]].add_prefix("episode." + episode_criterion + ".")
+        "isEpisode", "episodeId", "episodeStart", "episodeTotalDuration"
+    ]].add_prefix(episode_prefix)
 
     return df
 
@@ -1572,16 +1590,16 @@ donor_metadata_columns = [
 ## TODO: if data comes in as a .csv, the embedded json fields
 ## get saved as a string and need to be unwrapped before those fields
 ## can be expanded. IN OTHER WORDS: this code only works with .json data
-for d_idx in [0]:
-    userid = "0d4524bc11"
-    data = pd.read_json(os.path.join(
-            "..", "data", "dremio", userid, "PHI-{}.json".format(userid)
-    ))
+#for d_idx in [0]:
+#    userid = "0d4524bc11"
+#    data = pd.read_json(os.path.join(
+#            "..", "data", "dremio", userid, "PHI-{}.json".format(userid)
+#    ))
 
-## %%
-#for d_idx in range(0, len(all_files)):
-#    data = pd.read_json(all_files[d_idx])
-#    userid = all_files[d_idx][-15:-5]
+# %%
+for d_idx in range(0, len(all_files)):
+    data = pd.read_json(all_files[d_idx])
+    userid = all_files[d_idx][-15:-5]
     metadata = all_donor_metadata.loc[
         all_donor_metadata["userid"] == userid,
         donor_metadata_columns
@@ -1946,7 +1964,7 @@ for d_idx in [0]:
                 "PHI-" + userid + "-cgm-distribution.csv.gz"
             ))
 
-            # get cgm stats
+            # %% get cgm stats
             # create a contiguous 5 minute time series of ALL cgm data
             first_day = combined_cgm_series["roundedUtcTime"].min()
             metadata["firstCgm." + cgm_model] = first_day
@@ -1990,7 +2008,7 @@ for d_idx in [0]:
                 (~all_cgm["isLoopDay"]) & (all_cgm["hasCgm"])
             )
 
-            # make this a function and round ascendingly
+            # work with all of the non-null data, even 39 = LOW and 401 = HIGH
             ts39_401 = all_cgm["mg/dL"].copy()
 
             # for all the less than (<) criteria
@@ -1998,6 +2016,19 @@ for d_idx in [0]:
                 all_cgm["cgm < " + str(cgm_threshold)] = (
                     ts39_401.lt(cgm_threshold)
                 )
+                # get episodes below these thresholds
+                for min_duration in [5, 15]:
+                    episode_ts = get_episodes(
+                        all_cgm[[
+                            "roundedUtcTime",
+                            "hasCgm",
+                            "cgm < " + str(cgm_threshold)
+                        ]].copy(),
+                        episode_criterion="cgm < " + str(cgm_threshold),
+                        min_duration=min_duration
+                    )
+                    all_cgm = pd.concat([all_cgm, episode_ts], axis=1)
+
             # for all the greter than or equal to (>=) criteria
                 all_cgm["cgm >= " + str(cgm_threshold)] = (
                     ts39_401.ge(cgm_threshold)
@@ -2114,6 +2145,56 @@ for d_idx in [0]:
                         window=w_len
                     ).sum() / w_len
                 )
+
+                # get episode stats
+                # TODO: add in hyper events
+                # get episodes below these thresholds
+                for cgm_threshold in [40, 54, 70]:
+                    # get number of episodes per time window
+                    for min_duration in [5, 15]:
+                        "cgm < " + str(cgm_threshold)
+                        episode_name = (
+                            "episode.cgm < " + str(cgm_threshold)
+                            + ".durationThreshold=" + str(min_duration)
+                        )
+                        all_cgm[w_name + ".count." + episode_name] = (
+                            all_cgm[episode_name + ".episodeStart"].rolling(
+                                min_periods=1,
+                                window=w_len
+                            ).sum()
+                        )
+
+                        # get avg. duration of each episode per time window
+                        all_cgm[w_name + ".avgDuration." + episode_name] = (
+                            all_cgm[episode_name + ".episodeTotalDuration"].rolling(
+                                min_periods=1,
+                                window=w_len
+                            ).sum() / all_cgm[w_name + ".count." + episode_name]
+                        )
+
+                        # get min duration of each episode per time window
+                        all_cgm[w_name + ".minDuration." + episode_name] = (
+                            all_cgm[episode_name + ".episodeTotalDuration"].rolling(
+                                min_periods=1,
+                                window=w_len
+                            ).min()
+                        )
+
+                        # get median duration of each episode per time window
+                        all_cgm[w_name + ".medianDuration." + episode_name] = (
+                            all_cgm[episode_name + ".episodeTotalDuration"].rolling(
+                                min_periods=1,
+                                window=w_len
+                            ).median()
+                        )
+
+                        # get max duration of each episode per time window
+                        all_cgm[w_name + ".maxDuration." + episode_name] = (
+                            all_cgm[episode_name + ".episodeTotalDuration"].rolling(
+                                min_periods=1,
+                                window=w_len
+                            ).max()
+                        )
 
                 # get percent time in different ranges
                 # % Time < 54
@@ -2274,26 +2355,6 @@ for d_idx in [0]:
                 all_cgm[w_name + ".cov"] = (
                     all_cgm[w_name + ".std"] / all_cgm[w_name + ".mean"]
                 )
-
-                # make an episodes dataframe, and then get stats
-                # get episodes < 54
-                episode_ts = get_episodes(
-                    all_cgm[["roundedUtcTime", "hasCgm", "cgm < 54"]].copy(),
-                    "cgm < 54",
-                    15
-                )
-                all_cgm = pd.concat([all_cgm, episode_ts], axis=1)
-
-                # get episodes < 70
-                episode_ts = get_episodes(
-                    all_cgm[["roundedUtcTime", "hasCgm", "cgm < 70"]].copy(),
-                    "cgm < 70",
-                    15
-                )
-                all_cgm = pd.concat([all_cgm, episode_ts], axis=1)
-
-                # get rolling stats on episodes
-                pdb.set_trace()
 
                 # %% save cgm stats data
                 all_cgm.to_csv(os.path.join(
