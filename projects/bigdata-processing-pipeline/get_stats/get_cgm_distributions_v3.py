@@ -2362,14 +2362,22 @@ for d_idx in range(0, len(all_files)):
             quarter_ge80Available_idx = (
                 all_cgm[all_cgm["quarter.ge80Available"]]
             ).index.max()
-            most_recent_quarter = all_cgm.loc[
-                [quarter_ge80Available_idx],
-                all_cgm.columns
-            ]
+
+            if pd.notnull(quarter_ge80Available_idx):
+                # get the most recent quarter
+                most_recent = all_cgm.loc[
+                    [quarter_ge80Available_idx],
+                    all_cgm.columns
+                ]
+            else:
+                most_recent = all_cgm.loc[
+                    [all_cgm.index.max()],
+                    all_cgm.columns
+                ]
 
             metadata = pd.merge(
                 metadata,
-                most_recent_quarter,
+                most_recent,
                 on="hashid",
                 how="left"
             )
