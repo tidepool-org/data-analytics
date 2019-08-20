@@ -2011,6 +2011,21 @@ for d_idx in range(0, len(all_files)):
             # work with all of the non-null data, even 39 = LOW and 401 = HIGH
             ts39_401 = all_cgm["mg/dL"].copy()
 
+            # some stats should NOT include 39 or 401
+            all_cgm["mg/dL.40to400"] = (
+                ts39_401.replace(to_replace=39, value=np.nan)
+            )
+
+            all_cgm["mg/dL.40to400"] = (
+                all_cgm["mg/dL.40to400"].replace(
+                    to_replace=401,
+                    value=np.nan
+                )
+            )
+
+            ts40_400 = all_cgm["mg/dL.40to400"].copy()
+
+
             # for all the less than (<) criteria
             for cgm_threshold in [40, 54, 70]:
                 all_cgm["cgm < " + str(cgm_threshold)] = (
@@ -2278,7 +2293,10 @@ for d_idx in range(0, len(all_files)):
                 # 3-4X the processing time since it has to sort the data
                 # TODO: make this an option to the function, once it is made
                 # create a rolling object
+
+                # NOTE: these calculations only require 3 points to make
                 roll39_401 = ts39_401.rolling(min_periods=3, window=w_len)
+                roll40_400 = ts40_400.rolling(min_periods=3, window=w_len)
 
                 # min
                 all_cgm[w_name + ".min"] = roll39_401.min()
@@ -2300,29 +2318,10 @@ for d_idx in range(0, len(all_files)):
                     all_cgm[w_name + ".75th"] - all_cgm[w_name + ".25th"]
                 )
 
-                # points that are 39 or 401 should NOT be used most
-                # calculations because the actual number is <= 39 or >= 401
-                # (cgm < 40) OR (cgm > 400)
-                all_cgm["mg/dL.40to400"] = (
-                    ts39_401.replace(to_replace=39, value=np.nan)
-                )
-
-                all_cgm["mg/dL.40to400"] = (
-                    all_cgm["mg/dL.40to400"].replace(
-                        to_replace=401,
-                        value=np.nan
-                    )
-                )
-
-                # redefine the time series (ts) for the following stats
-                ts40_400 = all_cgm["mg/dL.40to400"].copy()
-                # require at least 3 points to make a stats calculation
-                w_min = 3
-
                 # recalcuate percent of measurements available
                 all_cgm[w_name + ".40to400availablePercent"] = (
-                    ts40_400.rolling(min_periods=w_min, window=w_len).count()
-                ) / w_len
+                    roll40_400.count() / w_len
+                )
 
                 # get the total number of non-null values over this time period
                 all_cgm[w_name + ".40to400missingPercent"] = (
@@ -2336,9 +2335,6 @@ for d_idx in range(0, len(all_files)):
                 all_cgm[w_name + ".40to400ge80Available"] = (
                     all_cgm[w_name + ".40to400availablePercent"] >= 0.8
                 )
-
-                # create a rolling object
-                roll40_400 = ts40_400.rolling(min_periods=w_min, window=w_len)
 
                 # mean
                 all_cgm[w_name + ".mean"] = roll40_400.mean()
@@ -2356,11 +2352,27 @@ for d_idx in range(0, len(all_files)):
                     all_cgm[w_name + ".std"] / all_cgm[w_name + ".mean"]
                 )
 
-                # %% save cgm stats data
-                all_cgm.to_csv(os.path.join(
-                    output_stats,
-                    "PHI-" + userid + "-cgm-stats.csv.gz"
-                ))
+            # %% save cgm stats data
+            all_cgm.to_csv(os.path.join(
+                output_stats,
+                "PHI-" + userid + "-cgm-stats.csv.gz"
+            ))
+            # write the most recent example of the 90 day stats
+            # to the metadata
+            quarter_ge80Available_idx = (
+                all_cgm[all_cgm["quarter.ge80Available"]]
+            ).index.max()
+            most_recent_quarter = all_cgm.loc[
+                [quarter_ge80Available_idx],
+                all_cgm.columns
+            ]
+
+            metadata = pd.merge(
+                metadata,
+                most_recent_quarter,
+                on="hashid",
+                how="left"
+            )
 
         print(metadata.T)
 
