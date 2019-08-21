@@ -102,16 +102,10 @@ def run_process(json_data_path):
 # %% GET A LIST OF DONOR JSON FILE LOCATIONS
 all_files = glob.glob(args.json_data_path, recursive=True)
 
-# this is a good test to make sure run process is working before running
-#import pdb
-#args.date_stamp = "2019-07-17"
-#run_process(all_files[0])
-#pdb.set_trace()
-
 # use multiple cores to process
 startTime = time.time()
 print("starting at " + dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-pool = Pool(int(os.cpu_count()/2))
+pool = Pool(int(os.cpu_count()))
 pool.map(run_process, all_files)
 pool.close()
 endTime = time.time()
