@@ -55,7 +55,7 @@ metadata_path = os.path.join(
 all_metadata_files = glob.glob(os.path.join(metadata_path, "*.csv.gz"))
 all_metadata = pd.DataFrame()
 for f in all_metadata_files:
-    temp_meta = pd.read_csv(f)
+    temp_meta = pd.read_csv(f, low_memory=False)
     all_metadata = pd.concat(
         [all_metadata, temp_meta],
         ignore_index=True,
@@ -80,7 +80,7 @@ metadata_path = os.path.join(
 all_metadata_files = glob.glob(os.path.join(metadata_path, "*.csv.gz"))
 distribution_metadata = pd.DataFrame()
 for f in all_metadata_files:
-    temp_meta = pd.read_csv(f, index_col=[0])
+    temp_meta = pd.read_csv(f, index_col=[0], low_memory=False)
     distribution_metadata = pd.concat(
         [distribution_metadata, temp_meta],
         ignore_index=True,
