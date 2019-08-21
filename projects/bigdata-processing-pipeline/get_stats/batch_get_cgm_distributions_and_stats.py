@@ -108,7 +108,6 @@ all_files = glob.glob(args.json_data_path, recursive=True)
 #run_process(all_files[0])
 #pdb.set_trace()
 
-
 # use multiple cores to process
 startTime = time.time()
 print("starting at " + dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))

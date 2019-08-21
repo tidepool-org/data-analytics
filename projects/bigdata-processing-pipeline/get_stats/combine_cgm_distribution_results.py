@@ -39,7 +39,6 @@ parser.add_argument(
     help="the output path where the data is stored"
 )
 
-
 parser.add_argument(
     "-c",
     "--chunk-size",
@@ -51,39 +50,11 @@ parser.add_argument(
 args = parser.parse_args()
 
 
-# %% COMBINE AND SAVE ALL DONOR METADATA
-print("combining all metadata")
+# %% COMBINE AND SAVE ALL DISTRIBUTION DATA
+
 phi_date_stamp = "PHI-" + args.date_stamp
 donor_folder = os.path.join(args.data_path, phi_date_stamp + "-donor-data")
 
-metadata_path = os.path.join(
-    args.data_path,
-    phi_date_stamp + "-donor-data",
-    phi_date_stamp + "-cgm-metadata"
-)
-
-all_metadata_files = glob.glob(os.path.join(metadata_path, "*.csv.gz"))
-print("combining {} metaata files".format(len(all_metadata_files)))
-all_metadata = pd.DataFrame()
-for f in all_metadata_files:
-    temp_meta = pd.read_csv(f, low_memory=False)
-    all_metadata = pd.concat(
-        [all_metadata, temp_meta],
-        ignore_index=True,
-        sort=False
-    )
-
-all_metadata.to_csv(
-    os.path.join(
-        donor_folder,
-        phi_date_stamp
-        + "-cgm-metadata-0-{}.csv.gz".format(str(len(all_metadata_files)))
-    )
-)
-print("finished saving metadata...starting distribution data...")
-
-
-# %% COMBINE AND SAVE ALL DISTRIBUTION DATA
 metadata_path = os.path.join(
     args.data_path,
     phi_date_stamp + "-donor-data",

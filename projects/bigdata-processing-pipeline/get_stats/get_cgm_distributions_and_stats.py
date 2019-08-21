@@ -1901,6 +1901,7 @@ def get_distribution_and_stats(
                 ascending=[False, True, False],
                 inplace=True
             )
+
             combined_cgm_series.reset_index(drop=True, inplace=True)
 
             # add in check to see if there are duplicates between cgm devices
