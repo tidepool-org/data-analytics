@@ -8,6 +8,7 @@ on json files that are in a snowflake path
 
 # %% REQUIRED LIBRARIES
 import pandas as pd
+import numpy as np
 import os
 import glob
 import argparse
@@ -38,6 +39,15 @@ parser.add_argument(
     help="the output path where the data is stored"
 )
 
+
+parser.add_argument(
+    "-c",
+    "--chunk-size",
+    dest="chunk_size",
+    default=50,
+    help="the output path where the data is stored"
+)
+
 args = parser.parse_args()
 
 
@@ -63,9 +73,13 @@ for f in all_metadata_files:
     )
 
 all_metadata.to_csv(
-    os.path.join(donor_folder, phi_date_stamp + "-cgm-metadata.csv.gz")
+    os.path.join(
+        donor_folder,
+        phi_date_stamp
+        + "-cgm-metadata-0-{}.csv.gz".format(str(len(all_metadata_files)))
+    )
 )
-print("saving metadata...code complete")
+print("finished saving metadata...starting distribution data...")
 
 
 # %% COMBINE AND SAVE ALL DISTRIBUTION DATA
@@ -78,18 +92,30 @@ metadata_path = os.path.join(
 )
 
 all_metadata_files = glob.glob(os.path.join(metadata_path, "*.csv.gz"))
-distribution_metadata = pd.DataFrame()
-for f in all_metadata_files:
-    temp_meta = pd.read_csv(f, index_col=[0], low_memory=False)
-    distribution_metadata = pd.concat(
-        [distribution_metadata, temp_meta],
-        ignore_index=True,
-        sort=False
+chunks = np.arange(0, len(all_metadata_files), args.chunk_size)
+chunks = np.append(chunks, len(all_metadata_files))
+for chunk_start, chunk_end in zip(chunks[0:-1], chunks[1:]):
+    print("starting chunk {}-{}".format(str(chunk_start), str(chunk_end)))
+    distribution_metadata = pd.DataFrame()
+    for c_idx in np.arange(chunk_start, chunk_end):
+        temp_meta = pd.read_csv(
+            all_metadata_files[c_idx],
+            index_col=[0],
+            low_memory=False
+        )
+        distribution_metadata = pd.concat(
+            [distribution_metadata, temp_meta],
+            ignore_index=True,
+            sort=False
+        )
+    # save chunk
+    print("saving chunk {}-{}".format(str(chunk_start), str(chunk_end)))
+    distribution_metadata.to_csv(
+        os.path.join(
+            donor_folder,
+            phi_date_stamp + "-cgm-distributions-{}-{}.csv.gz".format(
+                str(chunk_start),
+                str(chunk_end))
+        )
     )
-
-distribution_metadata.to_csv(
-    os.path.join(
-        donor_folder, phi_date_stamp + "-all-cgm-distributions.csv.gz"
-    )
-)
-print("saving all-dataset-info-metadata...code complete")
+print("finished saving all-dataset-distribution-data...code complete")
