@@ -22,7 +22,10 @@ get_donor_data_path = os.path.abspath(
 )
 if get_donor_data_path not in sys.path:
     sys.path.insert(0, get_donor_data_path)
-from get_donor_data.get_single_tidepool_dataset_json import make_folder_if_doesnt_exist
+from get_donor_data.get_single_tidepool_dataset_json import (
+    make_folder_if_doesnt_exist, get_data
+)
+from get_donor_data.get_single_donor_metadata import get_shared_metadata
 
 # %% CONSTANTS
 MGDL_PER_MMOLL = 18.01559
@@ -34,7 +37,6 @@ the functions that are called in this script,
 which includes notes of where the functions came from,
 and whether they were refactored
 '''
-
 
 def get_episodes(
         df,
@@ -1568,22 +1570,37 @@ def get_distribution_and_stats(
         'isOtherPerson',
     ]
 
-    # load in data
-    data = pd.read_json(json_data_path)
+    # load in data or pull in data
+    if pd.notnull(json_data_path):
+        data = pd.read_json(json_data_path)
+
+    else:
+        data, userid = get_data(
+            save_file="false"
+        )
 
     # load in donor metadata
-    all_donor_metadata = pd.read_csv(
-        os.path.join(
-            save_data_path,
-            phi_date + "-donor-data",
-            phi_date + "-donor-metadata.csv"),
-        low_memory=False
+    donor_meta_path = os.path.join(
+        save_data_path,
+        phi_date + "-donor-data",
+        phi_date + "-donor-metadata.csv"
     )
+    if os.path.exists(donor_meta_path):
 
-    metadata = all_donor_metadata.loc[
-        all_donor_metadata["userid"] == userid,
-        donor_metadata_columns
-    ]
+        all_donor_metadata = pd.read_csv(
+            donor_meta_path,
+            low_memory=False
+        )
+
+        metadata = all_donor_metadata.loc[
+            all_donor_metadata["userid"] == userid,
+            donor_metadata_columns
+        ]
+    else:
+        metadata, _ = get_shared_metadata(
+            donor_group="bigdata",
+            userid_of_shared_user=userid
+        )
 
     print("starting", userid)
 
@@ -1645,13 +1662,13 @@ def get_distribution_and_stats(
 
     # AGE, & YLW
     # TODO: make this a function
-    if metadata["birthday"].values[0] is not np.nan:
+    if pd.notnull(metadata["birthday"].values[0]):
         bDate = pd.to_datetime(metadata["birthday"].values[0][0:7])
         data["age"] = np.floor((data["roundedUtcTime"] - bDate).dt.days/365.25)
     else:
         data["age"] = np.nan
 
-    if metadata["diagnosisDate"].values[0] is not np.nan:
+    if pd.notnull(metadata["diagnosisDate"].values[0]):
         dDate = pd.to_datetime(metadata["diagnosisDate"].values[0][0:7])
         data["ylw"] = np.floor((data["roundedUtcTime"] - dDate).dt.days/365.25)
     else:
@@ -2005,7 +2022,6 @@ def get_distribution_and_stats(
             )
 
             ts40_400 = all_cgm["mg/dL.40to400"].copy()
-
 
             # for all the less than (<) criteria
             for cgm_threshold in [40, 54, 70]:
@@ -2390,12 +2406,11 @@ if __name__ == "__main__":
         "-i",
         "--input-json-data-path",
         dest="json_data_path",
-        default=os.path.abspath(
-            os.path.join(
-                os.path.dirname(__file__), "..", "data"
-            )
-        ),
-        help="the path where the json data is located"
+        default=np.nan,
+        help=(
+            "the path where the json data is located, defaults to none and"
+            + " will download your data using  your Tidepool credentials"
+        )
     )
 
     parser.add_argument(

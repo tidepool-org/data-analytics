@@ -24,6 +24,8 @@ if envPath not in sys.path:
     sys.path.insert(0, envPath)
 import environmentalVariables
 
+# %% GLOBAL VARIABLES
+current_date = dt.datetime.now().strftime("%Y-%m-%d")
 
 # %% FUNCTIONS
 def make_folder_if_doesnt_exist(folder_paths):
@@ -72,7 +74,9 @@ def get_data(
             os.path.join(
                 os.path.dirname(__file__),
                 "..",
-                "data"
+                "data",
+                "PHI-" + current_date + "-donor-data",
+                "PHI-" + current_date + "-jsonData",
             )
         ),
         overwrite_hours=24,
@@ -81,7 +85,7 @@ def get_data(
         auth=np.nan,
         email=np.nan,
         password=np.nan,
-        save_file="True",
+        save_file="False",
 ):
     # login
     if pd.notnull(donor_group):
@@ -212,7 +216,11 @@ def get_data(
             + " within the last {} hours".format(overwrite_hours)
         )
 
-    return
+    if "T" in str(save_file).upper():
+        return np.nan, userid
+    else:
+        df = pd.DataFrame(big_json_file)
+        return df, userid
 
 
 # %% MAIN
@@ -220,7 +228,6 @@ if __name__ == "__main__":
     # USER INPUTS (choices to be made in order to run the code)
     codeDescription = "get donor json file"
     parser = argparse.ArgumentParser(description=codeDescription)
-    current_date = dt.datetime.now().strftime("%Y-%m-%d")
 
     parser.add_argument(
         "-o",
@@ -305,7 +312,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # the main function
-    get_data(
+    data, userid = get_data(
         save_data_path=args.data_path,
         weeks_of_data=args.weeks_of_data,
         overwrite_hours=args.overwrite_hours,
