@@ -81,6 +81,7 @@ def get_data(
         auth=np.nan,
         email=np.nan,
         password=np.nan,
+        save_file="True",
 ):
     # login
     if pd.notnull(donor_group):
@@ -127,8 +128,7 @@ def get_data(
 
     output_folder = os.path.join(
         save_data_path,
-        "dremio",
-        userid,
+        "PHI-" + userid,
     )
 
     output_file_path = os.path.join(
@@ -147,7 +147,7 @@ def get_data(
                 download_ = False
 
     if download_:
-        make_folder_if_doesnt_exist(output_folder)
+
         big_json_file = []
 
         if weeks_of_data > 52:
@@ -184,9 +184,13 @@ def get_data(
 
         # save data
         if len(big_json_file) > 1:
-            print("saving data for {}".format(userid))
-            with open(output_file_path, 'w') as outfile:
-                json.dump(big_json_file, outfile)
+            if "T" in str(save_file).upper():
+                make_folder_if_doesnt_exist(output_folder)
+                print("saving data for {}".format(userid))
+                with open(output_file_path, 'w') as outfile:
+                    json.dump(big_json_file, outfile)
+            else:
+                print("{} has data, but will not be saved".format(userid))
         else:
             print("{} has no data".format(userid))
 
@@ -203,8 +207,9 @@ def get_data(
                 auth[0] + ":" + str(api_response.status_code)
             )
     else:
-        print("skipping bc {}'s data was downloaded (attempted)".format(userid)
-              + " within the last {} hours".format(overwrite_hours)
+        print(
+            "skipping bc {}'s data was downloaded (attempted)".format(userid)
+            + " within the last {} hours".format(overwrite_hours)
         )
 
     return
@@ -215,6 +220,7 @@ if __name__ == "__main__":
     # USER INPUTS (choices to be made in order to run the code)
     codeDescription = "get donor json file"
     parser = argparse.ArgumentParser(description=codeDescription)
+    current_date = dt.datetime.now().strftime("%Y-%m-%d")
 
     parser.add_argument(
         "-o",
@@ -222,7 +228,11 @@ if __name__ == "__main__":
         dest="data_path",
         default=os.path.abspath(
             os.path.join(
-                os.path.dirname(__file__), "..", "data"
+                os.path.dirname(__file__),
+                "..",
+                "data",
+                "PHI-" + current_date + "-donor-data",
+                "PHI-" + current_date + "-jsonData",
             )
         ),
         help="the output path where the data is stored"
@@ -232,7 +242,7 @@ if __name__ == "__main__":
         "-w",
         "--weeks-of-data",
         dest="weeks_of_data",
-        default=52*10,  # go back the last 10 years as default
+        default=2,  # 52*10,  # go back the last 10 years as default
         help="enter the number of weeks of data you want to download"
     )
 
@@ -284,6 +294,14 @@ if __name__ == "__main__":
         help="password of the master account"
     )
 
+    parser.add_argument(
+        "-s",
+        "--save_file",
+        dest="save_file",
+        default="true",
+        help="specify whether to save the downloaded donor data"
+    )
+
     args = parser.parse_args()
 
     # the main function
@@ -296,4 +314,5 @@ if __name__ == "__main__":
         auth=args.auth,
         email=args.email,
         password=args.password,
+        save_file=args.save_file,
     )
