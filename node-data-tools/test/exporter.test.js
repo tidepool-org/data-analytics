@@ -1,7 +1,7 @@
 import _ from 'lodash';
 import moment from 'moment';
 import program from 'commander';
-import { promisify } from 'util';
+import es from 'event-stream';
 import fs from 'fs';
 import Excel from 'exceljs';
 import { unflatten } from 'flat';
@@ -22,17 +22,11 @@ program
   .option('-v, --verbose', 'show differences between files')
   .parse(process.argv);
 
-const outputData = [];
-let sortedOutputData = [];
 let diffCount = 0;
 const excludedFields = [
   '_deduplicator',
   '_dataState',
   'createdUserId',
-  'basalSchedules',
-  'bgTarget',
-  'carbRatio',
-  'insulinSensitivity',
   'deletedTime',
   'deletedUserId',
   'modifiedUserId',
@@ -46,12 +40,28 @@ const excludedFields = [
 const wb = new Excel.Workbook();
 
 (async () => {
-  const readFile = promisify(fs.readFile);
-  const inputFile = await readFile(program.inputData, 'utf8');
   const headingsToFields = _.mapValues(TidepoolDataTools.cache.fieldHeader, item => _.invert(item));
   const sheetNameToType = _.invert(TidepoolDataTools.cache.typeDisplayName);
+
+  const inputData = [];
+  const outputData = [];
+  let sortedOutputData = [];
+
+  const readStream = fs.createReadStream(program.inputData);
+
+  readStream.on('error', () => {
+    console.error(`Could not read input file '${program.inputData}'`);
+    process.exit(1);
+  });
+
+  readStream
+    .pipe(TidepoolDataTools.jsonParser())
+    .pipe(TidepoolDataTools.splitPumpSettingsData())
+    .pipe(es.mapSync(data => inputData.push(data)));
+
+  // Split out pumpSettings
   const sortedInputData = _.sortBy(
-    JSON.parse(inputFile),
+    inputData,
     obj => obj.id + obj.type,
   );
   // eslint-disable-next-line no-restricted-syntax
@@ -103,18 +113,8 @@ const wb = new Excel.Workbook();
     sortedOutputData = _.sortBy(outputData, obj => obj.id + obj.type);
   });
 
-	//Excluding length check as new format doesn't include all the fields
-  //if (sortedInputData.length !== sortedOutputData.length) {
-    //console.log('Number of input and output records don\'t match!');
-  //}
-
   for (let i = 0; i < sortedInputData.length; i++) {
-	//if (sortedOutputData[i] == 'localTime' ) {console.log('HERE I AM');}
-	//console.log('${i}sortedOutputData[i]);
-    //console.log(sortedInputData[i].duration/60000);
-	//console.log(sortedOutputData[i].duration);
-	//if it exists, set duration to transformed expectation
-	sortedInputData[i].duration=sortedInputData[i].duration/60000;
+    sortedInputData[i].duration /= 60000;
     const diff = diffString(_.omit(sortedInputData[i], excludedFields), sortedOutputData[i]);
     if (diff.length !== 47) {
       diffCount += 1;
