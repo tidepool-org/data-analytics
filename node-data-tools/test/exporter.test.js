@@ -37,6 +37,24 @@ const excludedFields = [
   'guid',
 ];
 
+async function readInputFile(inputFile, inputData) {
+  return new Promise((resolve, reject) => {
+    const readStream = fs.createReadStream(inputFile, { encoding: 'utf-8' });
+
+    readStream.on('error', () => {
+      reject(new Error(`Could not read input file '${program.inputData}'`));
+    });
+
+    readStream
+      .pipe(TidepoolDataTools.jsonParser())
+      .pipe(TidepoolDataTools.splitPumpSettingsData())
+      .pipe(es.mapSync(data => inputData.push(data)))
+      .on('end', () => {
+        resolve();
+      });
+  });
+}
+
 const wb = new Excel.Workbook();
 
 (async () => {
@@ -47,19 +65,17 @@ const wb = new Excel.Workbook();
   const outputData = [];
   let sortedOutputData = [];
 
-  const readStream = fs.createReadStream(program.inputData);
-
-  readStream.on('error', () => {
-    console.error(`Could not read input file '${program.inputData}'`);
+  try {
+    await readInputFile(program.inputData, inputData);
+  } catch (err) {
+    console.log(`Error loading input data: ${err}`);
     process.exit(1);
-  });
+  }
 
-  readStream
-    .pipe(TidepoolDataTools.jsonParser())
-    .pipe(TidepoolDataTools.splitPumpSettingsData())
-    .pipe(es.mapSync(data => inputData.push(data)));
+  if (program.verbose) {
+    console.log(`Loaded ${inputData.length} input records.`);
+  }
 
-  // Split out pumpSettings
   const sortedInputData = _.sortBy(
     inputData,
     obj => obj.id + obj.type,
