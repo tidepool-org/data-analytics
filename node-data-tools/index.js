@@ -187,10 +187,7 @@ export default class TidepoolDataTools {
           /* eslint-disable no-restricted-syntax */
           for (const scheduleName of _.keys(data.basalSchedules)) {
             for (const basalSchedule of data.basalSchedules[scheduleName]) {
-              const emitData = _.assign(
-                { scheduleName, basalSchedule },
-                commonFields,
-              );
+              const emitData = _.assign({ scheduleName, basalSchedule }, commonFields);
               emitData.type = 'pumpSettings.basalSchedules';
               this.emit('data', emitData);
             }
