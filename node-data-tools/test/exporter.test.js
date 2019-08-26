@@ -35,6 +35,8 @@ const excludedFields = [
   'client',
   'dataSetType',
   'guid',
+  'units.bg',
+  'units.carb'
 ];
 
 async function readInputFile(inputFile, inputData) {
@@ -102,8 +104,16 @@ const wb = new Excel.Workbook();
         let valueIdx = 1;
         const data = unflatten(_.omitBy(_.reduce(fields, (object, key) => {
           let cellValue = row.values[valueIdx];
+          //console.log(fields[valueIdx-1]);
           if (_.indexOf(['deviceTime', 'computerTime'], fields[valueIdx - 1]) >= 0) {
             cellValue = moment.utc(cellValue).format('YYYY-MM-DDTHH:mm:ss');
+          } else if (_.indexOf(['insulinSensitivity.start','carbRatio.start','bgTarget.start','basalSchedule.start'], fields[valueIdx - 1]) >= 0) {
+            //Convert to UNIX time as an Int
+            cellValue = parseInt(moment(cellValue).utc().format('x'));
+           } else if (_.indexOf(['units.bg','units.carb'], fields[valueIdx - 1]) >= 0) {
+           //Convert bg.units for verification
+           cellValue = cellValue.toISOString;
+           
           } else if (fields[valueIdx - 1] === 'time') {
             // Normalize `time` field (turn it into UTC)
             cellValue = moment(cellValue).utc().toISOString();
@@ -127,12 +137,14 @@ const wb = new Excel.Workbook();
     });
 
     sortedOutputData = _.sortBy(outputData, obj => obj.id + obj.type);
+    //console.log(sortedOutputData);
   });
 
   for (let i = 0; i < sortedInputData.length; i++) {
     sortedInputData[i].duration /= 60000;
     const diff = diffString(_.omit(sortedInputData[i], excludedFields), sortedOutputData[i]);
-    if (diff.length !== 47) {
+    //console.log(diff.length);
+    if (diff.length !== 84 && diff.length !== 47) {
       diffCount += 1;
       console.log(`'${sortedInputData[i].type}' record (ID: ${sortedInputData[i].id}) at ${sortedInputData[i].time} differs`);
       if (program.verbose) {
