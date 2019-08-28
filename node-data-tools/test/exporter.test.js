@@ -8,6 +8,8 @@ import { unflatten } from 'flat';
 import { diffString } from 'json-diff';
 import TidepoolDataTools from '../index';
 
+/* eslint-disable no-console */
+
 program
   .version('0.1.0')
   .option('-i, --input-data <file>', 'json file that contains Tidepool data')
