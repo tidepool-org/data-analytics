@@ -35,8 +35,6 @@ const excludedFields = [
   'client',
   'dataSetType',
   'guid',
-  'units.bg',
-  'units.carb'
 ];
 
 async function readInputFile(inputFile, inputData) {
@@ -87,6 +85,8 @@ const wb = new Excel.Workbook();
     TidepoolDataTools.normalizeBgData(data, program.units);
     // Normalize `time` field (turn it into UTC)
     data.time = moment(data.time).utc().toISOString();
+    // Add the synthesized local time
+    TidepoolDataTools.addLocalTime(data);
   }
 
   await wb.xlsx.readFile(program.outputData);
@@ -104,16 +104,11 @@ const wb = new Excel.Workbook();
         let valueIdx = 1;
         const data = unflatten(_.omitBy(_.reduce(fields, (object, key) => {
           let cellValue = row.values[valueIdx];
-          //console.log(fields[valueIdx-1]);
           if (_.indexOf(['deviceTime', 'computerTime'], fields[valueIdx - 1]) >= 0) {
             cellValue = moment.utc(cellValue).format('YYYY-MM-DDTHH:mm:ss');
-          } else if (_.indexOf(['insulinSensitivity.start','carbRatio.start','bgTarget.start','basalSchedule.start'], fields[valueIdx - 1]) >= 0) {
-            //Convert to UNIX time as an Int
-            cellValue = parseInt(moment(cellValue).utc().format('x'));
-           } else if (_.indexOf(['units.bg','units.carb'], fields[valueIdx - 1]) >= 0) {
-           //Convert bg.units for verification
-           cellValue = cellValue.toISOString;
-           
+          } else if (_.indexOf(['insulinSensitivity.start', 'carbRatio.start', 'bgTarget.start', 'basalSchedule.start'], fields[valueIdx - 1]) >= 0) {
+            // Convert to UNIX time as an Int
+            cellValue = parseInt(moment(cellValue).utc().format('x'), 10);
           } else if (fields[valueIdx - 1] === 'time') {
             // Normalize `time` field (turn it into UTC)
             cellValue = moment(cellValue).utc().toISOString();
@@ -124,7 +119,7 @@ const wb = new Excel.Workbook();
                 cellValue = row.values[valueIdx];
               }
             } catch (e) {
-              // Don't care.
+              // Don't need to convert anything in this case.
             }
           }
           // eslint-disable-next-line no-param-reassign
@@ -132,23 +127,34 @@ const wb = new Excel.Workbook();
           valueIdx += 1;
           return object;
         }, {}), _.isUndefined));
+        // Rebuild missing units field for split out pumpSettings
+        if (_.indexOf(['pumpSettings.bgTarget', 'pumpSettings.insulinSensitivity'], data.type) >= 0) {
+          data.units.carb = 'grams';
+        } else if (_.indexOf(['pumpSettings.carbRatio'], data.type) >= 0) {
+          data.units.bg = program.units;
+        }
         outputData.push(data);
       }
     });
 
     sortedOutputData = _.sortBy(outputData, obj => obj.id + obj.type);
-    //console.log(sortedOutputData);
   });
 
   for (let i = 0; i < sortedInputData.length; i++) {
-    sortedInputData[i].duration /= 60000;
+    if (sortedInputData[i].duration) {
+      sortedInputData[i].duration /= 60000;
+    }
     const diff = diffString(_.omit(sortedInputData[i], excludedFields), sortedOutputData[i]);
-    //console.log(diff.length);
-    if (diff.length !== 84 && diff.length !== 47) {
+    if (diff) {
       diffCount += 1;
       console.log(`'${sortedInputData[i].type}' record (ID: ${sortedInputData[i].id}) at ${sortedInputData[i].time} differs`);
       if (program.verbose) {
+        console.log('=== Diffs ===');
         console.log(diff);
+        console.log('=== Input (JSON) ===');
+        console.log(sortedInputData[i]);
+        console.log('=== Output (XLSX) ===');
+        console.log(sortedOutputData[i]);
       }
     }
   }
