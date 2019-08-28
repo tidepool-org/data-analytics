@@ -148,31 +148,6 @@ export default class TidepoolDataTools {
           });
         }
         break;
-      case 'pumpSettings':
-        if (data.bgTarget) {
-          const bgTargets = _.cloneDeep(typeof data.bgTarget === 'string' ? JSON.parse(data.bgTarget) : data.bgTarget);
-          for (let idx = 0; idx < bgTargets.length; idx++) {
-            _.assign(bgTargets[idx], {
-              high: bgTargets[idx].high * conversion || '',
-              low: bgTargets[idx].low * conversion || '',
-            });
-          }
-          _.assign(data, {
-            bgTarget: typeof data.bgTarget === 'string' ? JSON.stringify(bgTargets) : bgTargets,
-          });
-        }
-        if (data.insulinSensitivity) {
-          const isfs = _.cloneDeep(typeof data.insulinSensitivity === 'string' ? JSON.parse(data.insulinSensitivity) : data.insulinSensitivity);
-          for (let idx = 0; idx < isfs.length; idx++) {
-            _.assign(isfs[idx], {
-              amount: isfs[idx].amount * conversion || '',
-            });
-          }
-          _.assign(data, {
-            insulinSensitivity: typeof data.insulinSensitivity === 'string' ? JSON.stringify(isfs) : isfs,
-          });
-        }
-        break;
       default:
         break;
     }
