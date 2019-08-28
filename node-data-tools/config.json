@@ -194,6 +194,7 @@
       "activeSchedule": {},
       "insulinSensitivity.start": { "cellFormat": "[$-x-systime]h:mm am/pm" },
       "insulinSensitivity.amount": { "cellFormat": "<%= obj['units.bg'] === 'mmol/L' ? '0.0': '0' %>" },
+      "units.bg": { "header": "Units" },
       "timezoneOffset": { "width": 14 },
       "conversionOffset": { "width": 14 },
       "clockDriftOffset": { "width": 14 },
