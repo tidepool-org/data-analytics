@@ -44,7 +44,7 @@ async function readInputFile(inputFile, inputData) {
     const readStream = fs.createReadStream(inputFile, { encoding: 'utf-8' });
 
     readStream.on('error', () => {
-      reject(new Error(`Could not read input file '${program.inputData}'`));
+      reject(new Error(`Could not read input file '${inputFile}'`));
     });
 
     readStream
