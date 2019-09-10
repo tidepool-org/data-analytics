@@ -1,8 +1,0 @@
-# General
-.DS_Store
-# Node
-node_modules
-example-data
-test
-.eslintcache
-yarn.lock
