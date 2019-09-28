@@ -97,7 +97,7 @@ all_files = glob.glob(os.path.join(args.cgm_file_path, "*.gz"))
 # use multiple cores to process
 startTime = time.time()
 print("starting at " + dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-pool = Pool(int(os.cpu_count()))
+pool = Pool(int(os.cpu_count()/2))
 pool.map(run_process, all_files)
 pool.close()
 endTime = time.time()
