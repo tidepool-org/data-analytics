@@ -229,53 +229,61 @@ def get_aggregate_cgm_stats(cgm_stats_file_name, save_path):
 
     save_file_path = os.path.join(save_path, hashid + ".csv.gz")
 
-    if pd.notnull(cgm_series.age).sum() > 0:
-        age_string = cgm_series["age"].astype(str)
-        ylw_string = cgm_series["ylw"].astype(str)
-        cgm_series["age-ylw"] = age_string + "-" + ylw_string
-        person_df = add_user_stats(cgm_series.copy(), ["hashid"], "person")
-        condition_df = get_bg_test_matrix_info(cgm_series.copy())
-        person_df = pd.concat(
-            [person_df, condition_df],
-            axis=1
-        )
+    if not os.path.exists(save_file_path):
 
-        looper_df = add_user_stats(
-            cgm_series.copy(),
-            ["isLoopDay", "hashid"],
-            "isLoopDay"
-        )
-
-        age_df = add_user_stats(cgm_series.copy(), ["age", "hashid"], "age")
-
-        if pd.notnull(cgm_series.ylw).sum() > 0:
-            ylw_df = add_user_stats(
-                cgm_series.copy(),
-                ["ylw", "hashid"],
-                "ylw"
+        if pd.notnull(cgm_series.age).sum() > 0:
+            age_string = cgm_series["age"].astype(str)
+            ylw_string = cgm_series["ylw"].astype(str)
+            cgm_series["age-ylw"] = age_string + "-" + ylw_string
+            person_df = add_user_stats(cgm_series.copy(), ["hashid"], "person")
+            condition_df = get_bg_test_matrix_info(cgm_series.copy())
+            person_df = pd.concat(
+                [person_df, condition_df],
+                axis=1
             )
-            age_ylw_df = add_user_stats(
+
+            looper_df = add_user_stats(
                 cgm_series.copy(),
-                ["age-ylw", "hashid"],
-                "age-ylw"
+                ["isLoopDay", "hashid"],
+                "isLoopDay"
             )
+
+            age_df = add_user_stats(cgm_series.copy(), ["age", "hashid"], "age")
+
+            if pd.notnull(cgm_series.ylw).sum() > 0:
+                ylw_df = add_user_stats(
+                    cgm_series.copy(),
+                    ["ylw", "hashid"],
+                    "ylw"
+                )
+                age_ylw_df = add_user_stats(
+                    cgm_series.copy(),
+                    ["age-ylw", "hashid"],
+                    "age-ylw"
+                )
+            else:
+                ylw_df = pd.DataFrame()
+                age_ylw_df = pd.DataFrame()
+
+            user_stats_df = pd.concat(
+                [user_stats_df, person_df, age_df, ylw_df, age_ylw_df, looper_df],
+                ignore_index=True,
+                sort=False
+            )
+
+            print("done with donor {}".format(hashid))
         else:
-            ylw_df = pd.DataFrame()
-            age_ylw_df = pd.DataFrame()
+            print("skipping donor {} bc no age data".format(hashid))
 
-        user_stats_df = pd.concat(
-            [user_stats_df, person_df, age_df, ylw_df, age_ylw_df, looper_df],
-            ignore_index=True,
-            sort=False
-        )
+        user_stats_df.to_csv(save_file_path)
 
-        print("done with donor {}".format(hashid))
+        return user_stats_df
+
     else:
-        print("skipping donor {} bc no age data".format(hashid))
 
-    user_stats_df.to_csv(save_file_path)
+        print("donor {} already processed".format(hashid))
 
-    return user_stats_df
+    return
 
 
 # %% MAIN
