@@ -241,26 +241,33 @@ for name in cgm_stats_dir:
         ["isLoopDay", "hashid"],
         "isLoopDay"
     )
+    if pd.notnull(cgm_series.age).sum() > 0:
+        age_df = add_user_stats(cgm_series.copy(), ["age", "hashid"], "age")
 
-    age_df = add_user_stats(cgm_series.copy(), ["age", "hashid"], "age")
-    if pd.notnull(cgm_series.ylw).sum() > 0:
-        ylw_df = add_user_stats(cgm_series.copy(), ["ylw", "hashid"], "ylw")
-        age_ylw_df = add_user_stats(
-            cgm_series.copy(),
-            ["age-ylw", "hashid"],
-            "age-ylw"
+        if pd.notnull(cgm_series.ylw).sum() > 0:
+            ylw_df = add_user_stats(
+                cgm_series.copy(),
+                ["ylw", "hashid"],
+                "ylw"
+            )
+            age_ylw_df = add_user_stats(
+                cgm_series.copy(),
+                ["age-ylw", "hashid"],
+                "age-ylw"
+            )
+        else:
+            ylw_df = pd.DataFrame()
+            age_ylw_df = pd.DataFrame()
+
+        user_stats_df = pd.concat(
+            [user_stats_df, person_df, age_df, ylw_df, age_ylw_df, looper_df],
+            ignore_index=True,
+            sort=False
         )
 
+        print("done with donor {}".format(count))
     else:
-        ylw_df = pd.DataFrame()
-        age_ylw_df = pd.DataFrame()
-
-    user_stats_df = pd.concat(
-        [user_stats_df, person_df, age_df, ylw_df, age_ylw_df, looper_df],
-        ignore_index=True,
-        sort=False
-    )
+        print("skipping donor {} bc no age data".format(count))
     count += 1
-    print("done with donor {}".format(count))
 
 user_stats_df.to_csv(save_path)
