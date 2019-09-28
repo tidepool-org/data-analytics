@@ -11,10 +11,20 @@ authors: ed nykaza & anne evered
 import numpy as np
 import pandas as pd
 import os
-import glob
+import sys
+import argparse
 from numpy.linalg import pinv
+get_donor_data_path = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..")
+)
+if get_donor_data_path not in sys.path:
+    sys.path.insert(0, get_donor_data_path)
+from get_donor_data.get_single_tidepool_dataset_json import (
+    make_folder_if_doesnt_exist
+)
 
 
+# %% FUNCTIONS
 def get_percent(x):
     percent_ = np.nansum(x) / np.sum(~np.isnan(x))
     return percent_
@@ -198,50 +208,44 @@ def get_bg_test_matrix_info(all_cgm):
     return bg_cond
 
 
-# %%
-user_stats_df = pd.DataFrame(
-    columns=[
-        'category', 'category_value', 'group_by_values',
-        'startDateTime', 'endDateTime', 'age', 'ylw',
-        'count', 'mean', 'gmi', 'std', 'cv',
-        'min', '10%', '25%', '50%', '75%', '90%', 'max'
-    ]
-)
-
-count = 0
-
-file_path = os.path.join(
-    "..", "data",
-    "PHI-2019-07-17-donor-data",
-    "PHI-2019-07-17-cgm-stats"
-)
-
-save_path = os.path.join(
-    "..", "data",
-    "PHI-2019-07-17-donor-data",
-    "aggregate-user-cgm-stats.csv.gz"
-)
-
-cgm_stats_dir = glob.glob(os.path.join(file_path, "*.gz"))
-
-for name in cgm_stats_dir:
-    cgm_series = pd.read_csv(name, low_memory=False)
-    age_string = cgm_series["age"].astype(str)
-    ylw_string = cgm_series["ylw"].astype(str)
-    cgm_series["age-ylw"] = age_string + "-" + ylw_string
-    person_df = add_user_stats(cgm_series.copy(), ["hashid"], "person")
-    condition_df = get_bg_test_matrix_info(cgm_series.copy())
-    person_df = pd.concat(
-        [person_df, condition_df],
-        axis=1
+# %% MAIN FUNCTION
+def get_aggregate_cgm_stats(cgm_stats_file_name, save_path):
+    user_stats_df = pd.DataFrame(
+        columns=[
+            'category', 'category_value', 'group_by_values',
+            'startDateTime', 'endDateTime', 'age', 'ylw',
+            'count', 'mean', 'gmi', 'std', 'cv',
+            'min', '10%', '25%', '50%', '75%', '90%', 'max'
+        ]
     )
 
-    looper_df = add_user_stats(
-        cgm_series.copy(),
-        ["isLoopDay", "hashid"],
-        "isLoopDay"
-    )
+    make_folder_if_doesnt_exist([save_path])
+
+    cgm_series = pd.read_csv(cgm_stats_file_name, low_memory=False)
+    hashid = cgm_series.loc[
+        cgm_series["hashid"].notnull(),
+        "hashid"
+    ].unique()[0]
+
+    save_file_path = os.path.join(save_path, hashid + ".csv.gz")
+
     if pd.notnull(cgm_series.age).sum() > 0:
+        age_string = cgm_series["age"].astype(str)
+        ylw_string = cgm_series["ylw"].astype(str)
+        cgm_series["age-ylw"] = age_string + "-" + ylw_string
+        person_df = add_user_stats(cgm_series.copy(), ["hashid"], "person")
+        condition_df = get_bg_test_matrix_info(cgm_series.copy())
+        person_df = pd.concat(
+            [person_df, condition_df],
+            axis=1
+        )
+
+        looper_df = add_user_stats(
+            cgm_series.copy(),
+            ["isLoopDay", "hashid"],
+            "isLoopDay"
+        )
+
         age_df = add_user_stats(cgm_series.copy(), ["age", "hashid"], "age")
 
         if pd.notnull(cgm_series.ylw).sum() > 0:
@@ -265,9 +269,54 @@ for name in cgm_stats_dir:
             sort=False
         )
 
-        print("done with donor {}".format(count))
+        print("done with donor {}".format(hashid))
     else:
-        print("skipping donor {} bc no age data".format(count))
-    count += 1
+        print("skipping donor {} bc no age data".format(hashid))
 
-user_stats_df.to_csv(save_path)
+    user_stats_df.to_csv(save_file_path)
+
+    return user_stats_df
+
+
+# %% MAIN
+if __name__ == "__main__":
+    # USER INPUTS (choices to be made in order to run the code)
+    codeDescription = "get aggregate cgm stats for donor data"
+    parser = argparse.ArgumentParser(description=codeDescription)
+
+    parser.add_argument(
+        "-i",
+        "--input-json-data-path",
+        dest="cgm_file_path",
+        default=os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__), "..", "data",
+                "PHI-2019-07-17-donor-data",
+                "PHI-2019-07-17-cgm-stats",
+                "PHI-10623efdc6-cgm-stats.csv.gz"
+            )
+        ),
+        help="the path where the cgm stats data is located"
+    )
+
+    parser.add_argument(
+        "-o",
+        "--output-data-path",
+        dest="data_path",
+        default=os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__), "..", "data",
+                "PHI-2019-07-17-donor-data",
+                "2019-07-17-aggregate-cgm-stats"
+            )
+        ),
+        help="the output path where the data is stored"
+    )
+
+    args = parser.parse_args()
+
+    # the main function
+    get_aggregate_cgm_stats(
+        cgm_stats_file_name=args.cgm_file_path,
+        save_path=args.data_path,
+    )
