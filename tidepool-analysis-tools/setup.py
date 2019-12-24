@@ -20,9 +20,11 @@ import shutil
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+version_string = "v0.0.1"
+
 setuptools.setup(
     name="tidals",
-    version="0.0.1",
+    version=version_string,
     author="Ed Nykaza",
     author_email="ed@tidepool.org",
     description="Tidepool Data Analysis Tools",
@@ -30,12 +32,22 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/tidepool-org/data-analytics/tree/master/tidepool-analysis-tools",
     packages=setuptools.find_packages(),
+    download_url=(
+        'https://github.com/tidepool-org/data-analytics/tarball/' + version_string
+    ),
     classifiers=[
-        "Development Status :: 3 - Alpha"
-        "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: BSD-2-Clause",
-        "Operating System :: OS Independent",
+        'Development Status :: 3 - Alpha',
+        'Intended Audience :: Developers',
+        'License :: OSI Approved :: BSD-2-Clause',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
     ],
+    install_requires=[
+          'numpy>=1.14.1',
+          'pandas>=0.23.1',
+      ],
 )
 
 
