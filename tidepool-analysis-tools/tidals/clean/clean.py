@@ -31,8 +31,8 @@ def round_time(df, timeIntervalMinutes=5, timeField="time",
     df.reset_index(drop=True, inplace=True)
 
     # calculate the time-in-between (TIB) consecutive records
-    t = pd.to_datetime(df.time)
-    t_shift = pd.to_datetime(df.time.shift(1))
+    t = pd.to_datetime(df[timeField])
+    t_shift = pd.to_datetime(df[timeField].shift(1))
     df["TIB"] = round((t - t_shift).dt.days*(86400/(60 * timeIntervalMinutes)) +
                       (t - t_shift).dt.seconds/(60 * timeIntervalMinutes)) * timeIntervalMinutes
 
