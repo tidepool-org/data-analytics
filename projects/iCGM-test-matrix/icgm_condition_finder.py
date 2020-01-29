@@ -4,7 +4,9 @@
 iCGM Condition Finder
 =====================
 :File: icgm_condition_finder.py
-:Description: Finds and returns counts and locations of all 9 iCGM conditions
+:Description: For 9 unique iCGM conditions, the counts and distributions of
+              each condition is found in a dataset. One sample timestamp from
+              each condition is marked as an evaluation point for analysis.
 :Version: 0.0.1
 :Created: 2020-01-29
 :Authors: Jason Meno (jam)
@@ -71,7 +73,7 @@ def get_slope(y):
     A = np.vstack([x, np.ones(len(x))]).T
     m, c = np.linalg.lstsq(A, y, rcond=None)[0]
 
-    return m
+    return m/5
 
 
 def rolling_15min_slope(contiguous_df):
@@ -127,7 +129,7 @@ def get_max_gap_size(y):
     return max_gap_size
 
 
-def rolling_48hour_max_gap(cgm_df):
+def rolling_48hour_max_gap(contiguous_df):
     """
     Calculate the max gap size of the cgm trace in a 48 hour centered rolling
     window (where the evaluation point is in the center)
@@ -141,12 +143,105 @@ def rolling_48hour_max_gap(cgm_df):
                                    get_max_gap_size(np.isnan(x)),
                                    raw=True)
 
-    return rolling_max_gap_df
+    return contiguous_df
+
+
+def label_conditions(contiguous_df):
+    """Labels each cgm entry as one of the 9 different conditions
+
+    Condition # || 30min Median BG (mg/dL) & 15min Rate of Change (mg/dL/min)
+                ||
+        1       ||   [40-70) & < -1
+        2       ||   [70-180] & < -1
+        3       ||   (180-400] & < -1
+        4       ||   [40-70) & [-1 to 1]
+        5       ||   [70-180] & [-1 to 1]
+        6       ||   (180-400] & [-1 to 1]
+        7       ||   [40-70) & > 1
+        8       ||   [70-180] & > 1
+        9       ||   (180-400] & > 1
+    """
+
+    # Create boolean for each range and rate type
+    contiguous_df["range1"] = \
+        (contiguous_df["rolling_30min_median"] >= 40) & \
+        (contiguous_df["rolling_30min_median"] < 70)
+
+    contiguous_df["range2"] = \
+        (contiguous_df["rolling_30min_median"] >= 70) & \
+        (contiguous_df["rolling_30min_median"] <= 180)
+
+    contiguous_df["range3"] = \
+        (contiguous_df["rolling_30min_median"] > 180) & \
+        (contiguous_df["rolling_30min_median"] <= 400)
+
+    contiguous_df["rate1"] = \
+        contiguous_df["rolling_15min_slope"] < -1
+
+    contiguous_df["rate2"] = \
+        (contiguous_df["rolling_15min_slope"] >= -1) & \
+        (contiguous_df["rolling_15min_slope"] <= 1)
+
+    contiguous_df["rate3"] = \
+        contiguous_df["rolling_15min_slope"] > 1
+
+    # Set baseline condition to 0
+    contiguous_df["condition"] = 0
+
+    # Create boolean array for each condition
+    cond_1 = ((contiguous_df["range1"]) & (contiguous_df["rate1"]))
+    cond_2 = ((contiguous_df["range2"]) & (contiguous_df["rate1"]))
+    cond_3 = ((contiguous_df["range3"]) & (contiguous_df["rate1"]))
+    cond_4 = ((contiguous_df["range1"]) & (contiguous_df["rate2"]))
+    cond_5 = ((contiguous_df["range2"]) & (contiguous_df["rate2"]))
+    cond_6 = ((contiguous_df["range3"]) & (contiguous_df["rate2"]))
+    cond_7 = ((contiguous_df["range1"]) & (contiguous_df["rate3"]))
+    cond_8 = ((contiguous_df["range2"]) & (contiguous_df["rate3"]))
+    cond_9 = ((contiguous_df["range3"]) & (contiguous_df["rate3"]))
+
+    # Set each condition value to the boolean locations
+    contiguous_df.loc[cond_1, "condition"] = 1
+    contiguous_df.loc[cond_2, "condition"] = 2
+    contiguous_df.loc[cond_3, "condition"] = 3
+    contiguous_df.loc[cond_4, "condition"] = 4
+    contiguous_df.loc[cond_5, "condition"] = 5
+    contiguous_df.loc[cond_6, "condition"] = 6
+    contiguous_df.loc[cond_7, "condition"] = 7
+    contiguous_df.loc[cond_8, "condition"] = 8
+    contiguous_df.loc[cond_9, "condition"] = 9
+
+    return contiguous_df
 
 
 def main():
-    """Main function calls"
+    """Main function calls"""
+    file_path = "data.csv"
 
+    data = import_data(file_path)
+
+    # Separate CGM data
+    cgm_df = data[data.type == 'cbg'].copy()
+
+    # Convert value from mmol/L to mg/dL
+    cgm_df["value"] = cgm_df["value"] * 18.01559
+
+    # Fit the CGM trace to a contiguous 5-minute time series to uncover gaps
+    contiguous_df = create_5min_contiguous_df(cgm_df)
+
+    # Calculate the median BG with a 30-minute rolling window
+    contiguous_df = rolling_30min_median(contiguous_df)
+
+    # Calculate the slope in mg/dL/min with a 15-minute rolling window
+    contiguous_df = rolling_15min_slope(contiguous_df)
+
+    # Apply one of the 9 conditions labels to each CGM point
+    contiguous_df = label_conditions(contiguous_df)
+
+    # Get the max gap size across 48-hour windows
+    contiguous_df = rolling_48hour_max_gap(contiguous_df)
+
+
+# %%
 if __name__ == "__main__":
     main()
 
