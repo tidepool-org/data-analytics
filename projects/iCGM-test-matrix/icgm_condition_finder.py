@@ -73,7 +73,7 @@ def get_slope(y):
     A = np.vstack([x, np.ones(len(x))]).T
     m, c = np.linalg.lstsq(A, y, rcond=None)[0]
 
-    return m/5
+    return m/5  # Divide by the 5-min interval to get mg/dL/min resolution
 
 
 def rolling_15min_slope(contiguous_df):
@@ -133,6 +133,11 @@ def rolling_48hour_max_gap(contiguous_df):
     """
     Calculate the max gap size of the cgm trace in a 48 hour centered rolling
     window (where the evaluation point is in the center)
+
+    Note: Centered window behavior keeps the evaluation point on the right side
+    of the half-way point.
+
+    e.g. In a window of 4: [elem1, elem2, elem3, elem4] - elem3 is the "center"
     """
 
     contiguous_df["rolling_48hour_max_gap"] = \
@@ -186,6 +191,8 @@ def label_conditions(contiguous_df):
         contiguous_df["rolling_15min_slope"] > 1
 
     # Set baseline condition to 0
+    # Any 0's left over were cgm points
+    # with a rate/range that could not be calculated
     contiguous_df["condition"] = 0
 
     # Create boolean array for each condition
@@ -211,6 +218,65 @@ def label_conditions(contiguous_df):
     contiguous_df.loc[cond_9, "condition"] = 9
 
     return contiguous_df
+
+
+def get_snapshot_locations(contiguous_df):
+    """
+    Gets a snapshot location for each condition from the dataset if available
+    """
+
+    # Set window size of snapshot
+    window_size = 288*2
+
+    # Create bool of all values with a condition and max gap <= 15min
+    qualified_bool = \
+        (contiguous_df["condition"] > 0) & \
+        (contiguous_df["rolling_48hour_max_gap"] <= 3)
+
+    qualified_condition_list = \
+        contiguous_df.loc[qualified_bool, "condition"].copy()
+
+    snapshot_locations = np.zeros(9)
+
+    for condition in np.arange(1, 10):
+        # Get the list of qualified locations for the condition
+        condition_locations = \
+            qualified_condition_list[
+                    qualified_condition_list == condition
+                    ].index
+
+        # If no condition locations, skip loop to next condition
+        if(len(condition_locations) == 0):
+            continue
+
+        # Randomly select one of the condition's locations
+        random_loc = np.random.choice(condition_locations)
+
+        # Add location to snapshot_locations
+        snapshot_locations[condition - 1] = random_loc
+
+        # Remove all locations within ± window_size-1 from qualified_locations
+        # to prevent overlap when selecting the next condition snapshot
+        overlapping_index = \
+            np.arange(
+                random_loc - (window_size-1),
+                random_loc + (window_size-1)+1
+                )
+
+        index_to_drop = \
+            set(overlapping_index) & set(qualified_condition_list.index)
+
+        qualified_condition_list.drop(index=index_to_drop, inplace=True)
+
+    return snapshot_locations
+
+
+def get_summary_results(contiguous_df, snapshot_locations):
+    """Create a summary of all results to store in a spreadsheet"""
+
+    results = pd.DataFrame()
+
+    return results
 
 
 def main():
@@ -240,8 +306,15 @@ def main():
     # Get the max gap size across 48-hour windows
     contiguous_df = rolling_48hour_max_gap(contiguous_df)
 
+    # Get the locations of each 48-hour snapshot
+    snapshot_locations = get_snapshot_locations(contiguous_df)
+
+    # Summarize results
+    results = get_summary_results(contiguous_df, snapshot_locations)
+
+    return results
+
 
 # %%
 if __name__ == "__main__":
     main()
-
