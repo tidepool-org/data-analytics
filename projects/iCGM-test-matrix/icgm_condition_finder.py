@@ -30,6 +30,51 @@ def import_data(file_path):
     return data
 
 
+def add_uploadDateTime(df):
+    r"""Adds an "uploadTime" column to the dataframe and corrects missing
+    upload times to records from healthkit data
+    """
+
+    if "upload" in df.type.unique():
+        uploadTimes = pd.DataFrame(
+            df[df.type == "upload"].groupby("uploadId").time.describe()["top"]
+        )
+    else:
+        uploadTimes = pd.DataFrame(columns=["top"])
+    # if an upload does not have an upload date, then add one
+    # NOTE: this is a new fix introduced with healthkit data...we now have
+    # data that does not have an upload record
+    unique_uploadIds = set(df["uploadId"].unique())
+    unique_uploadRecords = set(
+        df.loc[df["type"] == "upload", "uploadId"].unique()
+    )
+    uploadIds_missing_uploadRecords = unique_uploadIds - unique_uploadRecords
+
+    uploadTimes.reset_index(inplace=True)
+    uploadTimes.rename(
+        columns={
+            "top": "uploadTime",
+            "index": "uploadId"
+        },
+        inplace=True
+    )
+    # New method
+    missing_uploads_df = \
+        df.loc[df['uploadId'].isin(uploadIds_missing_uploadRecords),
+               ['uploadId', 'time']]
+    last_upload_time = missing_uploads_df.groupby('uploadId').time.max()
+    last_upload_time = pd.DataFrame(last_upload_time).reset_index()
+    last_upload_time.columns = ["uploadId", "uploadTime"]
+    uploadTimes = pd.concat([uploadTimes,
+                             last_upload_time]).reset_index(drop=True)
+
+    df = pd.merge(df, uploadTimes, how='left', on='uploadId')
+    df["uploadTime"] = pd.to_datetime(df["uploadTime"], utc=True)
+    df["uploadTime"] = df["uploadTime"].dt.tz_localize(None)
+
+    return df
+
+
 def create_5min_contiguous_df(cgm_df):
     """
     Fit the CGM trace to a contiguous 5-minute time series to uncover gaps
@@ -49,6 +94,36 @@ def create_5min_contiguous_df(cgm_df):
                              )
 
     return contiguous_df
+
+
+def remove_rounded_CGM_duplicates(cgm_df):
+    """Removes CGM duplicates, keeping the entries with the most recent
+    uploadTime
+    """
+    if "rounded_time" in cgm_df:
+        # Sort first by most recent rounded_time and then by newest uploadTime
+        cgm_df.sort_values(by=["rounded_time", "uploadTime"],
+                           ascending=[False, False],
+                           inplace=True)
+
+        # Safety check for null times
+        dfIsNull = cgm_df[cgm_df["rounded_time"].isnull()]
+        dfNotNull = cgm_df[cgm_df["rounded_time"].notnull()]
+
+        nBefore = len(dfNotNull)
+
+        # Drop duplicates, keeping the first (most recent upload) entry
+        # .duplicated() defaults to keeping the first duplicate
+        dfNotNull = dfNotNull.loc[~(dfNotNull["rounded_time"].duplicated())]
+        dfNotNull = dfNotNull.reset_index(drop=True)
+        nRoundedTimeDuplicatesRemoved = nBefore - len(dfNotNull)
+
+        cgm_df = pd.concat([dfIsNull, dfNotNull])
+        cgm_df.sort_values(by=["rounded_time"], ascending=True, inplace=True)
+    else:
+        nRoundedTimeDuplicatesRemoved = 0
+
+    return cgm_df, nRoundedTimeDuplicatesRemoved
 
 
 def rolling_30min_median(contiguous_df):
@@ -272,13 +347,17 @@ def get_evaluation_points(contiguous_df):
     return evaluation_points
 
 
-def get_summary_results(file_name, contiguous_df, evaluation_points):
+def get_summary_results(file_name,
+                        nRoundedTimeDuplicatesRemoved,
+                        contiguous_df,
+                        evaluation_points):
     """Create a summary of all results to store in a spreadsheet"""
 
     results = pd.DataFrame(index=[0])
 
     # Get counts for each rate, range, and condition
     results["file_name"] = file_name
+    results["nRoundedTimeDuplicatesRemoved"] = nRoundedTimeDuplicatesRemoved
     results["gte40_lt70"] = contiguous_df["gte40_lt70"].sum()
     results["gte70_lte180"] = contiguous_df["gte70_lte180"].sum()
     results["gt180_lte400"] = contiguous_df["gt180_lte400"].sum()
@@ -299,6 +378,9 @@ def get_summary_results(file_name, contiguous_df, evaluation_points):
 def main(data, file_name):
     """Main function calls"""
 
+    # Add the upload data time to each record (used for deduplicating)
+    data = add_uploadDateTime(data)
+
     # Separate CGM data
     cgm_df = data[data.type == "cbg"].copy()
 
@@ -307,6 +389,10 @@ def main(data, file_name):
 
     # Fit the CGM trace to a contiguous 5-minute time series to uncover gaps
     contiguous_df = create_5min_contiguous_df(cgm_df)
+
+    # Remove CGM duplicates
+    cgm_df, nRoundedTimeDuplicatesRemoved = \
+        remove_rounded_CGM_duplicates(cgm_df)
 
     # Calculate the median BG with a 30-minute rolling window
     contiguous_df = rolling_30min_median(contiguous_df)
@@ -324,7 +410,10 @@ def main(data, file_name):
     evaluation_points = get_evaluation_points(contiguous_df)
 
     # Summarize results
-    results = get_summary_results(file_name, contiguous_df, evaluation_points)
+    results = get_summary_results(file_name,
+                                  nRoundedTimeDuplicatesRemoved,
+                                  contiguous_df,
+                                  evaluation_points)
 
     return results
 
@@ -337,4 +426,4 @@ if __name__ == "__main__":
     file_path = os.path.join(file_location, file_name)
     data = import_data(file_path)
 
-    main(data, file_name)
+    results = main(data, file_name)
