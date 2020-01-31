@@ -17,6 +17,7 @@ iCGM Condition Finder
 # %% Library Imports
 import pandas as pd
 import numpy as np
+import os
 
 # %% Functions
 
@@ -168,26 +169,26 @@ def label_conditions(contiguous_df):
     """
 
     # Create boolean for each range and rate type
-    contiguous_df["range1"] = \
+    contiguous_df["gte40_lt70"] = \
         (contiguous_df["rolling_30min_median"] >= 40) & \
         (contiguous_df["rolling_30min_median"] < 70)
 
-    contiguous_df["range2"] = \
+    contiguous_df["gte70_lte180"] = \
         (contiguous_df["rolling_30min_median"] >= 70) & \
         (contiguous_df["rolling_30min_median"] <= 180)
 
-    contiguous_df["range3"] = \
+    contiguous_df["gt180_lte400"] = \
         (contiguous_df["rolling_30min_median"] > 180) & \
         (contiguous_df["rolling_30min_median"] <= 400)
 
-    contiguous_df["rate1"] = \
+    contiguous_df["lt-1"] = \
         contiguous_df["rolling_15min_slope"] < -1
 
-    contiguous_df["rate2"] = \
+    contiguous_df["gte-1_lte1"] = \
         (contiguous_df["rolling_15min_slope"] >= -1) & \
         (contiguous_df["rolling_15min_slope"] <= 1)
 
-    contiguous_df["rate3"] = \
+    contiguous_df["gt1"] = \
         contiguous_df["rolling_15min_slope"] > 1
 
     # Set baseline condition to 0
@@ -196,15 +197,15 @@ def label_conditions(contiguous_df):
     contiguous_df["condition"] = 0
 
     # Create boolean array for each condition
-    cond_1 = ((contiguous_df["range1"]) & (contiguous_df["rate1"]))
-    cond_2 = ((contiguous_df["range2"]) & (contiguous_df["rate1"]))
-    cond_3 = ((contiguous_df["range3"]) & (contiguous_df["rate1"]))
-    cond_4 = ((contiguous_df["range1"]) & (contiguous_df["rate2"]))
-    cond_5 = ((contiguous_df["range2"]) & (contiguous_df["rate2"]))
-    cond_6 = ((contiguous_df["range3"]) & (contiguous_df["rate2"]))
-    cond_7 = ((contiguous_df["range1"]) & (contiguous_df["rate3"]))
-    cond_8 = ((contiguous_df["range2"]) & (contiguous_df["rate3"]))
-    cond_9 = ((contiguous_df["range3"]) & (contiguous_df["rate3"]))
+    cond_1 = ((contiguous_df["gte40_lt70"]) & (contiguous_df["lt-1"]))
+    cond_2 = ((contiguous_df["gte70_lte180"]) & (contiguous_df["lt-1"]))
+    cond_3 = ((contiguous_df["gt180_lte400"]) & (contiguous_df["lt-1"]))
+    cond_4 = ((contiguous_df["gte40_lt70"]) & (contiguous_df["gte-1_lte1"]))
+    cond_5 = ((contiguous_df["gte70_lte180"]) & (contiguous_df["gte-1_lte1"]))
+    cond_6 = ((contiguous_df["gt180_lte400"]) & (contiguous_df["gte-1_lte1"]))
+    cond_7 = ((contiguous_df["gte40_lt70"]) & (contiguous_df["gt1"]))
+    cond_8 = ((contiguous_df["gte70_lte180"]) & (contiguous_df["gt1"]))
+    cond_9 = ((contiguous_df["gt180_lte400"]) & (contiguous_df["gt1"]))
 
     # Set each condition value to the boolean locations
     contiguous_df.loc[cond_1, "condition"] = 1
@@ -220,9 +221,9 @@ def label_conditions(contiguous_df):
     return contiguous_df
 
 
-def get_snapshot_locations(contiguous_df):
+def get_evaluation_points(contiguous_df):
     """
-    Gets a snapshot location for each condition from the dataset if available
+    Gets a evaluation points for each condition from the dataset if available
     """
 
     # Set window size of snapshot
@@ -236,7 +237,7 @@ def get_snapshot_locations(contiguous_df):
     qualified_condition_list = \
         contiguous_df.loc[qualified_bool, "condition"].copy()
 
-    snapshot_locations = np.zeros(9)
+    evaluation_points = np.zeros(9)
 
     for condition in np.arange(1, 10):
         # Get the list of qualified locations for the condition
@@ -252,8 +253,8 @@ def get_snapshot_locations(contiguous_df):
         # Randomly select one of the condition's locations
         random_loc = np.random.choice(condition_locations)
 
-        # Add location to snapshot_locations
-        snapshot_locations[condition - 1] = random_loc
+        # Add location to evaluation_points
+        evaluation_points[condition - 1] = random_loc
 
         # Remove all locations within ± window_size-1 from qualified_locations
         # to prevent overlap when selecting the next condition snapshot
@@ -268,25 +269,42 @@ def get_snapshot_locations(contiguous_df):
 
         qualified_condition_list.drop(index=index_to_drop, inplace=True)
 
-    return snapshot_locations
+    return evaluation_points
 
 
-def get_summary_results(contiguous_df, snapshot_locations):
+def get_summary_results(file_name, contiguous_df, evaluation_points):
     """Create a summary of all results to store in a spreadsheet"""
 
-    results = pd.DataFrame()
+    results = pd.DataFrame(index=[0])
+
+    # Get counts for each rate, range, and condition
+    results["file_name"] = file_name
+    results["gte40_lt70"] = contiguous_df["gte40_lt70"].sum()
+    results["gte70_lte180"] = contiguous_df["gte70_lte180"].sum()
+    results["gt180_lte400"] = contiguous_df["gt180_lte400"].sum()
+    results["lt-1"] = contiguous_df["lt-1"].sum()
+    results["gte-1_lte1"] = contiguous_df["gte-1_lte1"].sum()
+    results["gt1"] = contiguous_df["gt1"].sum()
+
+    for num in range(10):
+        results["cond" + str(num)] = sum(contiguous_df["condition"] == num)
+
+    for num in range(9):
+        # Append snapshot locations to dataframe
+        results["cond"+str(num)+"_eval_loc"] = evaluation_points[num]
 
     return results
 
 
-def main():
+def main(file_name, file_location):
     """Main function calls"""
-    file_path = "data.csv"
+
+    file_path = os.path.join(file_location, file_name)
 
     data = import_data(file_path)
 
     # Separate CGM data
-    cgm_df = data[data.type == 'cbg'].copy()
+    cgm_df = data[data.type == "cbg"].copy()
 
     # Convert value from mmol/L to mg/dL
     cgm_df["value"] = cgm_df["value"] * 18.01559
@@ -307,10 +325,10 @@ def main():
     contiguous_df = rolling_48hour_max_gap(contiguous_df)
 
     # Get the locations of each 48-hour snapshot
-    snapshot_locations = get_snapshot_locations(contiguous_df)
+    evaluation_points = get_evaluation_points(contiguous_df)
 
     # Summarize results
-    results = get_summary_results(contiguous_df, snapshot_locations)
+    results = get_summary_results(file_name, contiguous_df, evaluation_points)
 
     return results
 
