@@ -296,12 +296,8 @@ def get_summary_results(file_name, contiguous_df, evaluation_points):
     return results
 
 
-def main(file_name, file_location):
+def main(data):
     """Main function calls"""
-
-    file_path = os.path.join(file_location, file_name)
-
-    data = import_data(file_path)
 
     # Separate CGM data
     cgm_df = data[data.type == "cbg"].copy()
@@ -337,4 +333,8 @@ def main(file_name, file_location):
 if __name__ == "__main__":
     file_name = "data.csv"
     file_location = "."
-    main(file_name, file_location)
+
+    file_path = os.path.join(file_location, file_name)
+    data = import_data(file_path)
+
+    main(data)
