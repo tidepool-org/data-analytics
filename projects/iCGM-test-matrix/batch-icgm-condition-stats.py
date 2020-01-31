@@ -15,15 +15,13 @@ Batch iCGM Condition Stats
 """
 import pandas as pd
 import icgm_condition_finder
-from multiprocessing.pool import ThreadPool
 import time
 import datetime as dt
 import os
-import time
-from multiprocessing import Pool, cpu_count, get_context
+from multiprocessing import Pool, cpu_count
 import traceback
 import sys
-#%%
+# %%
 
 data_location = "data_folder/"
 file_list = os.listdir(data_location)
@@ -31,31 +29,41 @@ file_list = os.listdir(data_location)
 # Filter only files with .csv in their name (includes .csv.gz files)
 file_list = [filename for filename in file_list if '.csv' in filename]
 
-#%%
+# %%
+
 
 def get_icgm_condition_stats(file_name, data_location, user_loc):
 
     file_path = data_location + file_name
-    print(str(user_loc) + " STARTING")
-    #if((user_loc % 100 == 0) & (user_loc > 99)):
-        #print(user_loc)
-    log_file = open('batch-icgm-condition-stats-log.txt', 'a')
-    log_file.write(str(user_loc)+"\n")
-    log_file.close()
+    # print(str(user_loc) + " STARTING")
+    if((user_loc % 100 == 0) & (user_loc > 99)):
+        print(user_loc)
+        log_file = open('batch-icgm-condition-stats-log.txt', 'a')
+        log_file.write(str(user_loc)+"\n")
+        log_file.close()
 
-    import_status = ""
+    results = icgm_condition_finder.get_empty_results_frame()
+    results['file_name'] = file_name
+
     try:
         df = pd.read_csv(file_path, low_memory=False)
-        import_status = "Succesfully Imported"
+
+        if 'type' in set(df):
+            if 'cbg' in set(df['type']):
+                results = icgm_condition_finder.main(df, file_name)
+                results['status'] = "Complete"
+            else:
+                results['status'] = "No CGM Data"
+        else:
+            results['status'] = "Empty Dataset"
 
     except Exception as e:
         df = pd.DataFrame()
-        print("Failed to import: " + file_path)
-        import_status = "Failed to Import - " + str(e)
+        print("Processing Failed For: " + file_path)
+        exception_text = "Failed - " + str(e)
+        results['status'] = "Failed"
+        results['exception_text'] = exception_text
 
-    results = icgm_condition_finder.main(df, file_name)
-    results['pandas_import_status'] = import_status
-    print(str(user_loc) + " COMPLETE!")
     return results
 
 
@@ -105,5 +113,8 @@ if __name__ == "__main__":
     # Convert results into dataframe
     icgm_condition_summary_df = pd.concat(results_array, sort=False)
     today_timestamp = dt.datetime.now().strftime("%Y-%m-%d")
-    results_export_filename = 'PHI-batch-icgm-condition-stats-' + today_timestamp + '.csv'
+    results_export_filename = \
+        'PHI-batch-icgm-condition-stats-' + \
+        today_timestamp + \
+        '.csv'
     icgm_condition_summary_df.to_csv(results_export_filename, index=False)

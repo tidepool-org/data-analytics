@@ -353,6 +353,30 @@ def get_evaluation_points(contiguous_df):
     return evaluation_points
 
 
+def get_empty_results_frame():
+
+    results_columns = ['file_name',
+                       'nRoundedTimeDuplicatesRemoved',
+                       'cgmPercentDuplicated',
+                       'gte40_lt70',
+                       'gte70_lte180',
+                       'gt180_lte400',
+                       'lt-1',
+                       'gte-1_lte1',
+                       'gt1']
+
+    for num in range(10):
+        results_columns.append("cond" + str(num))
+
+    for num in range(9):
+        # Append snapshot locations to dataframe
+        results_columns.append("cond"+str(num)+"_eval_loc")
+
+    results_frame = pd.DataFrame(index=[0], columns=results_columns)
+
+    return results_frame
+
+
 def get_summary_results(file_name,
                         nRoundedTimeDuplicatesRemoved,
                         cgmPercentDuplicated,
@@ -360,7 +384,7 @@ def get_summary_results(file_name,
                         evaluation_points):
     """Create a summary of all results to store in a spreadsheet"""
 
-    results = pd.DataFrame(index=[0])
+    results = get_empty_results_frame()
 
     # Get counts for each rate, range, and condition
     results["file_name"] = file_name
