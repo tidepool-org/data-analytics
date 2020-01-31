@@ -398,7 +398,10 @@ def get_summary_results(file_name,
     results["gt1"] = contiguous_df["gt1"].sum()
 
     for num in range(10):
-        results["cond" + str(num)] = sum(contiguous_df["condition"] == num)
+        results["cond" + str(num)] = \
+            sum((contiguous_df["condition"] == num) &
+                (contiguous_df["value"].notnull())
+                )
 
     for num in range(9):
         # Append snapshot locations to dataframe
