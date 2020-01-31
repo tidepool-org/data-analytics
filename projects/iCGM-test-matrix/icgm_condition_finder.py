@@ -100,6 +100,11 @@ def remove_rounded_CGM_duplicates(cgm_df):
     """Removes CGM duplicates, keeping the entries with the most recent
     uploadTime
     """
+
+    # Set Defaults
+    nRoundedTimeDuplicatesRemoved = 0
+    cgmPercentDuplicated = 0
+
     if "rounded_time" in cgm_df:
         # Sort first by most recent rounded_time and then by newest uploadTime
         cgm_df.sort_values(by=["rounded_time", "uploadTime"],
@@ -118,12 +123,13 @@ def remove_rounded_CGM_duplicates(cgm_df):
         dfNotNull = dfNotNull.reset_index(drop=True)
         nRoundedTimeDuplicatesRemoved = nBefore - len(dfNotNull)
 
+        if(nRoundedTimeDuplicatesRemoved > 0):
+            cgmPercentDuplicated = nRoundedTimeDuplicatesRemoved/nBefore
+
         cgm_df = pd.concat([dfIsNull, dfNotNull])
         cgm_df.sort_values(by=["rounded_time"], ascending=True, inplace=True)
-    else:
-        nRoundedTimeDuplicatesRemoved = 0
 
-    return cgm_df, nRoundedTimeDuplicatesRemoved
+    return cgm_df, nRoundedTimeDuplicatesRemoved, cgmPercentDuplicated
 
 
 def rolling_30min_median(contiguous_df):
@@ -349,6 +355,7 @@ def get_evaluation_points(contiguous_df):
 
 def get_summary_results(file_name,
                         nRoundedTimeDuplicatesRemoved,
+                        cgmPercentDuplicated,
                         contiguous_df,
                         evaluation_points):
     """Create a summary of all results to store in a spreadsheet"""
@@ -358,6 +365,7 @@ def get_summary_results(file_name,
     # Get counts for each rate, range, and condition
     results["file_name"] = file_name
     results["nRoundedTimeDuplicatesRemoved"] = nRoundedTimeDuplicatesRemoved
+    results["cgmPercentDuplicated"] = cgmPercentDuplicated
     results["gte40_lt70"] = contiguous_df["gte40_lt70"].sum()
     results["gte70_lte180"] = contiguous_df["gte70_lte180"].sum()
     results["gt180_lte400"] = contiguous_df["gt180_lte400"].sum()
@@ -391,7 +399,7 @@ def main(data, file_name):
     contiguous_df = create_5min_contiguous_df(cgm_df)
 
     # Remove CGM duplicates
-    cgm_df, nRoundedTimeDuplicatesRemoved = \
+    cgm_df, nRoundedTimeDuplicatesRemoved, cgmPercentDuplicated = \
         remove_rounded_CGM_duplicates(cgm_df)
 
     # Calculate the median BG with a 30-minute rolling window
@@ -412,6 +420,7 @@ def main(data, file_name):
     # Summarize results
     results = get_summary_results(file_name,
                                   nRoundedTimeDuplicatesRemoved,
+                                  cgmPercentDuplicated,
                                   contiguous_df,
                                   evaluation_points)
 
