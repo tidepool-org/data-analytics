@@ -296,7 +296,7 @@ def get_summary_results(file_name, contiguous_df, evaluation_points):
     return results
 
 
-def main(data):
+def main(data, file_name):
     """Main function calls"""
 
     # Separate CGM data
@@ -337,4 +337,4 @@ if __name__ == "__main__":
     file_path = os.path.join(file_location, file_name)
     data = import_data(file_path)
 
-    main(data)
+    main(data, file_name)
