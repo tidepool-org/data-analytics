@@ -55,7 +55,6 @@ The algorithm for finding a snapshot is as follows
 - Fit the CGM trace to a 5-minute time series to uncover gaps
 - Calculate the median mg/dL value with a 30-minute (6 cgm points) rolling window 
 - Calculate the slope in mg/dL/min with a 15-minute (3 cgm points) rolling window
+- Apply one of the 9 conditions labels to each CGM point
 - Calculate the max gap size of the cgm trace in a 48 hour *centered* rolling window (where the evaluation point is in the center)
-- Determine whether a cgm point can be used as an evaluation point in a snapshot and label which condition it will fit into
-- Randomly select one snapshot for each condition that does not overlap with any other snapshot
-  - This is done by —?
+- Randomly select one evaluation point for each condition that does not overlap with any other 48-hour snapshot and has a max gap <= 15 minutes

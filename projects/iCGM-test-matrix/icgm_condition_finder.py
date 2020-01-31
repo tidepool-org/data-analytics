@@ -324,7 +324,7 @@ def main(file_name, file_location):
     # Get the max gap size across 48-hour windows
     contiguous_df = rolling_48hour_max_gap(contiguous_df)
 
-    # Get the locations of each 48-hour snapshot
+    # Get the locations of each evaluation point in a 48-hour snapshot
     evaluation_points = get_evaluation_points(contiguous_df)
 
     # Summarize results
@@ -335,4 +335,6 @@ def main(file_name, file_location):
 
 # %%
 if __name__ == "__main__":
-    main()
+    file_name = "data.csv"
+    file_location = "."
+    main(file_name, file_location)
