@@ -237,7 +237,7 @@ def get_evaluation_points(contiguous_df):
     qualified_condition_list = \
         contiguous_df.loc[qualified_bool, "condition"].copy()
 
-    evaluation_points = np.zeros(9)
+    evaluation_points = [""]*9
 
     for condition in np.arange(1, 10):
         # Get the list of qualified locations for the condition
@@ -253,8 +253,8 @@ def get_evaluation_points(contiguous_df):
         # Randomly select one of the condition's locations
         random_loc = np.random.choice(condition_locations)
 
-        # Add location to evaluation_points
-        evaluation_points[condition - 1] = random_loc
+        # Add location's id to evaluation_points
+        evaluation_points[condition - 1] = contiguous_df.loc[random_loc, "id"]
 
         # Remove all locations within ± window_size-1 from qualified_locations
         # to prevent overlap when selecting the next condition snapshot
