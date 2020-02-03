@@ -58,3 +58,20 @@ The algorithm for finding a snapshot is as follows
 - Apply one of the 9 conditions labels to each CGM point
 - Calculate the max gap size of the cgm trace in a 48 hour *centered* rolling window (where the evaluation point is in the center)
 - Randomly select one evaluation point for each condition that does not overlap with any other 48-hour snapshot and has a max gap <= 15 minutes
+
+## Output
+
+The output for the icgm_condition_finder.py and batch processing script are:
+
+- **file_name** - The file name of the .csv analyzed
+- **nRoundedTimeDuplicatesRemoved** - The number of cgm duplicates removed after rounding to the nearest 5 minutes
+- **cgmPercentDuplicated** - Percent of the cgm data that was duplicated
+- **gte40_lt70** - The number of cgm entries with a median BG value of the previous 6 BG values (mg/dL) in the range [40, 70) (mg/dL) 
+- **gte70_lte180** - The number of cgm entries with a median BG value of the previous 6 BG values in the range [70, 180] (mg/dL) 
+- **gt180_lte400** - The number of cgm entries with a median BG value of the previous 6 BG values in the range (180, 400] (mg/dL) 
+- **lt-1** - The number of cgm entries with a rate of change of the previous 3 BG values less than -1 (mg/dL/min)
+- **gte-1_lte1**- The number of cgm entries with a rate of change of the previous 3 BG values in the range [-1, 1] (mg/dL/min)
+- **gt1** - The number of cgm entries with a rate of change of the previous 3 BG values greater than 1 (mg/dL/min)
+- **cond*[0-9]*** - The number of total evaluation points that match a given condition (note that cond0 are the number of cgm entries that could not be evaluated under a condition due to a lack of data)
+- **cond*[1-9]*_eval_loc** - The id location of a randomly sampled evaluation point
+- **status** - The batch processing completion status of each file
