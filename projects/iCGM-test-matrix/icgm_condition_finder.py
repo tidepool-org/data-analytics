@@ -370,7 +370,7 @@ def get_empty_results_frame():
 
     for num in range(9):
         # Append snapshot locations to dataframe
-        results_columns.append("cond"+str(num)+"_eval_loc")
+        results_columns.append("cond"+str(num+1)+"_eval_loc")
 
     results_frame = pd.DataFrame(index=[0], columns=results_columns)
 
@@ -405,7 +405,7 @@ def get_summary_results(file_name,
 
     for num in range(9):
         # Append snapshot locations to dataframe
-        results["cond"+str(num)+"_eval_loc"] = evaluation_points[num]
+        results["cond"+str(num+1)+"_eval_loc"] = evaluation_points[num]
 
     return results
 
