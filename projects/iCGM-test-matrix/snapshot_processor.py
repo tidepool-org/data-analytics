@@ -548,10 +548,10 @@ def export_snapshot(snapshot,
 if __name__ == "__main__":
 
     # Import results from batch-icgm-condition-stats
-    condition_file = "PHI-batch-icgm-condition-stats-2020-01-31.csv"
+    condition_file = "PHI-batch-icgm-condition-stats-2020-02-11.csv"
     condition_df = pd.read_csv(condition_file, low_memory=False)
 
-    file_selection = 1
+    file_selection = 96
     file_name = condition_df.loc[file_selection, 'file_name']
 
     # Location of csvs
@@ -564,11 +564,13 @@ if __name__ == "__main__":
         condition_col = 'cond' + str(condition_num) + '_eval_loc'
         evaluation_point_loc = condition_df.loc[file_selection, condition_col]
 
-        snapshot = get_snapshot(data, file_name, evaluation_point_loc)
+        if not pd.isnull(evaluation_point_loc):
 
-        export_folder = "snapshot_export"
+            snapshot = get_snapshot(data, file_name, evaluation_point_loc)
 
-        export_snapshot(snapshot,
-                        file_name,
-                        condition_num,
-                        export_folder)
+            export_folder = "snapshot_export"
+
+            export_snapshot(snapshot,
+                            file_name,
+                            condition_num,
+                            export_folder)
