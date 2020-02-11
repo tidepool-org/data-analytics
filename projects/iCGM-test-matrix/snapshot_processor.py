@@ -533,7 +533,7 @@ def export_snapshot(snapshot,
     if not os.path.exists(export_folder):
         os.makedirs(export_folder)
 
-    export_filename = file_name + "_" + str(condition_num) + ".pkl"
+    export_filename = file_name + "_condition" + str(condition_num) + ".pkl"
     export_path = export_folder + "/" + export_filename
 
     with open(export_path, 'wb') as pickle_file:
@@ -551,7 +551,7 @@ if __name__ == "__main__":
     condition_file = "PHI-batch-icgm-condition-stats-2020-02-11.csv"
     condition_df = pd.read_csv(condition_file, low_memory=False)
 
-    file_selection = 96
+    file_selection = 1
     file_name = condition_df.loc[file_selection, 'file_name']
 
     # Location of csvs
