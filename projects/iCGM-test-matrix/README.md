@@ -10,7 +10,7 @@ The secondary goal is to calculate the distribution of all 9 conditions within t
 
 There are 3 python scripts used in this project:
 
-- **icgm_condition_finder.py** - Given a Tidepool donor dataset, returns 9 locations (if available) of each condition along with some other statistics (see [Condition Finder Output][#Condition-Finder-Output] below)
+- **icgm_condition_finder.py** - Given a Tidepool donor dataset, returns 9 locations (if available) of each condition along with some other statistics (see [Condition Finder Output](#condition-finder-output) below)
 - **batch-icgm-condition-stats.py** - A batch script wrapper for the icgm_condition_finder. Given a folder of Tidepool datasets, creates a .csv output of condition locations and stats for every file.
 - **snapshot_processor.py** - Given the output of batch-icgm-condition-stats.py, takes each 48-hour snapshot location for every dataset and converts it into a set of dataframes to be used by the pyLoopKit simulator. (Exports to a 10-element tuple pickle file)
 
