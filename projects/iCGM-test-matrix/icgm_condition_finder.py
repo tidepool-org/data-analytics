@@ -80,7 +80,9 @@ def create_5min_contiguous_df(cgm_df):
     Fit the CGM trace to a contiguous 5-minute time series to uncover gaps
     """
 
-    cgm_df["rounded_time"] = pd.to_datetime(cgm_df.time).dt.ceil(freq="5min")
+    cgm_df["rounded_time"] = \
+        pd.to_datetime(cgm_df.time,
+                       utc=True).dt.ceil(freq="5min")
     first_timestamp = cgm_df["rounded_time"].min()
     last_timestamp = cgm_df["rounded_time"].max()
 
