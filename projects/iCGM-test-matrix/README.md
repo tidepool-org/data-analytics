@@ -92,6 +92,6 @@ The output for the icgm_condition_finder.py and batch processing script are:
 - **lt-1** - The number of cgm entries with a rate of change of the previous 3 BG values less than -1 (mg/dL/min)
 - **gte-1_lte1**- The number of cgm entries with a rate of change of the previous 3 BG values in the range [-1, 1] (mg/dL/min)
 - **gt1** - The number of cgm entries with a rate of change of the previous 3 BG values greater than 1 (mg/dL/min)
-- **cond*[0-9]*** - The number of total evaluation points that match a given condition (note that cond0 are the number of cgm entries that could not be evaluated under a condition due to a lack of data)
-- **cond*[1-9]*_eval_loc** - The id location of a randomly sampled evaluation point
+- **cond[0-9]** - The number of total evaluation points that match a given condition (note that cond0 are the number of cgm entries that could not be evaluated under a condition due to a lack of data)
+- **cond[1-9]_eval_loc** - The id location of a randomly sampled evaluation point
 - **status** - The batch processing completion status of each file
