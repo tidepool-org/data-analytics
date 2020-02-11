@@ -2,9 +2,17 @@
 
 This project finds snapshots of data to explore the sensitivity of the Loop Algorithm over the entire range of BG values. Each snapshot is a 48-hour window of data. In the center of this data is an "evaluation point" which falls into one of the 9 conditions detailed in the table below.
 
-The primary goal of this project is to find 9 snapshots for each condition from 100 datasets in the Tidepool Big Data Donation Project for a total of 900 snapshots.
+The primary goal of this project is to find 9 snapshots for each condition from 100 datasets in the Tidepool Big Data Donation Project for a total of 900 snapshots and export them for simulator use.
 
 The secondary goal is to calculate the distribution of all 9 conditions within the entire TBDDP donor population.
+
+## Scripts
+
+There are 3 python scripts used in this project:
+
+- **icgm_condition_finder.py** - Given a Tidepool donor dataset, returns 9 locations (if available) of each condition along with some other statistics (see [Condition Finder Output][#condition-finder-ouput] below)
+- **batch-icgm-condition-stats.py** - A batch script wrapper for the icgm_condition_finder. Given a folder of Tidepool datasets, creates a .csv output of condition locations and stats for every file.
+- **snapshot_processor.py** - Given the output of batch-icgm-condition-stats.py, takes each 48-hour snapshot location for every dataset and converts it into a set of dataframes to be used by the pyLoopKit simulator. (Exports to a 10-element tuple pickle file)
 
 ## Condition Table
 
@@ -46,9 +54,21 @@ There are 3 value conditions and 3 rate of change conditions with a combined 9 u
     </tbody>
 </table>
 
+The conditions are numbered 1-9 as follows:
 
+| Condition # | 30min Median BG (mg/dL) <br />& <br />15min Rate of Change (mg/dL/min) |
+| :---------: | :----------------------------------------------------------- |
+|      1      | [40-70) & < -1                                               |
+|      2      | [70-180] & < -1                                              |
+|      3      | (180-400] & < -1                                             |
+|      4      | [40-70) & [-1 to 1]                                          |
+|      5      | [70-180] & [-1 to 1]                                         |
+|      6      | (180-400] & [-1 to 1]                                        |
+|      7      | [40-70) & > 1                                                |
+|      8      | [70-180] & > 1                                               |
+|      9      | (180-400] & > 1                                              |
 
-## Finding Snapshots Algorithm
+## Condition Finder Algorithm
 
 The algorithm for finding a snapshot is as follows
 
@@ -59,7 +79,7 @@ The algorithm for finding a snapshot is as follows
 - Calculate the max gap size of the cgm trace in a 48 hour *centered* rolling window (where the evaluation point is in the center)
 - Randomly select one evaluation point for each condition that does not overlap with any other 48-hour snapshot and has a max gap <= 15 minutes
 
-## Output
+## Condition Finder Output
 
 The output for the icgm_condition_finder.py and batch processing script are:
 
