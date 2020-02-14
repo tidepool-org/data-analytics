@@ -28,8 +28,7 @@ def get_active_schedules(data,
                          file_name,
                          evaluation_point_loc,
                          evaluation_time):
-    """Get the pumpSettinsg row of active schedules used during the snapshot"""
-
+    """Get pumpSettings row of active schedules used during the snapshot."""
     # Get all schedules and their upload ids
     schedules = data[data.activeSchedule.notnull()]
 
@@ -48,7 +47,7 @@ def get_active_schedules(data,
         nearest_uploadid = \
             snapshot_df.loc[((snapshot_df.type == 'bolus') |
                             (snapshot_df.type == 'basal')) &
-                            (snapshot_df.time < evaluation_time),
+                            (snapshot_df.rounded_local_time < evaluation_time),
                             'uploadId'].values[-1]
 
         active_schedules = \
@@ -58,9 +57,10 @@ def get_active_schedules(data,
     # to the time of the evaluation point
     if len(active_schedules) == 0:
         nearest_schedule_time = \
-            schedules.loc[schedules.time < evaluation_time, 'time'].max()
+            schedules.loc[schedules.rounded_local_time < evaluation_time,
+                          'rounded_local_time'].max()
         active_schedules = \
-            schedules[schedules.time == nearest_schedule_time]
+            schedules[schedules.rounded_local_time == nearest_schedule_time]
 
     return active_schedules
 
@@ -298,8 +298,11 @@ def get_carb_events(snapshot_df):
     carb_events = pd.DataFrame(columns=df_columns)
 
     carb_df = snapshot_df[snapshot_df.carbInput > 0]
+    carb_df = \
+        carb_df.groupby('rounded_local_time').carbInput.sum().reset_index()
 
-    carb_events['carb_dates'] = carb_df.time.dt.strftime("%Y-%m-%d %H:%M:%S")
+    carb_events['carb_dates'] = \
+        carb_df.rounded_local_time.dt.strftime("%Y-%m-%d %H:%M:%S")
     carb_events['carb_values'] = carb_df.carbInput
     carb_events['actual_carbs'] = carb_events['carb_values']
     carb_events['carb_absorption_times'] = 180
@@ -326,49 +329,90 @@ def get_dose_events(snapshot_df):
     temp_basal_events = dose_events.copy()
     suspend_events = dose_events.copy()
 
-    bolus_df = snapshot_df[snapshot_df.type == 'bolus']
+    bolus_df = snapshot_df[snapshot_df.type == 'bolus'].copy()
 
     if len(bolus_df) > 0:
+        # Merge boluses together into single 5-minute timestamps
+        bolus_df = pd.DataFrame(
+            bolus_df.groupby('rounded_local_time').normal.sum()
+        ).reset_index()
+
         bolus_events['dose_values'] = bolus_df['normal']
-        bolus_events['dose_start_times'] = bolus_df['time']
-        bolus_events['dose_end_times'] = bolus_df['time']
+        bolus_events['dose_start_times'] = bolus_df['rounded_local_time']
+        bolus_events['dose_end_times'] = bolus_df['rounded_local_time']
         bolus_events['dose_types'] = 'DoseType.bolus'
         bolus_events['dose_value_units'] = 'U'
 
-    extended_df = bolus_df[bolus_df.extended > 0]
+        if('extended' in list(bolus_df)):
+            extended_df = bolus_df[bolus_df.extended > 0]
+        else:
+            extended_df = pd.DataFrame()
 
-    if len(extended_df) > 0:
-        extended_df = bolus_df[bolus_df.subType == 'dual/square']
+        if len(extended_df) > 0:
+            extended_df = bolus_df[bolus_df.subType == 'dual/square']
 
-        extended_events['dose_values'] = extended_df['extended']
-        extended_events['dose_start_times'] = extended_df['time']
-        extended_events['dose_end_times'] = \
-            extended_df.apply(lambda x: x['time'] +
-                              datetime.timedelta(milliseconds=x['duration']),
-                              axis=1)
-        extended_events['dose_types'] = 'DoseType.extended'
-        extended_events['dose_value_units'] = 'U'
+            # NOTE: Multiple extended entries may exist within the same rounded
+            # timestamp.
 
-    basal_df = snapshot_df[snapshot_df.deliveryType == 'temp']
+            extended_events['dose_values'] = extended_df['extended']
+            extended_events['dose_start_times'] = \
+                extended_df['rounded_local_time']
+            extended_events['dose_end_times'] = \
+                extended_df.apply(
+                    lambda x: x['rounded_local_time'] +
+                    datetime.timedelta(milliseconds=x['duration']),
+                    axis=1)
+
+            extended_events['dose_types'] = 'DoseType.extended'
+            extended_events['dose_value_units'] = 'U'
+
+    basal_df = snapshot_df[snapshot_df.deliveryType == 'temp'].copy()
 
     if len(basal_df) > 0:
+
+        # Merge basals into single 5-minute timestamps
+        # For multiple basals occuring in a 5-minute period, choose the last
+        # NOTE: This will result in a slight loss of accuracy of insulin
+        # delivered within a 5-minute period
+
+        # TODO: Create an algorithm to upsample basals to a 1-minute interval,
+        # then downsample back to a 5-minute virtual "delivered" basal
+
+        basal_df.sort_values('est.localTime',
+                             ascending=True,
+                             inplace=True)
+
+        basal_df.drop_duplicates('rounded_local_time',
+                                 keep='last',
+                                 inplace=True)
         temp_basal_events['dose_values'] = basal_df['rate']
-        temp_basal_events['dose_start_times'] = basal_df['time']
+        temp_basal_events['dose_start_times'] = basal_df['rounded_local_time']
         temp_basal_events['dose_end_times'] = \
-            basal_df.apply(lambda x: x['time'] +
+            basal_df.apply(lambda x: x['rounded_local_time'] +
                            datetime.timedelta(milliseconds=x['duration']),
                            axis=1)
         temp_basal_events['dose_types'] = 'DoseType.tempbasal'
         temp_basal_events['dose_value_units'] = 'U/hr'
 
-    suspend_df = snapshot_df[snapshot_df.deliveryType == 'suspend']
+    suspend_df = snapshot_df[snapshot_df.deliveryType == 'suspend'].copy()
 
     if len(suspend_df) > 0:
-        suspend_events['dose_start_times'] = suspend_df['time']
+        # Merge suspends into single 5-minute timestamps
+        # For multiple suspends occuring in a 5-minute period, choose the last
+
+        suspend_df.sort_values('est.localTime',
+                               ascending=True,
+                               inplace=True)
+
+        suspend_df.drop_duplicates('rounded_local_time',
+                                   keep='last',
+                                   inplace=True)
+
+        suspend_events['dose_start_times'] = suspend_df['rounded_local_time']
         suspend_events['dose_values'] = 0
 
         suspend_events['dose_end_times'] = \
-            suspend_df.apply(lambda x: x['time'] +
+            suspend_df.apply(lambda x: x['rounded_local_time'] +
                              datetime.timedelta(milliseconds=x['duration']),
                              axis=1)
         suspend_events['dose_types'] = 'DoseType.suspend'
@@ -401,8 +445,17 @@ def get_cgm_df(snapshot_df):
 
     cgm_df = pd.DataFrame(columns=df_columns)
 
-    cgm_data = snapshot_df[snapshot_df.type == 'cbg']
-    cgm_df['glucose_dates'] = cgm_data.time.dt.strftime("%Y-%m-%d %H:%M:%S")
+    cgm_data = snapshot_df[snapshot_df.type == 'cbg'].copy()
+
+    # Drop cgm duplicates in snapshot (if any)
+    cgm_data.sort_values(['uploadId', 'rounded_local_time'],
+                         ascending=True,
+                         inplace=True)
+
+    cgm_data.drop_duplicates('rounded_local_time', inplace=True)
+
+    cgm_df['glucose_dates'] = \
+        cgm_data.rounded_local_time.dt.strftime("%Y-%m-%d %H:%M:%S")
     cgm_df['glucose_values'] = round(cgm_data.value * 18.01559)
     cgm_df['actual_blood_glucose'] = cgm_df['glucose_values']
     cgm_df['glucose_units'] = 'mg/dL'
@@ -459,20 +512,20 @@ def get_settings():
 
     # Create default df_settings
 
-    df_settings.loc['model'] = [[360.0, 65]]
-    df_settings.loc['momentum_data_interval'] = 15
-    df_settings.loc['suspend_threshold'] = 70
-    df_settings.loc['dynamic_carb_absorption_enabled'] = True
-    df_settings.loc['retrospective_correction_integration_interval'] = 30
-    df_settings.loc['recency_interval'] = 15
-    df_settings.loc['retrospective_correction_grouping_interval'] = 30
-    df_settings.loc['rate_rounder'] = 0.05
-    df_settings.loc['insulin_delay'] = 10
-    df_settings.loc['carb_delay'] = 10
-    df_settings.loc['default_absorption_times'] = [[120.0, 180.0, 240.0]]
-    df_settings.loc['max_basal_rate'] = 35
-    df_settings.loc['max_bolus'] = 30
-    df_settings.loc['retrospective_correction_enabled'] = True
+    df_settings.loc['model'] = '[360.0, 65]'
+    df_settings.loc['momentum_data_interval'] = '15'
+    df_settings.loc['suspend_threshold'] = '70'
+    df_settings.loc['dynamic_carb_absorption_enabled'] = 'TRUE'
+    df_settings.loc['retrospective_correction_integration_interval'] = '30'
+    df_settings.loc['recency_interval'] = '15'
+    df_settings.loc['retrospective_correction_grouping_interval'] = '30'
+    df_settings.loc['rate_rounder'] = '0.05'
+    df_settings.loc['insulin_delay'] = '10'
+    df_settings.loc['carb_delay'] = '10'
+    df_settings.loc['default_absorption_times'] = '[120.0, 180.0, 240.0]'
+    df_settings.loc['max_basal_rate'] = '35'
+    df_settings.loc['max_bolus'] = '30'
+    df_settings.loc['retrospective_correction_enabled'] = 'TRUE'
 
     return df_settings
 
@@ -480,22 +533,27 @@ def get_settings():
 def get_snapshot(data,
                  file_name,
                  evaluation_point_loc):
-
     """Main function wrapper to assemble snapshot dataframes"""
 
     # Start by getting the 48-hour window ± 24hrs around the evaluation point
     evaluation_index = data.index[data.id == evaluation_point_loc]
 
-    data['time'] = pd.to_datetime(data['time'], utc=True)
-    evaluation_time = pd.to_datetime(data.time[evaluation_index].values[0],
-                                     utc=True)
+    data["rounded_local_time"] = \
+        pd.to_datetime(data["est.localTime"],
+                       utc=True).dt.ceil(freq="5min")
+
+    evaluation_time = \
+        pd.to_datetime(data.loc[evaluation_index,
+                                'rounded_local_time'].values[0],
+                       utc=True)
 
     df_misc = get_time_to_calculate_at(evaluation_time)
 
     start_time = evaluation_time - datetime.timedelta(days=1)
     end_time = evaluation_time + datetime.timedelta(days=1)
 
-    snapshot_df = data[(data.time >= start_time) & (data.time <= end_time)]
+    snapshot_df = data[(data['rounded_local_time'] >= start_time) &
+                       (data['rounded_local_time'] <= end_time)]
 
     # Get pumpSettings list of active schedules
     active_schedules = get_active_schedules(data,
@@ -524,6 +582,71 @@ def get_snapshot(data,
             )
 
 
+def dataframe_inputs_to_dict(dfs, df_misc, df_settings):
+    """Function from pyLoopKit's input_data_tools.py
+    write the dataframes back to one dictionary
+    """
+    input_dictionary = dict()
+    input_dictionary = df_misc.to_dict()[0]
+    for df in dfs:
+        for col in df.columns:
+            if "units" not in col:
+                input_dictionary[col] = df[col].tolist()
+            else:
+                input_dictionary[col] = df[col].unique()[0]
+
+    input_dictionary["settings_dictionary"] = df_settings.to_dict()["settings"]
+
+    # set the format back for the edge cases
+    input_dictionary["settings_dictionary"]["model"] = np.safe_eval(
+        input_dictionary["settings_dictionary"]["model"]
+    )
+    input_dictionary["settings_dictionary"]["default_absorption_times"] = (
+        np.safe_eval(
+            input_dictionary["settings_dictionary"]["default_absorption_times"]
+        )
+    )
+
+    input_dictionary["offset_applied_to_dates"] = (
+        int(input_dictionary["offset_applied_to_dates"])
+    )
+
+    return input_dictionary
+
+
+def combine_into_one_dataframe(snapshot):
+    """Function from pyLoopKit's input_data_tools.py
+    Combines the dataframes into one big dataframe,
+    put glucose at end since that trace is typically long
+    """
+    (
+        df_basal_rate, df_carb, df_carb_ratio, df_dose, df_glucose,
+        df_last_temporary_basal, df_misc, df_sensitivity_ratio,
+        df_settings, df_target_range
+    ) = snapshot
+
+    combined_df = pd.DataFrame()
+    combined_df = pd.concat([combined_df, df_settings])
+    combined_df = pd.concat([combined_df, df_misc])
+
+    dfs = [
+       df_basal_rate, df_carb, df_carb_ratio, df_dose,
+       df_last_temporary_basal, df_sensitivity_ratio,
+       df_target_range, df_glucose
+    ]
+
+    for df in dfs:
+        df.reset_index(drop=True, inplace=True)
+        combined_df = pd.concat([combined_df, df.T])
+
+    # move settings back to the front of the dataframe
+    combined_df = combined_df[np.append("settings", combined_df.columns[0:-1])]
+    combined_df = \
+        combined_df.reset_index().rename(columns={'index': 'setting_name'})
+
+    return combined_df
+
+
 def export_snapshot(snapshot,
                     file_name,
                     condition_num,
@@ -533,11 +656,11 @@ def export_snapshot(snapshot,
     if not os.path.exists(export_folder):
         os.makedirs(export_folder)
 
-    export_filename = file_name + "_condition" + str(condition_num) + ".pkl"
+    export_filename = file_name + "_condition" + str(condition_num) + ".csv"
     export_path = export_folder + "/" + export_filename
 
-    with open(export_path, 'wb') as pickle_file:
-        pickle.dump(snapshot, pickle_file)
+    combined_df = combine_into_one_dataframe(snapshot)
+    combined_df.to_csv(export_path, index=False)
 
     print("Successfully completed: " + export_filename)
 
