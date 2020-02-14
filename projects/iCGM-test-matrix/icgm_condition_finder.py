@@ -170,7 +170,7 @@ def create_5min_contiguous_df(data):
     # TODO: Create an algorithm to upsample basals to a 1-minute interval, then
     # downsample back to a 5-minute virtual "delivered" basal
 
-    basal_df.sort_values('time',
+    basal_df.sort_values('est.localTime',
                          ascending=True,
                          inplace=True)
 
@@ -179,6 +179,11 @@ def create_5min_contiguous_df(data):
                              inplace=True)
 
     basal_df["basal_duration"] = basal_df['duration']
+
+    # Limit basal_df to just the necessary columns
+    basal_df = basal_df[["rounded_local_time",
+                         "basal_duration",
+                         "rate"]]
 
     contiguous_df = pd.merge(contiguous_df,
                              basal_df,
