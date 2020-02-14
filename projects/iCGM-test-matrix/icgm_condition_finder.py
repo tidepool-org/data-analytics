@@ -152,8 +152,6 @@ def create_5min_contiguous_df(data):
         remove_rounded_CGM_duplicates(contiguous_df)
 
     # Merge boluses together into single 5-minute timestamps
-    # NOTE: This is not for accuracy, this is just to count whether there
-    # exists any bolus in a 48-hour window later
     bolus_df = pd.DataFrame(
         bolus_df.groupby('rounded_local_time').normal.sum()
         ).reset_index()
@@ -164,12 +162,21 @@ def create_5min_contiguous_df(data):
                              on="rounded_local_time"
                              )
 
-    # Merge basals together into single 5-minute timestamps
-    # NOTE: This is not for accuracy, this is just to count whether there
-    # exists any basal events in a 48-hour window later
-    basal_df = pd.DataFrame(
-        basal_df.groupby('rounded_local_time').duration.sum()
-        ).reset_index()
+    # Merge basals into single 5-minute timestamps
+    # For multiple basals occuring in a 5-minute period, choose the last basal
+    # NOTE: This will result in a slight loss of accuracy of insulin delivered
+    # within a 5-minute period
+
+    # TODO: Create an algorithm to upsample basals to a 1-minute interval, then
+    # downsample back to a 5-minute virtual "delivered" basal
+
+    basal_df.sort_values('time',
+                         ascending=True,
+                         inplace=True)
+
+    basal_df.drop_duplicates('rounded_local_time',
+                             keep='last',
+                             inplace=True)
 
     basal_df["basal_duration"] = basal_df['duration']
 
@@ -178,6 +185,11 @@ def create_5min_contiguous_df(data):
                              how="left",
                              on="rounded_local_time"
                              )
+
+    # Sort by ascending rounded_local_time
+    contiguous_df.sort_values('rounded_local_time',
+                              ascending=True,
+                              inplace=True)
 
     return contiguous_df, nRoundedTimeDuplicatesRemoved, cgmPercentDuplicated
 
