@@ -75,29 +75,6 @@ def add_uploadDateTime(df):
     return df
 
 
-def create_5min_contiguous_df(cgm_df):
-    """
-    Fit the CGM trace to a contiguous 5-minute time series to uncover gaps
-    """
-
-    cgm_df["rounded_time"] = \
-        pd.to_datetime(cgm_df.time,
-                       utc=True).dt.ceil(freq="5min")
-    first_timestamp = cgm_df["rounded_time"].min()
-    last_timestamp = cgm_df["rounded_time"].max()
-
-    contiguous_ts = pd.date_range(first_timestamp, last_timestamp, freq="5min")
-    contiguous_df = pd.DataFrame(contiguous_ts, columns=["rounded_time"])
-
-    contiguous_df = pd.merge(contiguous_df,
-                             cgm_df,
-                             how="left",
-                             on="rounded_time"
-                             )
-
-    return contiguous_df
-
-
 def remove_rounded_CGM_duplicates(cgm_df):
     """Removes CGM duplicates, keeping the entries with the most recent
     uploadTime
@@ -107,21 +84,23 @@ def remove_rounded_CGM_duplicates(cgm_df):
     nRoundedTimeDuplicatesRemoved = 0
     cgmPercentDuplicated = 0
 
-    if "rounded_time" in cgm_df:
-        # Sort first by most recent rounded_time and then by newest uploadTime
-        cgm_df.sort_values(by=["rounded_time", "uploadTime"],
+    if "rounded_local_time" in cgm_df:
+        # Sort first by most recent rounded_local_time and
+        # then sort by newest uploadTime
+        cgm_df.sort_values(by=["rounded_local_time", "uploadTime"],
                            ascending=[False, False],
                            inplace=True)
 
         # Safety check for null times
-        dfIsNull = cgm_df[cgm_df["rounded_time"].isnull()]
-        dfNotNull = cgm_df[cgm_df["rounded_time"].notnull()]
+        dfIsNull = cgm_df[cgm_df["rounded_local_time"].isnull()]
+        dfNotNull = cgm_df[cgm_df["rounded_local_time"].notnull()]
 
         nBefore = len(dfNotNull)
 
         # Drop duplicates, keeping the first (most recent upload) entry
         # .duplicated() defaults to keeping the first duplicate
-        dfNotNull = dfNotNull.loc[~(dfNotNull["rounded_time"].duplicated())]
+        dfNotNull = \
+            dfNotNull.loc[~(dfNotNull["rounded_local_time"].duplicated())]
         dfNotNull = dfNotNull.reset_index(drop=True)
         nRoundedTimeDuplicatesRemoved = nBefore - len(dfNotNull)
 
@@ -129,9 +108,78 @@ def remove_rounded_CGM_duplicates(cgm_df):
             cgmPercentDuplicated = nRoundedTimeDuplicatesRemoved/nBefore
 
         cgm_df = pd.concat([dfIsNull, dfNotNull])
-        cgm_df.sort_values(by=["rounded_time"], ascending=True, inplace=True)
+        cgm_df.sort_values(by=["rounded_local_time"],
+                           ascending=True, inplace=True)
 
     return cgm_df, nRoundedTimeDuplicatesRemoved, cgmPercentDuplicated
+
+
+def create_5min_contiguous_df(data):
+    """
+    Fit the CGM, Bolus, and Basal traces to a contiguous 5-minute time series
+    to uncover gaps
+    """
+    # Round all data to the nearest 5 minutes (ceiling)
+
+    data["rounded_local_time"] = \
+        pd.to_datetime(data["est.localTime"],
+                       utc=True).dt.ceil(freq="5min")
+
+    # Separate CGM, Bolus, and Basal data
+    cgm_df = data[data.type == "cbg"].copy()
+    cgm_df.drop(columns=["normal", "duration"], inplace=True)
+    bolus_df = data[data.type == "bolus"].copy()
+    basal_df = data[data.type == "basal"].copy()
+
+    # CGM Data Processing
+    # Convert value from mmol/L to mg/dL
+    cgm_df["value"] = cgm_df["value"] * 18.01559
+
+    first_timestamp = data["rounded_local_time"].min()
+    last_timestamp = data["rounded_local_time"].max()
+
+    contiguous_ts = pd.date_range(first_timestamp, last_timestamp, freq="5min")
+    contiguous_df = pd.DataFrame(contiguous_ts, columns=["rounded_local_time"])
+
+    contiguous_df = pd.merge(contiguous_df,
+                             cgm_df,
+                             how="left",
+                             on="rounded_local_time"
+                             )
+
+    # Remove CGM duplicates from the contiguous_df
+    contiguous_df, nRoundedTimeDuplicatesRemoved, cgmPercentDuplicated = \
+        remove_rounded_CGM_duplicates(contiguous_df)
+
+    # Merge boluses together into single 5-minute timestamps
+    # NOTE: This is not for accuracy, this is just to count whether there
+    # exists any bolus in a 48-hour window later
+    bolus_df = pd.DataFrame(
+        bolus_df.groupby('rounded_local_time').normal.sum()
+        ).reset_index()
+
+    contiguous_df = pd.merge(contiguous_df,
+                             bolus_df,
+                             how="left",
+                             on="rounded_local_time"
+                             )
+
+    # Merge basals together into single 5-minute timestamps
+    # NOTE: This is not for accuracy, this is just to count whether there
+    # exists any basal events in a 48-hour window later
+    basal_df = pd.DataFrame(
+        basal_df.groupby('rounded_local_time').duration.sum()
+        ).reset_index()
+
+    basal_df["basal_duration"] = basal_df['duration']
+
+    contiguous_df = pd.merge(contiguous_df,
+                             basal_df,
+                             how="left",
+                             on="rounded_local_time"
+                             )
+
+    return contiguous_df, nRoundedTimeDuplicatesRemoved, cgmPercentDuplicated
 
 
 def rolling_30min_median(contiguous_df):
@@ -235,6 +283,61 @@ def rolling_48hour_max_gap(contiguous_df):
     return contiguous_df
 
 
+def rolling_48hour_pump_data(contiguous_df):
+    """
+    Calculate whether pump data exists in a 48 hour centered rolling
+    window (where the evaluation point is in the center)
+
+    Note: Centered window behavior keeps the evaluation point on the right side
+    of the half-way point.
+
+    e.g. In a window of 4: [elem1, elem2, elem3, elem4] - elem3 is the "center"
+    """
+
+    contiguous_df["rolling_48hour_bolus_gte2"] = \
+        contiguous_df['normal'].rolling(
+                window=288*2,
+                min_periods=1,
+                center=True).count() >= 2
+
+    contiguous_df["rolling_48hour_basal_gte1"] = \
+        contiguous_df['basal_duration'].rolling(
+                window=288*2,
+                min_periods=1,
+                center=True).count() >= 1
+
+    contiguous_df["rolling_48hour_pump_data"] = \
+        contiguous_df["rolling_48hour_bolus_gte2"] & \
+        contiguous_df["rolling_48hour_basal_gte1"]
+
+    return contiguous_df
+
+
+def rolling_48hour_check_travel(contiguous_df):
+    """
+    Calculate whether any travel occured in a 48 hour centered rolling
+    window (where the evaluation point is in the center)
+
+    Note: Centered window behavior keeps the evaluation point on the right side
+    of the half-way point.
+
+    e.g. In a window of 4: [elem1, elem2, elem3, elem4] - elem3 is the "center"
+    """
+
+    contiguous_df["is_travel"] = contiguous_df["est.annotations"] == 'travel'
+
+    contiguous_df["rolling_48hour_has_travel"] = \
+        contiguous_df['is_travel'].rolling(
+                window=288*2,
+                min_periods=1,
+                center=True).sum() > 0
+
+    contiguous_df["rolling_48hour_no_travel"] = \
+        ~contiguous_df["rolling_48hour_has_travel"]
+
+    return contiguous_df
+
+
 def label_conditions(contiguous_df):
     """Labels each cgm entry as one of the 9 different conditions
 
@@ -315,7 +418,9 @@ def get_evaluation_points(contiguous_df):
     # Create bool of all values with a condition and max gap <= 15min
     qualified_bool = \
         (contiguous_df["condition"] > 0) & \
-        (contiguous_df["rolling_48hour_max_gap"] <= 3)
+        (contiguous_df["rolling_48hour_max_gap"] <= 3) & \
+        (contiguous_df["rolling_48hour_pump_data"]) & \
+        (contiguous_df["rolling_48hour_no_travel"])
 
     qualified_condition_list = \
         contiguous_df.loc[qualified_bool, "condition"].copy()
@@ -418,18 +523,12 @@ def main(data, file_name):
     # Add the upload data time to each record (used for deduplicating)
     data = add_uploadDateTime(data)
 
-    # Separate CGM data
-    cgm_df = data[data.type == "cbg"].copy()
-
-    # Convert value from mmol/L to mg/dL
-    cgm_df["value"] = cgm_df["value"] * 18.01559
-
-    # Fit the CGM trace to a contiguous 5-minute time series to uncover gaps
-    contiguous_df = create_5min_contiguous_df(cgm_df)
-
-    # Remove CGM duplicates
-    cgm_df, nRoundedTimeDuplicatesRemoved, cgmPercentDuplicated = \
-        remove_rounded_CGM_duplicates(cgm_df)
+    # Fit the cgm, bolus, and basal data traces
+    # to a contiguous 5-minute time series to uncover gaps
+    (contiguous_df,
+     nRoundedTimeDuplicatesRemoved,
+     cgmPercentDuplicated
+     ) = create_5min_contiguous_df(data)
 
     # Calculate the median BG with a 30-minute rolling window
     contiguous_df = rolling_30min_median(contiguous_df)
@@ -442,6 +541,12 @@ def main(data, file_name):
 
     # Get the max gap size across 48-hour windows
     contiguous_df = rolling_48hour_max_gap(contiguous_df)
+
+    # Determine whether there's sufficient pump data in each 48 hour window
+    contiguous_df = rolling_48hour_pump_data(contiguous_df)
+
+    # Add 48-hour window bools for travel data
+    contiguous_df = rolling_48hour_check_travel(contiguous_df)
 
     # Get the locations of each evaluation point in a 48-hour snapshot
     evaluation_points = get_evaluation_points(contiguous_df)
