@@ -15,7 +15,6 @@ Snapshot Processor
 
 # %% Imports
 import pandas as pd
-import pickle
 import numpy as np
 import datetime
 import ast
@@ -23,46 +22,37 @@ import os
 # %% Functions
 
 
-def get_active_schedules(data,
-                         snapshot_df,
-                         file_name,
-                         evaluation_point_loc,
-                         evaluation_time):
+def get_active_schedule(data,
+                        snapshot_df,
+                        file_name,
+                        evaluation_point_loc,
+                        evaluation_time):
     """Get pumpSettings row of active schedules used during the snapshot."""
     # Get all schedules and their upload ids
     schedules = data[data.activeSchedule.notnull()]
 
-    # Check which schedule matches the active pump upload during the snapshot
-    active_schedules = \
-        schedules[schedules.uploadId.isin(snapshot_df.uploadId)]
+    if len(schedules) == 0:
+        print("NO ACTIVE SCHEDULES FOUND IN DATA!")
+        active_schedule = np.nan
 
-    # If more than one active schedule, pick the one closest to the time of
-    # the evaluation point
-    if(len(active_schedules) > 1):
-        print(file_name +
-              " - " +
-              evaluation_point_loc +
-              " MULTIPLE ACTIVE SCHEDULES IN ONE SNAPSHOT!")
+    else:
+        # Check which schedule matches the active pump uploads in the snapshot
+        active_schedule = \
+            schedules[schedules.uploadId.isin(snapshot_df.uploadId)]
 
-        nearest_uploadid = \
-            snapshot_df.loc[((snapshot_df.type == 'bolus') |
-                            (snapshot_df.type == 'basal')) &
-                            (snapshot_df.rounded_local_time < evaluation_time),
-                            'uploadId'].values[-1]
+        # If no matching uploadId is found OR more multiple schedule are found,
+        # then historical schedule records are available.
+        # Pick the one closest to the time of evaluation.
+        if (len(active_schedule) > 1) | (len(active_schedule) == 0):
+            nearest_schedule_time = \
+                schedules.loc[schedules.rounded_local_time < evaluation_time,
+                              'rounded_local_time'].max()
+            active_schedule = \
+                schedules[(
+                    schedules.rounded_local_time == nearest_schedule_time)
+                    ]
 
-        active_schedules = \
-            active_schedules[active_schedules.uploadId == nearest_uploadid]
-
-    # If no active schedule is assigned during an upload, pick the one closest
-    # to the time of the evaluation point
-    if len(active_schedules) == 0:
-        nearest_schedule_time = \
-            schedules.loc[schedules.rounded_local_time < evaluation_time,
-                          'rounded_local_time'].max()
-        active_schedules = \
-            schedules[schedules.rounded_local_time == nearest_schedule_time]
-
-    return active_schedules
+    return active_schedule
 
 
 def get_relative_timestamp(timestamp_ms):
@@ -83,7 +73,7 @@ def get_relative_timestamp(timestamp_ms):
     return relative_timestamp
 
 
-def get_basal_rates(active_schedules):
+def get_basal_rates(active_schedule):
     """Get the basal rates from the active schedule"""
     df_columns = ['basal_rate_start_times',
                   'basal_rate_minutes',
@@ -94,9 +84,9 @@ def get_basal_rates(active_schedules):
     basal_rates = pd.DataFrame(columns=df_columns)
 
     basal_schedules = \
-        ast.literal_eval(active_schedules.basalSchedules.values[0])
+        ast.literal_eval(active_schedule.basalSchedules.values[0])
 
-    active_name = active_schedules.activeSchedule.values[0]
+    active_name = active_schedule.activeSchedule.values[0]
     active_basal_rates = basal_schedules.get(active_name)
 
     start_times = []
@@ -121,7 +111,7 @@ def get_basal_rates(active_schedules):
     return basal_rates
 
 
-def get_carb_ratios(active_schedules):
+def get_carb_ratios(active_schedule):
     """Get the carb to insulin ratio(s) from the active schedule"""
 
     df_columns = ['carb_ratio_start_times',
@@ -131,14 +121,14 @@ def get_carb_ratios(active_schedules):
 
     carb_ratios = pd.DataFrame(columns=df_columns)
 
-    if 'carbRatios' in active_schedules:
+    if 'carbRatios' in active_schedule:
         carb_ratio_schedules = \
-            ast.literal_eval(active_schedules.carbRatios.values[0])
-        active_name = active_schedules.activeSchedule.values[0]
+            ast.literal_eval(active_schedule.carbRatios.values[0])
+        active_name = active_schedule.activeSchedule.values[0]
         active_carb_ratios = carb_ratio_schedules.get(active_name)
-    elif 'carbRatio' in active_schedules:
+    elif 'carbRatio' in active_schedule:
         active_carb_ratios = \
-            ast.literal_eval(active_schedules.carbRatio.values[0])
+            ast.literal_eval(active_schedule.carbRatio.values[0])
     else:
         print("NO CARB RATIOS!")
 
@@ -157,7 +147,7 @@ def get_carb_ratios(active_schedules):
     return carb_ratios
 
 
-def get_isfs(active_schedules):
+def get_isfs(active_schedule):
     """Get the insulin sensitivity ratio(s) from the active schedule"""
 
     df_columns = ['sensitivity_ratio_start_times',
@@ -168,14 +158,14 @@ def get_isfs(active_schedules):
 
     isfs = pd.DataFrame(columns=df_columns)
 
-    if 'insulinSensitivities' in active_schedules:
+    if 'insulinSensitivities' in active_schedule:
         isf_schedules = \
-            ast.literal_eval(active_schedules.insulinSensitivities.values[0])
-        active_name = active_schedules.activeSchedule.values[0]
+            ast.literal_eval(active_schedule.insulinSensitivities.values[0])
+        active_name = active_schedule.activeSchedule.values[0]
         active_isfs = isf_schedules.get(active_name)
-    elif 'insulinSensitivity' in active_schedules:
+    elif 'insulinSensitivity' in active_schedule:
         active_isfs = \
-            ast.literal_eval(active_schedules.insulinSensitivity.values[0])
+            ast.literal_eval(active_schedule.insulinSensitivity.values[0])
     else:
         print("NO ISFS FOUND!")
 
@@ -201,7 +191,7 @@ def get_isfs(active_schedules):
     return isfs
 
 
-def get_target_ranges(active_schedules):
+def get_target_ranges(active_schedule):
     """Get the target BG ranges from the active schedule"""
 
     df_columns = ['target_range_start_times',
@@ -212,32 +202,32 @@ def get_target_ranges(active_schedules):
 
     df_target_range = pd.DataFrame(columns=df_columns)
 
-    if 'bgTargets' in active_schedules:
+    if 'bgTargets' in active_schedule:
         target_schedules = \
-            ast.literal_eval(active_schedules.bgTargets.values[0])
+            ast.literal_eval(active_schedule.bgTargets.values[0])
 
-        active_name = active_schedules.activeSchedule.values[0]
+        active_name = active_schedule.activeSchedule.values[0]
         active_targets = target_schedules.get(active_name)
-    elif 'bgTarget' in active_schedules:
-        active_targets = ast.literal_eval(active_schedules.bgTarget.values[0])
-    elif 'bgTarget.start' in active_schedules:
-        target_start = int(active_schedules['bgTarget.start'].values)
+    elif 'bgTarget' in active_schedule:
+        active_targets = ast.literal_eval(active_schedule.bgTarget.values[0])
+    elif 'bgTarget.start' in active_schedule:
+        target_start = int(active_schedule['bgTarget.start'].values)
         active_targets = dict({'start': target_start})
 
-        if 'bgTarget.target' in active_schedules:
-            bg_target = float(active_schedules['bgTarget.target'].values)
+        if 'bgTarget.target' in active_schedule:
+            bg_target = float(active_schedule['bgTarget.target'].values)
             active_targets.update({'target': bg_target})
 
-        if 'bgTarget.range' in active_schedules:
-            target_range = float(active_schedules['bgTarget.range'].values)
+        if 'bgTarget.range' in active_schedule:
+            target_range = float(active_schedule['bgTarget.range'].values)
             active_targets.update({'range': target_range})
 
-        if 'bgTarget.high' in active_schedules:
-            target_high = float(active_schedules['bgTarget.high'].values)
+        if 'bgTarget.high' in active_schedule:
+            target_high = float(active_schedule['bgTarget.high'].values)
             active_targets.update({'high': target_high})
 
-        if 'bgTarget.low' in active_schedules:
-            target_low = float(active_schedules['bgTarget.low'].values)
+        if 'bgTarget.low' in active_schedule:
+            target_low = float(active_schedule['bgTarget.low'].values)
             active_targets.update({'low': target_low})
 
         active_targets = [active_targets]
@@ -255,9 +245,13 @@ def get_target_ranges(active_schedules):
 
         df_target_range.loc[target_loc,
                             'target_range_start_times'] = start_string
-        target = round(target_info.get('target')*18.01559)
-        df_target_range.loc[target_loc, 'target_range_minimum_values'] = target
-        df_target_range.loc[target_loc, 'target_range_maximum_values'] = target
+
+        if 'target' in target_info.keys():
+            target = round(target_info.get('target')*18.01559)
+            df_target_range.loc[target_loc, 'target_range_minimum_values'] = \
+                target
+            df_target_range.loc[target_loc, 'target_range_maximum_values'] = \
+                target
 
         if 'range' in target_info.keys():
             target_range = round(target_info.get('range')*18.01559)
@@ -556,18 +550,19 @@ def get_snapshot(data,
                        (data['rounded_local_time'] <= end_time)]
 
     # Get pumpSettings list of active schedules
-    active_schedules = get_active_schedules(data,
-                                            snapshot_df,
-                                            file_name,
-                                            evaluation_point_loc,
-                                            evaluation_time)
+    active_schedule = get_active_schedule(data,
+                                          snapshot_df,
+                                          file_name,
+                                          evaluation_point_loc,
+                                          evaluation_time)
 
-    active_schedules = active_schedules.dropna(axis=1)
+    # Drop unused columns that may have been used in other schedule types
+    active_schedule = active_schedule.dropna(axis=1)
 
-    basal_rates = get_basal_rates(active_schedules)
-    carb_ratios = get_carb_ratios(active_schedules)
-    isfs = get_isfs(active_schedules)
-    df_target_range = get_target_ranges(active_schedules)
+    basal_rates = get_basal_rates(active_schedule)
+    carb_ratios = get_carb_ratios(active_schedule)
+    isfs = get_isfs(active_schedule)
+    df_target_range = get_target_ranges(active_schedule)
 
     carb_events = get_carb_events(snapshot_df)
     dose_events = get_dose_events(snapshot_df)
