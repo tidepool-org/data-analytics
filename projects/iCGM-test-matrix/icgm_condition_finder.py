@@ -127,9 +127,14 @@ def create_5min_contiguous_df(data):
 
     # Separate CGM, Bolus, and Basal data
     cgm_df = data[data.type == "cbg"].copy()
-    cgm_df.drop(columns=["normal", "duration"], inplace=True)
+    cgm_df.drop(columns=["normal",
+                         "duration",
+                         "rate",
+                         "carbInput"], inplace=True)
     bolus_df = data[data.type == "bolus"].copy()
+    bolus_df.drop(columns=['rate'], inplace=True)
     basal_df = data[data.type == "basal"].copy()
+    basal_df.drop(columns=['carbInput'], inplace=True)
 
     # CGM Data Processing
     # Convert value from mmol/L to mg/dL
@@ -152,12 +157,23 @@ def create_5min_contiguous_df(data):
         remove_rounded_CGM_duplicates(contiguous_df)
 
     # Merge boluses together into single 5-minute timestamps
-    bolus_df = pd.DataFrame(
+    bolus_merged_df = pd.DataFrame(
         bolus_df.groupby('rounded_local_time').normal.sum()
         ).reset_index()
 
     contiguous_df = pd.merge(contiguous_df,
-                             bolus_df,
+                             bolus_merged_df,
+                             how="left",
+                             on="rounded_local_time"
+                             )
+
+    # Merge carb entires together into single 5-minute timestamps
+    carbs_merged_df = pd.DataFrame(
+        bolus_df.groupby('rounded_local_time').carbInput.sum()
+        ).reset_index()
+
+    contiguous_df = pd.merge(contiguous_df,
+                             carbs_merged_df,
                              how="left",
                              on="rounded_local_time"
                              )
@@ -323,9 +339,16 @@ def rolling_48hour_pump_data(contiguous_df):
                 min_periods=1,
                 center=True).count() >= 1
 
+    contiguous_df["rolling_48hour_carbs_gte1"] = \
+        contiguous_df['carbInput'].rolling(
+                window=288*2,
+                min_periods=1,
+                center=True).count() >= 1
+
     contiguous_df["rolling_48hour_pump_data"] = \
         contiguous_df["rolling_48hour_bolus_gte2"] & \
-        contiguous_df["rolling_48hour_basal_gte1"]
+        contiguous_df["rolling_48hour_basal_gte1"] & \
+        contiguous_df["rolling_48hour_carbs_gte1"]
 
     return contiguous_df
 
