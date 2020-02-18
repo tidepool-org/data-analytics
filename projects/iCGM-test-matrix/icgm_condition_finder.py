@@ -339,16 +339,16 @@ def rolling_48hour_pump_data(contiguous_df):
                 min_periods=1,
                 center=True).count() >= 1
 
-    contiguous_df["rolling_48hour_carbs_gte1"] = \
+    contiguous_df["rolling_48hour_carbs_gt0"] = \
         contiguous_df['carbInput'].rolling(
                 window=288*2,
                 min_periods=1,
-                center=True).count() >= 1
+                center=True).sum() > 0
 
     contiguous_df["rolling_48hour_pump_data"] = \
         contiguous_df["rolling_48hour_bolus_gte2"] & \
         contiguous_df["rolling_48hour_basal_gte1"] & \
-        contiguous_df["rolling_48hour_carbs_gte1"]
+        contiguous_df["rolling_48hour_carbs_gt0"]
 
     return contiguous_df
 
