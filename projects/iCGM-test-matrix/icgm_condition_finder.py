@@ -455,12 +455,13 @@ def get_evaluation_points(contiguous_df):
     # Set window size of snapshot
     window_size = 288*2
 
-    # Create bool of all values with a condition and max gap <= 15min
+    # Create bool of all values with a condition, pump data,
+    # and max gap <= 15min
     qualified_bool = \
         (contiguous_df["condition"] > 0) & \
         (contiguous_df["rolling_48hour_max_gap"] <= 3) & \
-        (contiguous_df["rolling_48hour_pump_data"]) & \
-        (contiguous_df["rolling_48hour_no_travel"])
+        (contiguous_df["rolling_48hour_pump_data"])  # & \
+#       (contiguous_df["rolling_48hour_no_travel"])
 
     qualified_condition_list = \
         contiguous_df.loc[qualified_bool, "condition"].copy()
@@ -586,7 +587,7 @@ def main(data, file_name):
     contiguous_df = rolling_48hour_pump_data(contiguous_df)
 
     # Add 48-hour window bools for travel data
-    contiguous_df = rolling_48hour_check_travel(contiguous_df)
+    # contiguous_df = rolling_48hour_check_travel(contiguous_df)
 
     # Get the locations of each evaluation point in a 48-hour snapshot
     evaluation_points = get_evaluation_points(contiguous_df)
