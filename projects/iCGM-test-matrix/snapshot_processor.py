@@ -556,11 +556,110 @@ def get_settings():
     return df_settings
 
 
+def get_simple_settings(basal_rates,
+                        carb_ratios,
+                        isfs,
+                        df_target_range):
+
+    # Get the weighted average basal_rates
+    simple_basal_rate = pd.DataFrame(columns=basal_rates.columns, index=[0])
+
+    weighted_avg_basal_rate = np.round(
+        (np.sum(basal_rates["basal_rate_minutes"] *
+                basal_rates["actual_basal_rates"]) /
+         basal_rates["basal_rate_minutes"].sum()), 2)
+
+    simple_basal_rate.loc[0, :] = (
+        datetime.time(0, 0).strftime('%H:%M:%S'),
+        60*24,
+        weighted_avg_basal_rate,
+        weighted_avg_basal_rate,
+        "U/hr"
+    )
+
+    # Get average carb ratio
+    simple_carb_ratio = pd.DataFrame(columns=carb_ratios.columns, index=[0])
+
+    average_cir = carb_ratios["carb_ratio_values"].mean().round().astype(int)
+
+    simple_carb_ratio.loc[0, :] = (
+        datetime.time(0, 0).strftime('%H:%M:%S'),
+        average_cir,
+        average_cir,
+        "g/U"
+    )
+
+    # Get average isf
+    simple_isf = pd.DataFrame(columns=isfs.columns, index=[0])
+
+    average_isf = isfs["sensitivity_ratio_values"].mean().round().astype(int)
+
+    simple_isf.loc[0, :] = (
+        datetime.time(0, 0).strftime('%H:%M:%S'),
+        datetime.time(0, 0).strftime('%H:%M:%S'),
+        average_isf,
+        average_isf,
+        "mg/dL/U"
+    )
+
+    # Set bg targets to 100-120
+    simple_targets = pd.DataFrame(columns=df_target_range.columns, index=[0])
+
+    simple_isf.loc[0, :] = (
+        datetime.time(0, 0).strftime('%H:%M:%S'),
+        datetime.time(0, 0).strftime('%H:%M:%S'),
+        100,
+        120,
+        "mg/dL"
+    )
+
+    return simple_basal_rate, simple_carb_ratio, simple_isf, simple_targets
+
+
+def add_empty_start_events(carb_events,
+                           dose_events,
+                           cgm_df):
+
+    first_cgm_time = cgm_df["glucose_dates"].min()
+
+    # Create empty carb event
+    empty_carb_event = pd.DataFrame(columns=carb_events.columns, index=[0])
+    empty_carb_event.loc[0, :] = (
+        first_cgm_time,
+        0,
+        0,
+        180,
+        "g"
+    )
+
+    # Create empty dose event
+    empty_dose_event = pd.DataFrame(columns=dose_events.columns, index=[0])
+    empty_dose_event.loc[0, :] = (
+        "DoseType.bolus",
+        first_cgm_time,
+        first_cgm_time,
+        0,
+        0,
+        "U"
+    )
+
+    if(first_cgm_time not in carb_events["carb_dates"]):
+        carb_events = pd.concat([empty_carb_event,
+                                 carb_events]).reset_index(drop=True)
+
+    if(first_cgm_time not in dose_events["dose_start_times"]):
+        dose_events = pd.concat([empty_dose_event,
+                                 dose_events]).reset_index(drop=True)
+
+    return carb_events, dose_events
+
+
 def get_snapshot(data,
                  file_name,
                  evaluation_point_loc,
                  smooth_cgm,
-                 simplify_settings):
+                 simplify_settings,
+                 empty_start_events):
     """Main function wrapper to assemble snapshot dataframes"""
 
     # Start by getting the 48-hour window ± 24hrs around the evaluation point
@@ -604,6 +703,20 @@ def get_snapshot(data,
 
     df_last_temporary_basal = get_last_temp_basal()
     df_settings = get_settings()
+
+    if(simplify_settings):
+        (basal_rates,
+         carb_ratios,
+         isfs,
+         df_target_range) = get_simple_settings(basal_rates,
+                                                carb_ratios,
+                                                isfs,
+                                                df_target_range)
+
+    if(empty_start_events):
+        carb_events, dose_events = add_empty_start_events(carb_events,
+                                                          dose_events,
+                                                          cgm_df)
 
     return (basal_rates, carb_events, carb_ratios, dose_events, cgm_df,
             df_last_temporary_basal, df_misc, isfs,
@@ -706,6 +819,7 @@ if __name__ == "__main__":
     # Snapshot processing parameters
     smooth_cgm = True
     simplify_settings = True
+    empty_start_events = True
 
     file_name = condition_df.loc[file_selection, 'file_name']
 
@@ -725,7 +839,8 @@ if __name__ == "__main__":
                                         file_name,
                                         evaluation_point_loc,
                                         smooth_cgm,
-                                        simplify_settings
+                                        simplify_settings,
+                                        empty_start_events
                                         )
 
             export_folder = "snapshot_export"
