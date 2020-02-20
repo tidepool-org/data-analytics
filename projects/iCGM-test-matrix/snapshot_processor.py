@@ -477,9 +477,9 @@ def get_cgm_df(snapshot_df, smooth_cgm):
     cgm_df['glucose_values'] = round(cgm_data.value * 18.01559)
 
     if(smooth_cgm):
-        cgm_rolling = cgm_df.actual_blood_glucose.rolling(window=12,
-                                                          min_periods=1,
-                                                          center=True)
+        cgm_rolling = cgm_df['glucose_values'].rolling(window=12,
+                                                       min_periods=1,
+                                                       center=True)
 
         cgm_df['glucose_values'] = cgm_rolling.mean().round().astype(int)
 
@@ -605,7 +605,7 @@ def get_simple_settings(basal_rates,
     # Set bg targets to 100-120
     simple_targets = pd.DataFrame(columns=df_target_range.columns, index=[0])
 
-    simple_isf.loc[0, :] = (
+    simple_targets.loc[0, :] = (
         datetime.time(0, 0).strftime('%H:%M:%S'),
         datetime.time(0, 0).strftime('%H:%M:%S'),
         100,
