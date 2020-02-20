@@ -453,7 +453,7 @@ def get_dose_events(snapshot_df):
     return dose_events
 
 
-def get_cgm_df(snapshot_df):
+def get_cgm_df(snapshot_df, smooth_cgm):
     """Gets the CGM values from the snapshot"""
 
     df_columns = ['glucose_dates',
@@ -475,6 +475,14 @@ def get_cgm_df(snapshot_df):
     cgm_df['glucose_dates'] = \
         cgm_data.rounded_local_time.dt.strftime("%Y-%m-%d %H:%M:%S")
     cgm_df['glucose_values'] = round(cgm_data.value * 18.01559)
+
+    if(smooth_cgm):
+        cgm_rolling = cgm_df.actual_blood_glucose.rolling(window=12,
+                                                          min_periods=1,
+                                                          center=True)
+
+        cgm_df['glucose_values'] = cgm_rolling.mean().round().astype(int)
+
     cgm_df['actual_blood_glucose'] = cgm_df['glucose_values']
     cgm_df['glucose_units'] = 'mg/dL'
 
@@ -550,7 +558,9 @@ def get_settings():
 
 def get_snapshot(data,
                  file_name,
-                 evaluation_point_loc):
+                 evaluation_point_loc,
+                 smooth_cgm,
+                 simplify_settings):
     """Main function wrapper to assemble snapshot dataframes"""
 
     # Start by getting the 48-hour window ± 24hrs around the evaluation point
@@ -590,7 +600,7 @@ def get_snapshot(data,
 
     carb_events = get_carb_events(snapshot_df)
     dose_events = get_dose_events(snapshot_df)
-    cgm_df = get_cgm_df(snapshot_df)
+    cgm_df = get_cgm_df(snapshot_df, smooth_cgm)
 
     df_last_temporary_basal = get_last_temp_basal()
     df_settings = get_settings()
@@ -693,7 +703,10 @@ if __name__ == "__main__":
     condition_file = "PHI-batch-icgm-condition-stats-2020-02-11.csv"
     condition_df = pd.read_csv(condition_file, low_memory=False)
 
-    file_selection = 1
+    # Snapshot processing parameters
+    smooth_cgm = True
+    simplify_settings = True
+
     file_name = condition_df.loc[file_selection, 'file_name']
 
     # Location of csvs
@@ -708,7 +721,12 @@ if __name__ == "__main__":
 
         if not pd.isnull(evaluation_point_loc):
 
-            snapshot = get_snapshot(data, file_name, evaluation_point_loc)
+                snapshot = get_snapshot(data,
+                                        file_name,
+                                        evaluation_point_loc,
+                                        smooth_cgm,
+                                        simplify_settings
+                                        )
 
             export_folder = "snapshot_export"
 
