@@ -514,11 +514,15 @@ def get_time_to_calculate_at(evaluation_time):
     return df_misc
 
 
-def get_settings():
+def get_settings(birthdate,
+                 diagnosis_date,
+                 evaluation_time):
     """Provides a default settings dataframe"""
 
     df_columns = ['settings']
-    df_index = ['model',
+    df_index = ['age',
+                'ylw',
+                'model',
                 'momentum_data_interval',
                 'suspend_threshold',
                 'dynamic_carb_absorption_enabled',
@@ -537,7 +541,8 @@ def get_settings():
                                columns=df_columns)
 
     # Create default df_settings
-
+    df_settings.loc['age'] = 'placeholder_age'
+    df_settings.loc['ylw'] = 'placeholder_ylw'
     df_settings.loc['model'] = '[360.0, 65]'
     df_settings.loc['momentum_data_interval'] = '15'
     df_settings.loc['suspend_threshold'] = '70'
@@ -649,6 +654,8 @@ def create_empty_events(carb_events,
 def get_snapshot(data,
                  file_name,
                  evaluation_point_loc,
+                 birthdate,
+                 diagnosis_date,
                  smooth_cgm,
                  simplify_settings,
                  empty_events):
@@ -694,7 +701,9 @@ def get_snapshot(data,
     cgm_df = get_cgm_df(snapshot_df, smooth_cgm)
 
     df_last_temporary_basal = get_last_temp_basal()
-    df_settings = get_settings()
+    df_settings = get_settings(birthdate,
+                               diagnosis_date,
+                               evaluation_time)
 
     if(simplify_settings):
         (basal_rates,
@@ -815,6 +824,10 @@ if __name__ == "__main__":
 
     file_name = condition_df.loc[file_selection, 'file_name']
 
+        # TODO: Bring in birthdate/diagnosis_date metadata for each person
+        birthdate = "placeholder_age"
+        diagnosis_date = "placeholder_ylw"
+
     # Location of csvs
     data_location = "train-data/"
     file_path = os.path.join(data_location, file_name)
@@ -830,6 +843,8 @@ if __name__ == "__main__":
                 snapshot = get_snapshot(data,
                                         file_name,
                                         evaluation_point_loc,
+                                        birthdate,
+                                        diagnosis_date,
                                         smooth_cgm,
                                         simplify_settings,
                                         empty_events
