@@ -29,27 +29,51 @@ def get_active_schedule(data,
                         evaluation_time):
     """Get pumpSettings row of active schedules used during the snapshot."""
     # Get all schedules and their upload ids
-    schedules = data[data.activeSchedule.notnull()]
+    schedules = data[data.activeSchedule.notnull()].copy()
 
     if len(schedules) == 0:
         print("NO ACTIVE SCHEDULES FOUND IN DATA!")
         active_schedule = np.nan
 
     else:
-        # Check which schedule matches the active pump uploads in the snapshot
+        # Get the nearest pump uploadId to the evaluation_time
+        snapshot_uploadId = \
+            snapshot_df.loc[((snapshot_df.type == 'bolus') |
+                            (snapshot_df.type == 'basal')),
+                            'uploadId'].values[0]
+
         active_schedule = \
-            schedules[schedules.uploadId.isin(snapshot_df.uploadId)]
+            schedules[schedules.uploadId == snapshot_uploadId]
 
         # If no matching uploadId is found OR more multiple schedule are found,
-        # then historical schedule records are available.
-        # Pick the one closest to the time of evaluation.
+        # then historical schedule records should be available.
+        # Pick the one closest prior to the time of evaluation.
         if (len(active_schedule) > 1) | (len(active_schedule) == 0):
-            nearest_schedule_time = \
-                schedules.loc[schedules.rounded_local_time < evaluation_time,
-                              'rounded_local_time'].max()
+            nearest_time = \
+                active_schedule.loc[
+                    active_schedule.rounded_local_time < evaluation_time,
+                    'rounded_local_time'].max()
+
             active_schedule = \
-                schedules[(
-                    schedules.rounded_local_time == nearest_schedule_time)
+                active_schedule[(
+                    active_schedule.rounded_local_time == nearest_time)
+                    ]
+
+        # If no active schedule can STILL be found, then there is no matching
+        # uploadid or nearby historical record. The schedule may be able to be
+        # reverse-engineered from actual bolus entry settings metadata.
+
+        # For now, select the schedule closest to the evaluation point
+
+        if (len(active_schedule) == 0):
+            print("NO ACTIVE SCHEDULE MATCHED - FORCED SELECTION")
+            schedules['distances_from_evaluation'] = \
+                abs(schedules.rounded_local_time - evaluation_time)
+
+            min_distance = schedules['distances_from_evaluation'].min()
+            active_schedule = \
+                schedules[
+                    schedules['distances_from_evaluation'] == min_distance
                     ]
 
     return active_schedule
