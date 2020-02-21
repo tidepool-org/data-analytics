@@ -50,14 +50,19 @@ def get_active_schedule(data,
         # Pick the one closest prior to the time of evaluation.
         if (len(active_schedule) > 1) | (len(active_schedule) == 0):
             nearest_time = \
-                active_schedule.loc[
-                    active_schedule.rounded_local_time < evaluation_time,
+                schedules.loc[
+                    schedules.rounded_local_time < evaluation_time,
                     'rounded_local_time'].max()
 
             active_schedule = \
-                active_schedule[(
-                    active_schedule.rounded_local_time == nearest_time)
+                schedules[(
+                    schedules.rounded_local_time == nearest_time)
                     ]
+
+            # If two active schedules are set within 5 minutes of each other
+            # Select the last one
+            if(len(active_schedule) > 1):
+                active_schedule = active_schedule.head(1)
 
         # If no active schedule can STILL be found, then there is no matching
         # uploadid or nearby historical record. The schedule may be able to be
