@@ -470,12 +470,37 @@ def get_cgm_df(snapshot_df, smooth_cgm):
 
     cgm_data = snapshot_df[snapshot_df.type == 'cbg'].copy()
 
+    first_timestamp = cgm_data["rounded_local_time"].min()
+    last_timestamp = cgm_data["rounded_local_time"].max()
+
+    ts_len = len(pd.date_range(first_timestamp, last_timestamp, freq="5min"))
+
+    # Force cgm dataframe length to 576
+    if ts_len < 576:
+        delta_to_add = 576 - ts_len
+        last_timestamp = \
+            last_timestamp + datetime.timedelta(minutes=5*delta_to_add)
+
+    contiguous_ts = pd.date_range(first_timestamp, last_timestamp, freq="5min")
+
+    contiguous_df = pd.DataFrame(contiguous_ts, columns=["rounded_local_time"])
+
+    cgm_data = pd.merge(contiguous_df,
+                        cgm_data,
+                        how="left",
+                        on="rounded_local_time"
+                        )
+
     # Drop cgm duplicates in snapshot (if any)
     cgm_data.sort_values(['uploadId', 'rounded_local_time'],
                          ascending=True,
                          inplace=True)
 
     cgm_data.drop_duplicates('rounded_local_time', inplace=True)
+
+    cgm_data.sort_values(['rounded_local_time'],
+                         ascending=True,
+                         inplace=True)
 
     cgm_df['glucose_dates'] = \
         cgm_data.rounded_local_time.dt.strftime("%Y-%m-%d %H:%M:%S")
@@ -546,8 +571,8 @@ def get_settings(birthdate,
                                columns=df_columns)
 
     # Create default df_settings
-    df_settings.loc['age'] = 'placeholder_age'
-    df_settings.loc['ylw'] = 'placeholder_ylw'
+    df_settings.loc['age'] = '0'
+    df_settings.loc['ylw'] = '0'
     df_settings.loc['model'] = '[360.0, 65]'
     df_settings.loc['momentum_data_interval'] = '15'
     df_settings.loc['suspend_threshold'] = '70'
@@ -684,7 +709,7 @@ def get_snapshot(data,
     end_time = evaluation_time + datetime.timedelta(days=1)
 
     snapshot_df = data[(data['rounded_local_time'] >= start_time) &
-                       (data['rounded_local_time'] <= end_time)]
+                       (data['rounded_local_time'] < end_time)]
 
     # Get pumpSettings list of active schedules
     active_schedule = get_active_schedule(data,
@@ -694,7 +719,11 @@ def get_snapshot(data,
                                           evaluation_time)
 
     # Drop unused columns that may have been used in other schedule types
-    active_schedule = active_schedule.dropna(axis=1)
+    active_schedule = active_schedule.dropna(axis=1).reset_index(drop=True)
+
+    # schedule_distance = \
+    #    int((active_schedule.rounded_local_time -
+    #         evaluation_time).values[0])/1e9/60/60/24
 
     basal_rates = get_basal_rates(active_schedule)
     carb_ratios = get_carb_ratios(active_schedule)
