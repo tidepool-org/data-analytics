@@ -129,13 +129,13 @@ def create_5min_contiguous_df(data):
                          "rate",
                          "carbInput"], inplace=True)
     bolus_df = data[data.type == "bolus"].copy()
-    bolus_df.drop(columns=['rate'], inplace=True)
+    bolus_df.drop(columns=['rate', 'id', 'type'], inplace=True)
     basal_df = data[data.type == "basal"].copy()
-    basal_df.drop(columns=['carbInput'], inplace=True)
+    basal_df.drop(columns=['carbInput', 'id', 'type'], inplace=True)
 
     # CGM Data Processing
     # Convert value from mmol/L to mg/dL
-    cgm_df["value"] = cgm_df["value"] * 18.01559
+    cgm_df["value"] = round(cgm_df["value"] * 18.01559)
 
     first_timestamp = data["rounded_local_time"].min()
     last_timestamp = data["rounded_local_time"].max()
@@ -152,6 +152,17 @@ def create_5min_contiguous_df(data):
     # Remove CGM duplicates from the contiguous_df
     contiguous_df, nRoundedTimeDuplicatesRemoved, cgmPercentDuplicated = \
         remove_contiguous_rounded_CGM_duplicates(contiguous_df)
+
+    # Use centered rolling average ± 3 points (15 min)
+    cgm_rolling = contiguous_df['value'].rolling(window=7,
+                                                 min_periods=1,
+                                                 center=True)
+
+    contiguous_df['value'] = cgm_rolling.mean().round(2).round()
+
+    contiguous_df.loc[contiguous_df['value'].notnull(), 'value'] = \
+        contiguous_df.loc[contiguous_df['value'].notnull(),
+                          'value'].astype(int)
 
     # Merge boluses together into single 5-minute timestamps
     bolus_merged_df = pd.DataFrame(
@@ -313,6 +324,23 @@ def rolling_48hour_max_gap(contiguous_df):
     return contiguous_df
 
 
+def rolling_24hour_max_gap(contiguous_df):
+    """
+    Calculate the max gap size of the cgm trace in a 24 hour normal rolling
+    window (where the evaluation point is at the far right edge)
+
+    """
+
+    contiguous_df["rolling_24hour_max_gap"] = \
+        contiguous_df["value"].rolling(
+                window=288,
+                min_periods=1).apply(lambda x:
+                                     get_max_gap_size(np.isnan(x)),
+                                     raw=True)
+
+    return contiguous_df
+
+
 def rolling_48hour_pump_data(contiguous_df):
     """
     Calculate whether pump data exists in a 48 hour centered rolling
@@ -346,6 +374,36 @@ def rolling_48hour_pump_data(contiguous_df):
         contiguous_df["rolling_48hour_bolus_gte2"] & \
         contiguous_df["rolling_48hour_basal_gte1"] & \
         contiguous_df["rolling_48hour_carbs_gt0"]
+
+    return contiguous_df
+
+
+def rolling_24hour_pump_data(contiguous_df):
+    """
+    Calculate whether pump data exists in a 24 hour normal rolling
+    window (where the evaluation point is in the center)
+
+    """
+
+    contiguous_df["rolling_24hour_bolus_gte2"] = \
+        contiguous_df['normal'].rolling(
+                window=288,
+                min_periods=1).count() >= 2
+
+    contiguous_df["rolling_24hour_basal_gte1"] = \
+        contiguous_df['basal_duration'].rolling(
+                window=288,
+                min_periods=1).count() >= 1
+
+    contiguous_df["rolling_24hour_carbs_gt0"] = \
+        contiguous_df['carbInput'].rolling(
+                window=288,
+                min_periods=1).sum() > 0
+
+    contiguous_df["rolling_24hour_pump_data"] = \
+        contiguous_df["rolling_24hour_bolus_gte2"] & \
+        contiguous_df["rolling_24hour_basal_gte1"] & \
+        contiguous_df["rolling_24hour_carbs_gt0"]
 
     return contiguous_df
 
@@ -449,15 +507,16 @@ def get_evaluation_points(contiguous_df):
     Gets a evaluation points for each condition from the dataset if available
     """
 
-    # Set window size of snapshot
-    window_size = 288*2
+    # Set size of snapshot (10 days)
+    window_size = 288*10
 
     # Create bool of all values with a condition, pump data,
     # and max gap <= 15min
     qualified_bool = \
         (contiguous_df["condition"] > 0) & \
-        (contiguous_df["rolling_48hour_max_gap"] <= 3) & \
-        (contiguous_df["rolling_48hour_pump_data"])  # & \
+        (contiguous_df["rolling_24hour_max_gap"] <= 3) & \
+        (contiguous_df["rolling_24hour_basal_gte1"])
+#       (contiguous_df["rolling_48hour_pump_data"])  # & \
 #       (contiguous_df["rolling_48hour_no_travel"])
 
     qualified_condition_list = \
@@ -479,15 +538,17 @@ def get_evaluation_points(contiguous_df):
         # Randomly select one of the condition's locations
         random_loc = np.random.choice(condition_locations)
 
-        # Add location's id to evaluation_points
-        evaluation_points[condition - 1] = contiguous_df.loc[random_loc, "id"]
+        # Add location's rounded_local_time to evaluation_points
+        evaluation_point = contiguous_df.loc[random_loc, "rounded_local_time"]
+        evaluation_point = evaluation_point.strftime('%Y-%m-%dT%H:%M:%S')
+        evaluation_points[condition - 1] = evaluation_point
 
-        # Remove all locations within ± window_size-1 from qualified_locations
+        # Remove all locations 10 days before from qualified_locations
         # to prevent overlap when selecting the next condition snapshot
         overlapping_index = \
             np.arange(
                 random_loc - (window_size-1),
-                random_loc + (window_size-1)+1
+                random_loc + 1
                 )
 
         index_to_drop = \
@@ -515,7 +576,7 @@ def get_empty_results_frame():
 
     for num in range(9):
         # Append snapshot locations to dataframe
-        results_columns.append("cond"+str(num+1)+"_eval_loc")
+        results_columns.append("cond"+str(num+1)+"_eval_time")
 
     results_frame = pd.DataFrame(index=[0], columns=results_columns)
 
@@ -550,7 +611,7 @@ def get_summary_results(file_name,
 
     for num in range(9):
         # Append snapshot locations to dataframe
-        results["cond"+str(num+1)+"_eval_loc"] = evaluation_points[num]
+        results["cond"+str(num+1)+"_eval_time"] = evaluation_points[num]
 
     return results
 
@@ -578,15 +639,21 @@ def main(data, file_name):
     contiguous_df = label_conditions(contiguous_df)
 
     # Get the max gap size across 48-hour windows
-    contiguous_df = rolling_48hour_max_gap(contiguous_df)
+    # contiguous_df = rolling_48hour_max_gap(contiguous_df)
+
+    # Get the max gap size across a 24-hour window
+    contiguous_df = rolling_24hour_max_gap(contiguous_df)
 
     # Determine whether there's sufficient pump data in each 48 hour window
-    contiguous_df = rolling_48hour_pump_data(contiguous_df)
+    # contiguous_df = rolling_48hour_pump_data(contiguous_df)
+
+    # Determine whether there's sufficient pump data in each 24 hour window
+    contiguous_df = rolling_24hour_pump_data(contiguous_df)
 
     # Add 48-hour window bools for travel data
     # contiguous_df = rolling_48hour_check_travel(contiguous_df)
 
-    # Get the locations of each evaluation point in a 48-hour snapshot
+    # Get the locations of each evaluation point in a 10-day snapshot
     evaluation_points = get_evaluation_points(contiguous_df)
 
     # Summarize results
