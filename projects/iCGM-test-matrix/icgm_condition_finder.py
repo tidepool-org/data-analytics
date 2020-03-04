@@ -75,7 +75,7 @@ def add_uploadDateTime(df):
     return df
 
 
-def remove_rounded_CGM_duplicates(cgm_df):
+def remove_contiguous_rounded_CGM_duplicates(contiguous_df):
     """Removes CGM duplicates, keeping the entries with the most recent
     uploadTime
     """
@@ -84,34 +84,31 @@ def remove_rounded_CGM_duplicates(cgm_df):
     nRoundedTimeDuplicatesRemoved = 0
     cgmPercentDuplicated = 0
 
-    if "rounded_local_time" in cgm_df:
+    if "rounded_local_time" in contiguous_df:
         # Sort first by most recent rounded_local_time and
         # then sort by newest uploadTime
-        cgm_df.sort_values(by=["rounded_local_time", "uploadTime"],
-                           ascending=[False, False],
-                           inplace=True)
+        contiguous_df.sort_values(by=["rounded_local_time", "uploadTime"],
+                                  ascending=[False, False],
+                                  inplace=True)
 
-        # Safety check for null times
-        dfIsNull = cgm_df[cgm_df["rounded_local_time"].isnull()]
-        dfNotNull = cgm_df[cgm_df["rounded_local_time"].notnull()]
-
-        nBefore = len(dfNotNull)
+        nBefore = len(contiguous_df)
 
         # Drop duplicates, keeping the first (most recent upload) entry
         # .duplicated() defaults to keeping the first duplicate
-        dfNotNull = \
-            dfNotNull.loc[~(dfNotNull["rounded_local_time"].duplicated())]
-        dfNotNull = dfNotNull.reset_index(drop=True)
-        nRoundedTimeDuplicatesRemoved = nBefore - len(dfNotNull)
+        contiguous_df = \
+            contiguous_df.loc[
+                ~(contiguous_df["rounded_local_time"].duplicated())
+                ]
+        contiguous_df = contiguous_df.reset_index(drop=True)
+        nRoundedTimeDuplicatesRemoved = nBefore - len(contiguous_df)
 
         if(nRoundedTimeDuplicatesRemoved > 0):
             cgmPercentDuplicated = nRoundedTimeDuplicatesRemoved/nBefore
 
-        cgm_df = pd.concat([dfIsNull, dfNotNull])
-        cgm_df.sort_values(by=["rounded_local_time"],
-                           ascending=True, inplace=True)
+        contiguous_df.sort_values(by=["rounded_local_time"],
+                                  ascending=True, inplace=True)
 
-    return cgm_df, nRoundedTimeDuplicatesRemoved, cgmPercentDuplicated
+    return contiguous_df, nRoundedTimeDuplicatesRemoved, cgmPercentDuplicated
 
 
 def create_5min_contiguous_df(data):
@@ -154,7 +151,7 @@ def create_5min_contiguous_df(data):
 
     # Remove CGM duplicates from the contiguous_df
     contiguous_df, nRoundedTimeDuplicatesRemoved, cgmPercentDuplicated = \
-        remove_rounded_CGM_duplicates(contiguous_df)
+        remove_contiguous_rounded_CGM_duplicates(contiguous_df)
 
     # Merge boluses together into single 5-minute timestamps
     bolus_merged_df = pd.DataFrame(
