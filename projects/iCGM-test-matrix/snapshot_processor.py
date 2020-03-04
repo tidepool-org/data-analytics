@@ -896,14 +896,25 @@ def get_snapshot(data,
     #    int((active_schedule.rounded_local_time -
     #         evaluation_time).values[0])/1e9/60/60/24
 
-    basal_rates = get_basal_rates(active_schedule)
-    carb_ratios = get_carb_ratios(active_schedule)
-    isfs = get_isfs(active_schedule)
-    df_target_range = get_target_ranges(active_schedule)
+    # Get entire dataframe's bolus and basal entries as a last effort
+    # to manually extract pump settings if not available
+    bolus_df = data[data.type == 'bolus'].copy()
+    basal_df = data[data.type == 'basal'].copy()
+
+    basal_rates = get_basal_rates(active_schedule, basal_df)
+    carb_ratios = get_carb_ratios(active_schedule, bolus_df)
+    isfs = get_isfs(active_schedule, bolus_df)
+    df_target_range = get_target_ranges(active_schedule, bolus_df)
 
     carb_events = get_carb_events(snapshot_df)
     dose_events = get_dose_events(snapshot_df)
-    cgm_df = get_cgm_df(snapshot_df, smooth_cgm)
+    cgm_df = get_cgm_df(snapshot_df,
+                        smooth_cgm,
+                        condition_num,
+                        start_time,
+                        end_time,
+                        add_cgm_trail,
+                        evaluation_time)
 
     df_last_temporary_basal = get_last_temp_basal()
     df_settings = get_settings(birthdate,
@@ -922,7 +933,7 @@ def get_snapshot(data,
     if(empty_events):
         carb_events, dose_events = create_empty_events(carb_events,
                                                        dose_events,
-                                                       cgm_df)
+                                                       df_misc)
 
     return (basal_rates, carb_events, carb_ratios, dose_events, cgm_df,
             df_last_temporary_basal, df_misc, isfs,
@@ -974,8 +985,8 @@ def combine_into_one_dataframe(snapshot):
     ) = snapshot
 
     combined_df = pd.DataFrame()
-    combined_df = pd.concat([combined_df, df_settings])
-    combined_df = pd.concat([combined_df, df_misc])
+    combined_df = pd.concat([combined_df, df_settings], sort=False)
+    combined_df = pd.concat([combined_df, df_misc], sort=False)
 
     dfs = [
        df_basal_rate, df_carb, df_carb_ratio, df_dose,
@@ -985,7 +996,7 @@ def combine_into_one_dataframe(snapshot):
 
     for df in dfs:
         df.reset_index(drop=True, inplace=True)
-        combined_df = pd.concat([combined_df, df.T])
+        combined_df = pd.concat([combined_df, df.T], sort=False)
 
     # move settings back to the front of the dataframe
     combined_df = combined_df[np.append("settings", combined_df.columns[0:-1])]
@@ -1015,49 +1026,187 @@ def export_snapshot(snapshot,
     return
 
 
+def get_settings_summary(file_name,
+                         condition_num,
+                         snapshot,
+                         condition_check):
+    """Get a table of settings to be used in a cumulative summary file"""
+
+    summary_columns = ['file_name',
+                       'condition_num',
+                       'condition_check',
+                       'age',
+                       'ylw',
+                       'CIR',
+                       'ISF',
+                       'BR']
+
+    settings_summary = pd.DataFrame(index=[0], columns=summary_columns)
+
+    settings_summary['file_name'] = file_name
+    settings_summary['condition_num'] = condition_num
+    settings_summary['condition_check'] = condition_check
+    settings_summary['age'] = snapshot[8].loc['age']['settings']
+    settings_summary['ylw'] = snapshot[8].loc['ylw']['settings']
+    settings_summary['CIR'] = snapshot[2]['actual_carb_ratios'][0]
+    settings_summary['ISF'] = snapshot[7]['actual_sensitivity_ratios'][0]
+    settings_summary['BR'] = snapshot[0]['actual_basal_rates'][0]
+
+    return settings_summary
+
+
+def validate_condition(snapshot,
+                       condition_num,
+                       contiguous_df,
+                       evaluation_time):
+    """Validate the snapshot cgm data condition with the expected condition"""
+
+    cgm_df = snapshot[4].copy()
+    cgm_df["rounded_local_time"] = \
+        pd.to_datetime(cgm_df["glucose_dates"], utc=True)
+    cgm_df["value"] = cgm_df["glucose_values"]
+    cgm_df = cond_finder.rolling_30min_median(cgm_df)
+    cgm_df = cond_finder.rolling_15min_slope(cgm_df)
+    cgm_df = cond_finder.label_conditions(cgm_df)
+
+    condition_start = evaluation_time - datetime.timedelta(minutes=30)
+    condition_end = evaluation_time
+
+    original_values = \
+        contiguous_df.loc[
+            (contiguous_df['rounded_local_time'] > condition_start) &
+            (contiguous_df['rounded_local_time'] <= condition_end),
+            "value"].values
+
+    new_values = \
+        cgm_df.loc[
+            (cgm_df['rounded_local_time'] > condition_start) &
+            (cgm_df['rounded_local_time'] <= condition_end),
+            "value"].values
+
+    original_eval = \
+        contiguous_df[contiguous_df['rounded_local_time'] == evaluation_time]
+
+    original_median = original_eval['rolling_30min_median']
+    original_rate = original_eval['rolling_15min_slope']
+    original_condition = original_eval['condition'].values[0]
+
+    new_eval = cgm_df.loc[cgm_df['rounded_local_time'] == evaluation_time]
+
+    new_median = new_eval['rolling_30min_median']
+    new_rate = new_eval['rolling_15min_slope']
+    new_condition = new_eval['condition'].values[0]
+
+    if any(original_values != new_values):
+        print("\nOriginal and new cgm values are different!\n")
+
+    condition_check = (original_condition == new_condition == condition_num)
+
+    return condition_check
+
+
 # %%
 if __name__ == "__main__":
+
+    start_time = time.time()
 
     # Import results from batch-icgm-condition-stats
     condition_file = "PHI-batch-icgm-condition-stats-2020-02-27-with-metadata.csv"
     condition_df = pd.read_csv(condition_file, low_memory=False)
 
     # Snapshot processing parameters
-    smooth_cgm = True
     simplify_settings = True
     empty_events = True
+    smooth_cgm = True
+    add_cgm_trail = False
 
-    file_name = condition_df.loc[file_selection, 'file_name']
+    settings_summaries = []
+
+    for file_selection in range(int(len(condition_df))):
+        #file_selection = 1
+        print("STARTING FILE #: " + str(file_selection))
+        file_name = condition_df.loc[file_selection, 'file_name']
 
         # Get birthdate/diagnosis_date metadata for each person
         birthdate = condition_df.loc[file_selection, 'birthday']
         diagnosis_date = condition_df.loc[file_selection, 'diagnosisDate']
 
-    # Location of csvs
+        # Location of csvs
     data_location = "train-data/"
-    file_path = os.path.join(data_location, file_name)
-    data = pd.read_csv(file_path, low_memory=False)
+        file_path = os.path.join(data_location, file_name)
+        data = pd.read_csv(file_path, low_memory=False)
+        data = cond_finder.add_uploadDateTime(data)
 
-    # Loop through each condition, calculate, and export the snapshot
-    for condition_num in range(1, 10):
-        condition_col = 'cond' + str(condition_num) + '_eval_loc'
-        evaluation_point_loc = condition_df.loc[file_selection, condition_col]
+        (contiguous_df,
+         nRoundedTimeDuplicatesRemoved,
+         cgmPercentDuplicated
+         ) = cond_finder.create_5min_contiguous_df(data)
 
-        if not pd.isnull(evaluation_point_loc):
+        # Calculate the median BG with a 30-minute rolling window
+        contiguous_df = \
+            cond_finder.rolling_30min_median(contiguous_df)
+
+        # Calculate the slope in mg/dL/min with a 15-minute rolling window
+        contiguous_df = \
+            cond_finder.rolling_15min_slope(contiguous_df)
+
+        # Apply one of the 9 conditions labels to each CGM point
+        contiguous_df = \
+            cond_finder.label_conditions(contiguous_df)
+
+        # Loop through each condition, calculate, and export the snapshot
+        for condition_num in range(1, 10):
+            condition_col = 'cond' + str(condition_num) + '_eval_time'
+            evaluation_time = condition_df.loc[file_selection,
+                                               condition_col]
+
+            if not pd.isnull(evaluation_time):
+                evaluation_time = pd.to_datetime(evaluation_time, utc=True)
 
                 snapshot = get_snapshot(data,
                                         file_name,
-                                        evaluation_point_loc,
+                                        evaluation_time,
                                         birthdate,
                                         diagnosis_date,
                                         smooth_cgm,
                                         simplify_settings,
-                                        empty_events
+                                        empty_events,
+                                        condition_num,
+                                        add_cgm_trail
                                         )
 
-            export_folder = "snapshot_export"
+                condition_check = \
+                    validate_condition(snapshot,
+                                       condition_num,
+                                       contiguous_df,
+                                       evaluation_time)
 
-            export_snapshot(snapshot,
-                            file_name,
-                            condition_num,
-                            export_folder)
+                settings_summary = get_settings_summary(file_name,
+                                                        condition_num,
+                                                        snapshot,
+                                                        condition_check)
+
+                settings_summaries.append(settings_summary)
+
+                export_folder = "snapshot_export"
+
+                export_snapshot(snapshot,
+                                file_name,
+                                condition_num,
+                                export_folder)
+
+    # Create settings summaries for export
+    settings_summaries = pd.concat(settings_summaries).reset_index(drop=True)
+    today_timestamp = datetime.datetime.now().strftime("%Y-%m-%d")
+    settings_summary_export_filename = \
+        'snapshot-processor-settings-summary-table-' + \
+        today_timestamp + \
+        '.csv'
+
+    settings_summaries.to_csv(settings_summary_export_filename, index=False)
+
+    end_time = time.time()
+    elapsed_minutes = (end_time - start_time)/60
+    elapsed_time_message = "Processed all snapshots in: " + \
+        str(elapsed_minutes) + " minutes\n"
+    print(elapsed_time_message)
