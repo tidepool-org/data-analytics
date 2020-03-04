@@ -16,16 +16,17 @@ Snapshot Processor
 # %% Imports
 import pandas as pd
 import numpy as np
+import time
 import datetime
 import ast
 import os
+import icgm_condition_finder as cond_finder
 # %% Functions
 
 
 def get_active_schedule(data,
                         snapshot_df,
                         file_name,
-                        evaluation_point_loc,
                         evaluation_time):
     """Get pumpSettings row of active schedules used during the snapshot."""
     # Get all schedules and their upload ids
@@ -102,7 +103,7 @@ def get_relative_timestamp(timestamp_ms):
     return relative_timestamp
 
 
-def get_basal_rates(active_schedule):
+def get_basal_rates(active_schedule, basal_df):
     """Get the basal rates from the active schedule"""
     df_columns = ['basal_rate_start_times',
                   'basal_rate_minutes',
@@ -119,15 +120,33 @@ def get_basal_rates(active_schedule):
     active_basal_rates = basal_schedules.get(active_name)
 
     start_times = []
-    for rate_loc in range(len(active_basal_rates)):
-        rate_info = active_basal_rates[rate_loc]
-        rate = rate_info.get('rate')
-        start_time = rate_info.get('start')
-        start_times.append(start_time)
-        start_string = get_relative_timestamp(start_time)
 
-        basal_rates.loc[rate_loc, 'basal_rate_start_times'] = start_string
-        basal_rates.loc[rate_loc, 'basal_rate_values'] = rate
+    # If no basal rates were found, the schedule's entry is blank
+    # Use the weighted average used from data's basal rates
+    if len(active_basal_rates) == 0:
+        print("\nUSING WEIGHTED BASAL RATE HISTORY FOR BR\n")
+
+        basal_df["duration_hours"] = basal_df["duration"]/1000/60/60
+
+        weighted_avg_basal_rate = \
+            np.round((np.sum(basal_df["rate"] * basal_df["duration_hours"]) /
+                      basal_df["duration_hours"].sum()), 2)
+
+        start_string = datetime.time(0, 0).strftime('%H:%M:%S')
+        start_times.append(0)
+        basal_rates.loc[0, 'basal_rate_start_times'] = start_string
+        basal_rates.loc[0, 'basal_rate_values'] = weighted_avg_basal_rate
+
+    else:
+        for rate_loc in range(len(active_basal_rates)):
+            rate_info = active_basal_rates[rate_loc]
+            rate = rate_info.get('rate')
+            start_time = rate_info.get('start')
+            start_times.append(start_time)
+            start_string = get_relative_timestamp(start_time)
+
+            basal_rates.loc[rate_loc, 'basal_rate_start_times'] = start_string
+            basal_rates.loc[rate_loc, 'basal_rate_values'] = rate
 
     basal_rates['actual_basal_rates'] = basal_rates['basal_rate_values']
     basal_rates['basal_rate_units'] = 'U/hr'
@@ -140,7 +159,7 @@ def get_basal_rates(active_schedule):
     return basal_rates
 
 
-def get_carb_ratios(active_schedule):
+def get_carb_ratios(active_schedule, bolus_df):
     """Get the carb to insulin ratio(s) from the active schedule"""
 
     df_columns = ['carb_ratio_start_times',
@@ -161,14 +180,26 @@ def get_carb_ratios(active_schedule):
     else:
         print("NO CARB RATIOS!")
 
-    for ratio_loc in range(len(active_carb_ratios)):
-        ratio_info = active_carb_ratios[ratio_loc]
-        ratio = ratio_info.get('amount')
-        start_time = ratio_info.get('start')
-        start_string = get_relative_timestamp(start_time)
+    # If no carb ratios were found, the schedule's entry is blank
+    # Use the average ratio used from data's bolus calculations
+    if len(active_carb_ratios) == 0:
+        print("\nUSING BOLUS CALCULATOR ENTRIES FOR CIR\n")
 
-        carb_ratios.loc[ratio_loc, 'carb_ratio_start_times'] = start_string
-        carb_ratios.loc[ratio_loc, 'carb_ratio_values'] = ratio
+        ratio = bolus_df.insulinCarbRatio.astype(float).mean().round()
+        start_string = datetime.time(0, 0).strftime('%H:%M:%S')
+
+        carb_ratios.loc[0, 'carb_ratio_start_times'] = start_string
+        carb_ratios.loc[0, 'carb_ratio_values'] = ratio
+
+    else:
+        for ratio_loc in range(len(active_carb_ratios)):
+            ratio_info = active_carb_ratios[ratio_loc]
+            ratio = ratio_info.get('amount')
+            start_time = ratio_info.get('start')
+            start_string = get_relative_timestamp(start_time)
+
+            carb_ratios.loc[ratio_loc, 'carb_ratio_start_times'] = start_string
+            carb_ratios.loc[ratio_loc, 'carb_ratio_values'] = ratio
 
     carb_ratios['actual_carb_ratios'] = carb_ratios['carb_ratio_values']
     carb_ratios['carb_ratio_value_units'] = 'g/U'
@@ -176,7 +207,7 @@ def get_carb_ratios(active_schedule):
     return carb_ratios
 
 
-def get_isfs(active_schedule):
+def get_isfs(active_schedule, bolus_df):
     """Get the insulin sensitivity ratio(s) from the active schedule"""
 
     df_columns = ['sensitivity_ratio_start_times',
@@ -200,15 +231,35 @@ def get_isfs(active_schedule):
 
     start_times = []
 
-    for isf_loc in range(len(active_isfs)):
-        isf_info = active_isfs[isf_loc]
-        isf = round(isf_info.get('amount')*18.01559)
-        start_time = isf_info.get('start')
-        start_string = get_relative_timestamp(start_time)
+    # If no isfs were found, the schedule's entry is blank
+    # Use the average isf used from data's bolus calculations
+    if len(active_isfs) == 0:
+        print("\nUSING BOLUS CALCULATOR ENTRIES FOR ISF\n")
+
+        isf = bolus_df.insulinSensitivity.astype(float).mean()
+        isf = round(isf*18.01559)
+        start_string = datetime.time(0, 0).strftime('%H:%M:%S')
         start_times.append(start_string)
 
-        isfs.loc[isf_loc, 'sensitivity_ratio_start_times'] = start_string
-        isfs.loc[isf_loc, 'sensitivity_ratio_values'] = isf
+        isfs.loc[0, 'sensitivity_ratio_start_times'] = start_string
+        isfs.loc[0, 'sensitivity_ratio_values'] = isf
+
+    else:
+        for isf_loc in range(len(active_isfs)):
+            isf_info = active_isfs[isf_loc]
+            isf = round(isf_info.get('amount')*18.01559)
+
+            start_time = isf_info.get('start')
+            start_string = get_relative_timestamp(start_time)
+            start_times.append(start_string)
+
+            isfs.loc[isf_loc, 'sensitivity_ratio_start_times'] = start_string
+            isfs.loc[isf_loc, 'sensitivity_ratio_values'] = isf
+
+    # Check if sensitivity ratios were improperly converted from mg/dL
+    if any(isfs['sensitivity_ratio_values'] > 500):
+        isfs['sensitivity_ratio_values'] = \
+            (isfs['sensitivity_ratio_values'].astype(float)/18.01559).round()
 
     isfs['actual_sensitivity_ratios'] = isfs['sensitivity_ratio_values']
     isfs['sensitivity_ratio_value_units'] = 'mg/dL/U'
@@ -220,7 +271,7 @@ def get_isfs(active_schedule):
     return isfs
 
 
-def get_target_ranges(active_schedule):
+def get_target_ranges(active_schedule, bolus_df):
     """Get the target BG ranges from the active schedule"""
 
     df_columns = ['target_range_start_times',
@@ -266,45 +317,81 @@ def get_target_ranges(active_schedule):
 
     start_times = []
 
-    for target_loc in range(len(active_targets)):
-        target_info = active_targets[target_loc]
-        start_time = target_info.get('start')
-        start_string = get_relative_timestamp(start_time)
+    # If no targets were found, the schedule's entry is blank
+    # Use the min/max bgTarget.target used from data's bolus calculations
+    if len(active_targets) == 0:
+        print("\nUSING BOLUS CALCULATOR ENTRIES FOR TARGETS\n")
+
+        min_target = bolus_df['bgTarget.target'].astype(float).min()
+        min_target = round(min_target*18.01559)
+
+        max_target = bolus_df['bgTarget.target'].astype(float).max()
+        max_target = round(max_target*18.01559)
+
+        start_string = datetime.time(0, 0).strftime('%H:%M:%S')
         start_times.append(start_string)
 
-        df_target_range.loc[target_loc,
-                            'target_range_start_times'] = start_string
+        df_target_range.loc[0, 'target_range_start_times'] = start_string
+        df_target_range.loc[0, 'target_range_minimum_values'] = min_target
+        df_target_range.loc[0, 'target_range_maximum_values'] = max_target
 
-        if 'target' in target_info.keys():
-            target = round(target_info.get('target')*18.01559)
-            df_target_range.loc[target_loc, 'target_range_minimum_values'] = \
-                target
-            df_target_range.loc[target_loc, 'target_range_maximum_values'] = \
-                target
+    else:
+        for target_loc in range(len(active_targets)):
+            target_info = active_targets[target_loc]
+            start_time = target_info.get('start')
+            start_string = get_relative_timestamp(start_time)
+            start_times.append(start_string)
 
-        if 'range' in target_info.keys():
-            target_range = round(target_info.get('range')*18.01559)
-            df_target_range.loc[target_loc, 'target_range_minimum_values'] = \
-                target - target_range
-
-            df_target_range.loc[target_loc, 'target_range_maximum_values'] = \
-                target + target_range
-
-        if 'high' in target_info.keys():
-            target_high = round(target_info.get('high')*18.01559)
             df_target_range.loc[target_loc,
-                                'target_range_maximum_values'] = target_high
+                                'target_range_start_times'] = start_string
 
-        if 'low' in target_info.keys():
-            target_low = round(target_info.get('high')*18.01559)
-            df_target_range.loc[target_loc,
-                                'target_range_minimum_values'] = target_low
+            if 'target' in target_info.keys():
+                target = round(target_info.get('target')*18.01559)
+                df_target_range.loc[target_loc,
+                                    'target_range_minimum_values'] = \
+                    target
+                df_target_range.loc[target_loc,
+                                    'target_range_maximum_values'] = \
+                    target
+
+            if 'range' in target_info.keys():
+                target_range = round(target_info.get('range')*18.01559)
+                df_target_range.loc[target_loc,
+                                    'target_range_minimum_values'] = \
+                    target - target_range
+
+                df_target_range.loc[target_loc,
+                                    'target_range_maximum_values'] = \
+                    target + target_range
+
+            if 'high' in target_info.keys():
+                target_high = round(target_info.get('high')*18.01559)
+                df_target_range.loc[target_loc,
+                                    'target_range_maximum_values'] = \
+                    target_high
+
+            if 'low' in target_info.keys():
+                target_low = round(target_info.get('high')*18.01559)
+                df_target_range.loc[target_loc,
+                                    'target_range_minimum_values'] = \
+                    target_low
 
     df_target_range['target_range_value_units'] = 'mg/dL'
 
     # Shift start times by -1 to form the end times
     end_times = start_times[1:] + [start_times[0]]
     df_target_range['target_range_end_times'] = end_times
+
+    # Check if bg targets were improperly converted from mg/dL
+    if any(df_target_range['target_range_minimum_values'] > 500):
+        df_target_range['target_range_minimum_values'] = \
+            (df_target_range['target_range_minimum_values'].astype(float) /
+             18.01559).round()
+
+    if any(df_target_range['target_range_maximum_values'] > 500):
+        df_target_range['target_range_maximum_values'] = \
+            (df_target_range['target_range_maximum_values'].astype(float) /
+             18.01559).round()
 
     return df_target_range
 
@@ -444,7 +531,7 @@ def get_dose_events(snapshot_df):
     dose_events = pd.concat([bolus_events,
                              extended_events,
                              temp_basal_events,
-                             suspend_events])
+                             suspend_events], sort=False)
 
     dose_events['actual_doses'] = dose_events['dose_values']
 
