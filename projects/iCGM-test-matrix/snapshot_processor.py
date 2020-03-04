@@ -545,7 +545,54 @@ def get_dose_events(snapshot_df):
     return dose_events
 
 
-def get_cgm_df(snapshot_df, smooth_cgm):
+def interpolate_and_smooth_cgm(cgm_df,
+                               condition_num,
+                               add_cgm_trail,
+                               evaluation_time):
+    """Add 30-minute trailing cgm trace by applying the condition rate to
+    evaluation point"""
+
+    # Get the start of the condition's calculation area
+    # WARNING: Avoid interpolating or backfilling data after this point
+    # Else you might risk filling in gaps that were necessary in the condition
+    condition_calc_start = evaluation_time - datetime.timedelta(days=1)
+    before_condition = cgm_df['glucose_dates'] < condition_calc_start
+
+    # Interpolate forward NaNs (using linear default)
+    cgm_df.loc[before_condition,
+               'glucose_values'] = cgm_df.loc[before_condition,
+                                              'glucose_values'].interpolate()
+
+    # Backfill NaNs to the start of the dataframe
+    cgm_df.loc[before_condition,
+               'glucose_values'] = \
+        cgm_df.loc[before_condition,
+                   'glucose_values'].fillna(method='backfill')
+
+    # Use centered rolling average ± 3 points (15 min)
+    cgm_rolling = cgm_df['glucose_values'].rolling(window=7,
+                                                   min_periods=1,
+                                                   center=True)
+
+    cgm_df['glucose_values'] = cgm_rolling.mean().round(2).round()
+
+    cgm_df.loc[cgm_df['glucose_values'].notnull(), 'glucose_values'] = \
+        cgm_df.loc[cgm_df['glucose_values'].notnull(),
+                   'glucose_values'].astype(int)
+
+    # Drop the trailing values after the evaluation point
+    cgm_df = cgm_df[cgm_df.glucose_dates <= evaluation_time]
+
+    return cgm_df
+
+
+def get_cgm_df(snapshot_df,
+               smooth_cgm,
+               condition_num,
+               start_time,
+               end_time,
+               add_cgm_trail,
+               evaluation_time):
     """Gets the CGM values from the snapshot"""
 
     df_columns = ['glucose_dates',
@@ -557,18 +604,20 @@ def get_cgm_df(snapshot_df, smooth_cgm):
 
     cgm_data = snapshot_df[snapshot_df.type == 'cbg'].copy()
 
-    first_timestamp = cgm_data["rounded_local_time"].min()
-    last_timestamp = cgm_data["rounded_local_time"].max()
+    # first_timestamp = cgm_data["rounded_local_time"].min()
+    # last_timestamp = cgm_data["rounded_local_time"].max()
 
-    ts_len = len(pd.date_range(first_timestamp, last_timestamp, freq="5min"))
+    # ts_len = len(pd.date_range(first_timestamp, last_timestamp, freq="5min"))
+    # print("CGM Data Length: " + str(ts_len))
 
-    # Force cgm dataframe length to 576
-    if ts_len < 576:
-        delta_to_add = 576 - ts_len
-        last_timestamp = \
-            last_timestamp + datetime.timedelta(minutes=5*delta_to_add)
+    # Force cgm dataframe length to 2880
+    # cgm_len = 288*10
+    # if ts_len < cgm_len:
+    #    delta_to_add = cgm_len - ts_len
+    #    last_timestamp = \
+    #        last_timestamp + datetime.timedelta(minutes=5*delta_to_add)
 
-    contiguous_ts = pd.date_range(first_timestamp, last_timestamp, freq="5min")
+    contiguous_ts = pd.date_range(start_time, end_time, freq="5min")
 
     contiguous_df = pd.DataFrame(contiguous_ts, columns=["rounded_local_time"])
 
@@ -577,28 +626,33 @@ def get_cgm_df(snapshot_df, smooth_cgm):
                         how="left",
                         on="rounded_local_time"
                         )
+    # Remove CGM duplicates from the contiguous_df
+    cgm_data, nRoundedTimeDuplicatesRemoved, cgmPercentDuplicated = \
+        cond_finder.remove_contiguous_rounded_CGM_duplicates(cgm_data)
 
     # Drop cgm duplicates in snapshot (if any)
-    cgm_data.sort_values(['uploadId', 'rounded_local_time'],
-                         ascending=True,
-                         inplace=True)
+    # cgm_data.sort_values(['uploadId', 'rounded_local_time'],
+    #                     ascending=True,
+    #                     inplace=True)
 
-    cgm_data.drop_duplicates('rounded_local_time', inplace=True)
+    # cgm_data.drop_duplicates('rounded_local_time', inplace=True)
 
-    cgm_data.sort_values(['rounded_local_time'],
-                         ascending=True,
-                         inplace=True)
+    # cgm_data.sort_values(['rounded_local_time'],
+    #                     ascending=True,
+    #                     inplace=True)
 
-    cgm_df['glucose_dates'] = \
-        cgm_data.rounded_local_time.dt.strftime("%Y-%m-%d %H:%M:%S")
+    cgm_df['glucose_dates'] = cgm_data.rounded_local_time
     cgm_df['glucose_values'] = round(cgm_data.value * 18.01559)
 
     if(smooth_cgm):
-        cgm_rolling = cgm_df['glucose_values'].rolling(window=12,
-                                                       min_periods=1,
-                                                       center=True)
+        # Interpolate and smooth the data
+        cgm_df = interpolate_and_smooth_cgm(cgm_df,
+                                            condition_num,
+                                            add_cgm_trail,
+                                            evaluation_time)
 
-        cgm_df['glucose_values'] = cgm_rolling.mean().round().astype(int)
+    cgm_df['glucose_dates'] = \
+        cgm_df['glucose_dates'].dt.strftime("%Y-%m-%d %H:%M:%S")
 
     cgm_df['actual_blood_glucose'] = cgm_df['glucose_values']
     cgm_df['glucose_units'] = 'mg/dL'
