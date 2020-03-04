@@ -818,14 +818,14 @@ def get_simple_settings(basal_rates,
 
 def create_empty_events(carb_events,
                         dose_events,
-                        cgm_df):
+                        df_misc):
 
-    first_cgm_time = cgm_df["glucose_dates"].min()
+    time_to_calculate_at = df_misc.loc['time_to_calculate_at', 0]
 
     # Create empty carb event
     empty_carb_event = pd.DataFrame(columns=carb_events.columns, index=[0])
     empty_carb_event.loc[0, :] = (
-        first_cgm_time,
+        time_to_calculate_at,
         0,
         0,
         180,
@@ -836,8 +836,8 @@ def create_empty_events(carb_events,
     empty_dose_event = pd.DataFrame(columns=dose_events.columns, index=[0])
     empty_dose_event.loc[0, :] = (
         "DoseType.bolus",
-        first_cgm_time,
-        first_cgm_time,
+        time_to_calculate_at,
+        time_to_calculate_at,
         0,
         0,
         "U"
@@ -848,39 +848,45 @@ def create_empty_events(carb_events,
 
 def get_snapshot(data,
                  file_name,
-                 evaluation_point_loc,
+                 evaluation_time,
                  birthdate,
                  diagnosis_date,
                  smooth_cgm,
                  simplify_settings,
-                 empty_events):
+                 empty_events,
+                 condition_num,
+                 add_cgm_trail):
     """Main function wrapper to assemble snapshot dataframes"""
 
     # Start by getting the 48-hour window ± 24hrs around the evaluation point
-    evaluation_index = data.index[data.id == evaluation_point_loc]
+    # evaluation_index = data.index[data.id == evaluation_point_loc]
 
     data["rounded_local_time"] = \
         pd.to_datetime(data["est.localTime"],
                        utc=True).dt.ceil(freq="5min")
 
-    evaluation_time = \
-        pd.to_datetime(data.loc[evaluation_index,
-                                'rounded_local_time'].values[0],
-                       utc=True)
+    # evaluation_time = \
+    #    pd.to_datetime(data.loc[evaluation_index,
+    #                            'rounded_local_time'].values[0],
+    #                   utc=True)
 
     df_misc = get_time_to_calculate_at(evaluation_time)
 
-    start_time = evaluation_time - datetime.timedelta(days=1)
-    end_time = evaluation_time + datetime.timedelta(days=1)
+    # Start time is evaluation_time - 10 days with a non-inclusive first value,
+    # add 5 minutes to offset to a timestamp of 9 days, 23 hours, 55 minutes
+    start_time = evaluation_time - datetime.timedelta(days=9,
+                                                      hours=23,
+                                                      minutes=55)
+
+    end_time = evaluation_time + datetime.timedelta(minutes=15)
 
     snapshot_df = data[(data['rounded_local_time'] >= start_time) &
-                       (data['rounded_local_time'] < end_time)]
+                       (data['rounded_local_time'] <= end_time)]
 
     # Get pumpSettings list of active schedules
     active_schedule = get_active_schedule(data,
                                           snapshot_df,
                                           file_name,
-                                          evaluation_point_loc,
                                           evaluation_time)
 
     # Drop unused columns that may have been used in other schedule types
