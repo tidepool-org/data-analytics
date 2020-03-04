@@ -711,9 +711,33 @@ def get_settings(birthdate,
     df_settings = pd.DataFrame(index=df_index,
                                columns=df_columns)
 
+    # Calculate age and ylw
+    if type(birthdate) == float:
+        age = '-1'
+    else:
+        birthdate = pd.to_datetime(birthdate, utc=True)
+
+        if birthdate.year > datetime.datetime.now().year:
+            birthdate = birthdate.replace(year=birthdate.year-100)
+
+        age = \
+            int(np.floor((evaluation_time - birthdate).days/365))
+
+    if type(diagnosis_date) == float:
+        ylw = '-1'
+    else:
+        diagnosis_date = pd.to_datetime(diagnosis_date, utc=True)
+
+        if diagnosis_date.year > datetime.datetime.now().year:
+            diagnosis_date = \
+                diagnosis_date.replace(year=diagnosis_date.year-100)
+
+        ylw = \
+            int(np.floor((evaluation_time - diagnosis_date).days/365))
+
     # Create default df_settings
-    df_settings.loc['age'] = '0'
-    df_settings.loc['ylw'] = '0'
+    df_settings.loc['age'] = age
+    df_settings.loc['ylw'] = ylw
     df_settings.loc['model'] = '[360.0, 65]'
     df_settings.loc['momentum_data_interval'] = '15'
     df_settings.loc['suspend_threshold'] = '70'
@@ -989,7 +1013,7 @@ def export_snapshot(snapshot,
 if __name__ == "__main__":
 
     # Import results from batch-icgm-condition-stats
-    condition_file = "PHI-batch-icgm-condition-stats-2020-02-11.csv"
+    condition_file = "PHI-batch-icgm-condition-stats-2020-02-27-with-metadata.csv"
     condition_df = pd.read_csv(condition_file, low_memory=False)
 
     # Snapshot processing parameters
@@ -999,9 +1023,9 @@ if __name__ == "__main__":
 
     file_name = condition_df.loc[file_selection, 'file_name']
 
-        # TODO: Bring in birthdate/diagnosis_date metadata for each person
-        birthdate = "placeholder_age"
-        diagnosis_date = "placeholder_ylw"
+        # Get birthdate/diagnosis_date metadata for each person
+        birthdate = condition_df.loc[file_selection, 'birthday']
+        diagnosis_date = condition_df.loc[file_selection, 'diagnosisDate']
 
     # Location of csvs
     data_location = "train-data/"
