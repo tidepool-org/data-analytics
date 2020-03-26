@@ -700,7 +700,8 @@ def get_time_to_calculate_at(evaluation_time):
 
 def get_settings(birthdate,
                  diagnosis_date,
-                 evaluation_time):
+                 evaluation_time,
+                 basal_rates):
     """Provides a default settings dataframe"""
 
     df_columns = ['settings']
@@ -752,6 +753,8 @@ def get_settings(birthdate,
     df_settings.loc['age'] = age
     df_settings.loc['ylw'] = ylw
     df_settings.loc['model'] = '[360.0, 65]'
+    if age < 13:
+        df_settings.loc['model'] = '[360.0, 55]'
     df_settings.loc['momentum_data_interval'] = '15'
     df_settings.loc['suspend_threshold'] = '70'
     df_settings.loc['dynamic_carb_absorption_enabled'] = 'TRUE'
@@ -762,8 +765,10 @@ def get_settings(birthdate,
     df_settings.loc['insulin_delay'] = '10'
     df_settings.loc['carb_delay'] = '10'
     df_settings.loc['default_absorption_times'] = '[120.0, 180.0, 240.0]'
-    df_settings.loc['max_basal_rate'] = '35'
-    df_settings.loc['max_bolus'] = '30'
+
+    max_sched_basal_rate = basal_rates['actual_basal_rates'].max()
+    df_settings.loc['max_basal_rate'] = str(max_sched_basal_rate * 3)
+    df_settings.loc['max_bolus'] = '20'
     df_settings.loc['retrospective_correction_enabled'] = 'TRUE'
 
     return df_settings
@@ -938,9 +943,6 @@ def get_snapshot(data,
                         evaluation_time)
 
     df_last_temporary_basal = get_last_temp_basal()
-    df_settings = get_settings(birthdate,
-                               diagnosis_date,
-                               evaluation_time)
 
     if(simplify_settings):
         (basal_rates,
@@ -950,6 +952,11 @@ def get_snapshot(data,
                                                 carb_ratios,
                                                 isfs,
                                                 df_target_range)
+
+    df_settings = get_settings(birthdate,
+                               diagnosis_date,
+                               evaluation_time,
+                               basal_rates)
 
     if(empty_events):
         carb_events, dose_events = create_empty_events(carb_events,
