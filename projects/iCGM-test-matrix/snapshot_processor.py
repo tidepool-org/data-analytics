@@ -564,7 +564,8 @@ def interpolate_and_smooth_cgm(cgm_df,
     condition_calc_start = evaluation_time - datetime.timedelta(days=1)
     before_condition = cgm_df['glucose_dates'] < condition_calc_start
 
-    # Interpolate forward NaNs (using linear default)
+    # Interpolate forward NaNs before condition area (using linear default)
+    # This is to prevent the rolling average from disrupting the condition
     cgm_df.loc[before_condition,
                'glucose_values'] = cgm_df.loc[before_condition,
                                               'glucose_values'].interpolate()
@@ -580,14 +581,20 @@ def interpolate_and_smooth_cgm(cgm_df,
                                                    min_periods=1,
                                                    center=True)
 
-    cgm_df['glucose_values'] = cgm_rolling.mean().round(2).round()
+    cgm_df['glucose_values'] = cgm_rolling.mean().round(2)
 
-    cgm_df.loc[cgm_df['glucose_values'].notnull(), 'glucose_values'] = \
-        cgm_df.loc[cgm_df['glucose_values'].notnull(),
-                   'glucose_values'].astype(int)
+    # Interpolate forward NaNs on entire dataframe (using linear default)
+    cgm_df['glucose_values'] = cgm_df['glucose_values'].interpolate().round(1)
+
+    # cgm_df.loc[cgm_df['glucose_values'].notnull(), 'glucose_values'] = \
+    #     cgm_df.loc[cgm_df['glucose_values'].notnull(),
+    #                'glucose_values'].astype(int)
 
     # Drop the trailing values after the evaluation point
     cgm_df = cgm_df[cgm_df.glucose_dates <= evaluation_time]
+
+    if cgm_df.glucose_values.isnull().sum() > 0:
+        print("NULL VALUES STILL IN CGM_DF!!")
 
     return cgm_df
 
@@ -648,7 +655,7 @@ def get_cgm_df(snapshot_df,
     #                     inplace=True)
 
     cgm_df['glucose_dates'] = cgm_data.rounded_local_time
-    cgm_df['glucose_values'] = round(cgm_data.value * 18.01559)
+    cgm_df['glucose_values'] = round(cgm_data.value * 18.01559, 1)
 
     if(smooth_cgm):
         # Interpolate and smooth the data
