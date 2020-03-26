@@ -586,6 +586,11 @@ def interpolate_and_smooth_cgm(cgm_df,
     # Interpolate forward NaNs on entire dataframe (using linear default)
     cgm_df['glucose_values'] = cgm_df['glucose_values'].interpolate().round(1)
 
+    # Backfill any remaining NaNs on entire dataframe
+    cgm_df['glucose_values'] = (
+        cgm_df['glucose_values'].fillna(method='backfill')
+    )
+
     # cgm_df.loc[cgm_df['glucose_values'].notnull(), 'glucose_values'] = \
     #     cgm_df.loc[cgm_df['glucose_values'].notnull(),
     #                'glucose_values'].astype(int)
