@@ -207,6 +207,11 @@ def get_carb_ratios(active_schedule, bolus_df):
             carb_ratios.loc[ratio_loc, 'carb_ratio_start_times'] = start_string
             carb_ratios.loc[ratio_loc, 'carb_ratio_values'] = ratio
 
+    # If all carb ratios are 0 use average ratio from data bolus calculations
+    if carb_ratios['carb_ratio_values'].sum() == 0:
+        ratio = bolus_df.insulinCarbRatio.astype(float).mean().round()
+        carb_ratios['carb_ratio_values'] = ratio
+
     carb_ratios['actual_carb_ratios'] = carb_ratios['carb_ratio_values']
     carb_ratios['carb_ratio_value_units'] = 'g/U'
 
