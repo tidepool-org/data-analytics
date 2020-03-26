@@ -128,9 +128,15 @@ def get_basal_rates(active_schedule, basal_df):
 
         basal_df["duration_hours"] = basal_df["duration"]/1000/60/60
 
-        weighted_avg_basal_rate = \
-            np.round((np.sum(basal_df["rate"] * basal_df["duration_hours"]) /
-                      basal_df["duration_hours"].sum()), 2)
+        weighted_avg_basal_rate = (
+            np.sum(basal_df["rate"] * basal_df["duration_hours"])
+            / basal_df["duration_hours"].sum()
+        )
+
+        # Round to nearest 0.05 U/hr
+        weighted_avg_basal_rate = (
+            round(round(weighted_avg_basal_rate/0.05)*0.05, 2)
+        )
 
         start_string = datetime.time(0, 0).strftime('%H:%M:%S')
         start_times.append(0)
@@ -764,10 +770,18 @@ def get_simple_settings(basal_rates,
     # Get the weighted average basal_rates
     simple_basal_rate = pd.DataFrame(columns=basal_rates.columns, index=[0])
 
-    weighted_avg_basal_rate = np.round(
-        (np.sum(basal_rates["basal_rate_minutes"] *
-                basal_rates["actual_basal_rates"]) /
-         basal_rates["basal_rate_minutes"].sum()), 2)
+    weighted_avg_basal_rate = (
+        np.sum(
+            basal_rates["basal_rate_minutes"]
+            * basal_rates["actual_basal_rates"]
+        )
+        / basal_rates["basal_rate_minutes"].sum()
+    )
+
+    # Round to nearest 0.05 U/hr
+    weighted_avg_basal_rate = (
+        round(round(weighted_avg_basal_rate/0.05)*0.05, 2)
+    )
 
     simple_basal_rate.loc[0, :] = (
         datetime.time(0, 0).strftime('%H:%M:%S'),
