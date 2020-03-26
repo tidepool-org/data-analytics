@@ -135,7 +135,7 @@ def create_5min_contiguous_df(data):
 
     # CGM Data Processing
     # Convert value from mmol/L to mg/dL
-    cgm_df["value"] = round(cgm_df["value"] * 18.01559)
+    cgm_df["value"] = round(cgm_df["value"] * 18.01559, 1)
 
     first_timestamp = data["rounded_local_time"].min()
     last_timestamp = data["rounded_local_time"].max()
@@ -158,11 +158,11 @@ def create_5min_contiguous_df(data):
                                                  min_periods=1,
                                                  center=True)
 
-    contiguous_df['value'] = cgm_rolling.mean().round(2).round()
+    contiguous_df['value'] = cgm_rolling.mean().round(2).round(1)
 
     contiguous_df.loc[contiguous_df['value'].notnull(), 'value'] = \
         contiguous_df.loc[contiguous_df['value'].notnull(),
-                          'value'].astype(int)
+                          'value']
 
     # Merge boluses together into single 5-minute timestamps
     bolus_merged_df = pd.DataFrame(
