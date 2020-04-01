@@ -381,7 +381,7 @@ def make_dataset(days_of_data):
 
 # %% Main function call
 if __name__ == "__main__":
-    days_of_data = 30
+    days_of_data = 7
     sample_dataset = make_dataset(days_of_data)
     sample_filename = (
             "sample-normalized-dataset-"
