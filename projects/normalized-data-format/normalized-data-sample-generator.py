@@ -383,3 +383,9 @@ def make_dataset(days_of_data):
 if __name__ == "__main__":
     days_of_data = 30
     sample_dataset = make_dataset(days_of_data)
+    sample_filename = (
+            "sample-normalized-dataset-"
+            + str(days_of_data)
+            + "-days.csv"
+    )
+    sample_dataset.to_csv(sample_filename, index=False)
