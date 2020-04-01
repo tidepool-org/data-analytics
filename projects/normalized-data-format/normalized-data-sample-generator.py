@@ -210,6 +210,22 @@ def add_exercise_data(sample_dataset, days_of_data):
         * exerciseEnergy
     """
 
+    exercise_samples = days_of_data//2
+    duration = 60
+
+    exercise_indices = np.random.choice(
+            sample_dataset.index,
+            exercise_samples,
+            replace=False
+    )
+    sample_dataset.loc[exercise_indices, 'exerciseStatus'] = "exercising"
+    sample_dataset.loc[exercise_indices, 'exerciseDuration'] = duration
+    sample_dataset.loc[exercise_indices, 'exerciseName'] = "Walking"
+    sample_dataset.loc[exercise_indices, 'exerciseDistance'] = "5 Miles"
+    sample_dataset.loc[exercise_indices, 'exerciseEnergy'] = "315 kcal"
+
+    sample_dataset['exerciseStatus'].ffill(limit=duration//5 - 1, inplace=True)
+
     return sample_dataset
 
 
@@ -259,13 +275,31 @@ def add_basal_data(sample_dataset, days_of_data):
     return sample_dataset
 
 
-def add_alarm_data(sample_dataset):
+def add_alarm_data(sample_dataset, days_of_data):
     """Adds alarm data to dataset to dataset columns:
         * alarmCGMStatus
         * alarmCGMType
         * alarmPumpStatus
         * alarmPumpType
     """
+
+    cgm_alarm_samples = days_of_data//3
+    cgm_alarm_indices = np.random.choice(
+            sample_dataset.index,
+            cgm_alarm_samples,
+            replace=False
+    )
+    sample_dataset.loc[cgm_alarm_indices, 'alarmCGMStatus'] = "vibrate"
+    sample_dataset.loc[cgm_alarm_indices, 'alarmCGMType'] = "hyper_alert"
+
+    pump_alarm_samples = days_of_data//3
+    pump_alarm_indices = np.random.choice(
+            sample_dataset.index,
+            pump_alarm_samples,
+            replace=False
+    )
+    sample_dataset.loc[pump_alarm_indices, 'alarmPumpStatus'] = "beep"
+    sample_dataset.loc[pump_alarm_indices, 'alarmPumpType'] = "occulsion"
 
     return sample_dataset
 
