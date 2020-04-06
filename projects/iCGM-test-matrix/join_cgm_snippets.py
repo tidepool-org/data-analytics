@@ -274,7 +274,7 @@ metadata = pd.DataFrame(index=[userID])
 data = add_uploadDateTime(data)
 
 # round all data to the nearest 5 minutes
-clean_data = round_time(
+rounded_data = round_time(
     data,
     timeIntervalMinutes=5,
     timeField="time",
@@ -283,48 +283,80 @@ clean_data = round_time(
     verbose=False
 )
 
-data["roundedTime"] = data["roundedTime"].apply(remove_timezone)
+rounded_data["roundedTime"] = rounded_data["roundedTime"].apply(remove_timezone)
 
-# GET CGM DATA
-# group data by type
-groupedData = clean_data.groupby(by="type")
 
-# filter by cgm and sort by uploadTime
-cgmData = groupedData.get_group("cbg").dropna(axis=1, how="all")
 
-# get rid of duplicates that have the same ["deviceTime", "value"]
-cgmData, nCgmDuplicatesRemovedDeviceTime = removeCgmDuplicates(cgmData, "deviceTime")
-metadata["nCgmDuplicatesRemovedDeviceTime"] = nCgmDuplicatesRemovedDeviceTime
-
-# get rid of duplicates that have the same ["time", "value"]
-cgmData, nCgmDuplicatesRemovedUtcTime = removeCgmDuplicates(cgmData, "time")
-metadata["cnCgmDuplicatesRemovedUtcTime"] = nCgmDuplicatesRemovedUtcTime
-
-# get rid of duplicates that have the same "roundedTime"
-cgmData, nCgmDuplicatesRemovedRoundedTime = removeDuplicates(cgmData, "roundedTime")
-metadata["nCgmDuplicatesRemovedRoundedTime"] = nCgmDuplicatesRemovedRoundedTime
-
-# get start and end times
-cgmBeginDate, cgmEndDate = getStartAndEndTimes(cgmData, "roundedTime")
-metadata["cgm.beginDate"] = cgmBeginDate
-metadata["cgm.endDate"] = cgmEndDate
-
-# create a contiguous time series
-rng = pd.date_range(cgmBeginDate, cgmEndDate, freq="5min")
-contiguousData = pd.DataFrame(rng, columns=["cDateTime"])
-
+cgm_df = rounded_data.groupby(by="type").get_group("cbg").dropna(axis=1, how="all")
 # get data in mg/dL units
-cgmData["mg_dL"] = mmolL_to_mgdL(cgmData["value"]).astype(int)
+cgm_df["mg_dL"] = mmolL_to_mgdL(cgm_df["value"]).astype(int)
 
-# merge data
-contig_cgm = pd.merge(
-    contiguousData,
-    cgmData[["roundedTime", "mg_dL"]],
-    left_on="cDateTime",
-    right_on="roundedTime",
-    how="left"
-)
+cgm_df = cgm_df[["roundedTime", "mg_dL"]]
+cgm_df.reset_index(drop=True, inplace=True)
+
 
 # %% build join cgm snippets function
+df = cgm_df.copy()
+timeField = "roundedTime"
+timeIntervalMinutes = 5
+largest_allowable_gap = 5
+# make sure the time field is in the right form
+t = pd.to_datetime(df[timeField])
+
+# calculate the time between consecutive records
+t_shift = pd.to_datetime(df[timeField].shift(1))
+df["timeBetweenRecords"] = \
+    round((t - t_shift).dt.days * (86400 / (60 * timeIntervalMinutes)) +
+          (t - t_shift).dt.seconds / (60 * timeIntervalMinutes)) * timeIntervalMinutes
+
+# separate the data into chunks if timeBetweenRecords is greater than largest allowable gap
+snippet_index = list(df.query("abs(timeBetweenRecords) > " + str(largest_allowable_gap)).index)
+snippet_index.insert(0, 0)
+print(snippet_index)
+just_snippets = pd.DataFrame(snippet_index, columns=["snippet_index"])
+snippet_index.append(len(df))
+snippet_size = np.diff(snippet_index)
+just_snippets["snippet_size"] = snippet_size
+print(just_snippets)
 
 
+# %% OLD STUFF
+# # GET CGM DATA
+# # group data by type
+# groupedData = clean_data.groupby(by="type")
+#
+# # filter by cgm and sort by uploadTime
+# cgmData = groupedData.get_group("cbg").dropna(axis=1, how="all")
+#
+# # get rid of duplicates that have the same ["deviceTime", "value"]
+# cgmData, nCgmDuplicatesRemovedDeviceTime = removeCgmDuplicates(cgmData, "deviceTime")
+# metadata["nCgmDuplicatesRemovedDeviceTime"] = nCgmDuplicatesRemovedDeviceTime
+#
+# # get rid of duplicates that have the same ["time", "value"]
+# cgmData, nCgmDuplicatesRemovedUtcTime = removeCgmDuplicates(cgmData, "time")
+# metadata["cnCgmDuplicatesRemovedUtcTime"] = nCgmDuplicatesRemovedUtcTime
+#
+# # get rid of duplicates that have the same "roundedTime"
+# cgmData, nCgmDuplicatesRemovedRoundedTime = removeDuplicates(cgmData, "roundedTime")
+# metadata["nCgmDuplicatesRemovedRoundedTime"] = nCgmDuplicatesRemovedRoundedTime
+#
+# # get start and end times
+# cgmBeginDate, cgmEndDate = getStartAndEndTimes(cgmData, "roundedTime")
+# metadata["cgm.beginDate"] = cgmBeginDate
+# metadata["cgm.endDate"] = cgmEndDate
+#
+# # create a contiguous time series
+# rng = pd.date_range(cgmBeginDate, cgmEndDate, freq="5min")
+# contiguousData = pd.DataFrame(rng, columns=["cDateTime"])
+#
+# # get data in mg/dL units
+# cgmData["mg_dL"] = mmolL_to_mgdL(cgmData["value"]).astype(int)
+#
+# # merge data
+# contig_cgm = pd.merge(
+#     contiguousData,
+#     cgmData[["roundedTime", "mg_dL"]],
+#     left_on="cDateTime",
+#     right_on="roundedTime",
+#     how="left"
+# )
