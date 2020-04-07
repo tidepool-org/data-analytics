@@ -284,9 +284,6 @@ rounded_data = round_time(
 )
 
 rounded_data["roundedTime"] = rounded_data["roundedTime"].apply(remove_timezone)
-
-
-
 cgm_df = rounded_data.groupby(by="type").get_group("cbg").dropna(axis=1, how="all")
 # get data in mg/dL units
 cgm_df["mg_dL"] = mmolL_to_mgdL(cgm_df["value"]).astype(int)
@@ -296,46 +293,70 @@ cgm_df.reset_index(drop=True, inplace=True)
 
 
 # %% build join cgm snippets function
-df = cgm_df.copy()
-time_field = "roundedTime"
 
-time_interval_minutes = 5  # default to 5
+def get_cgm_snippets(
+        df,
+        time_field="roundedTime",
+        time_interval_minutes=5,
+        min_gap_size=15,
+        min_snippet_minutes=75,
+):
+    '''
+    Return array of snippet starts and sizes that meet input conditions.
 
-# consider the consecutive records a gap if > 15 minutes (or user defined)
-min_gap_size = 15  # default to 15 minutes
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Pandas dataframe that contains cgm data and a time field
+    time_field : str
+        Name of dataframe column that contains datetime information
+    time_interval_minutes : int
+        The time interval of delta of the cgm data, typically 5 minutes and sometimes 15
+    min_gap_size : int
+        This defines a gap, where a gap must be greater than min_gap_size. Default 15 minutes.
+        TODO: make this explanation clearer
+    min_snippet_minutes : int
+        This defines the minimum length of a snippet in minutes. A cgm snippet must be
+        greater than this threshold in order to be stitched together with another snippet.
+        TODO: make this explanation clearer
 
-# number of minutes required for joined snippets
-min_snippet_minutes = 75  # minutes
+    Returns
+    -------
+    np.array
+        A two column array. The first column contains the index of the snippet starts,
+        and the second column contains the size of each snippet.
+    '''
 
-# make sure the time field is in the right form
-t = pd.to_datetime(df[time_field])
+    # make sure the time field is in the right form
+    t = pd.to_datetime(df[time_field])
 
-# calculate the time between consecutive records
-t_shift = pd.to_datetime(df[time_field].shift(1))
-df["timeBetweenRecords"] = \
-    round((t - t_shift).dt.days * (86400 / (60 * time_interval_minutes)) +
-          (t - t_shift).dt.seconds / (60 * time_interval_minutes)) * time_interval_minutes
+    # calculate the time between consecutive records
+    t_shift = pd.to_datetime(df[time_field].shift(1))
+    df["timeBetweenRecords"] = \
+        round((t - t_shift).dt.days * (86400 / (60 * time_interval_minutes)) +
+              (t - t_shift).dt.seconds / (60 * time_interval_minutes)) * time_interval_minutes
 
-# separate the data into chunks if timeBetweenRecords is greater than largest allowable gap
-snippet_index = list(
-    df.query("abs(timeBetweenRecords) > " + str(min_gap_size)).index
-)
-snippet_index.insert(0, 0)
+    # separate the data into chunks if timeBetweenRecords is greater than largest allowable gap
+    snippet_index = list(
+        df.query("abs(timeBetweenRecords) > " + str(min_gap_size)).index
+    )
+    snippet_index.insert(0, 0)
 
-# create a dataframe of just the snippet starts and sizes
-just_snippets = pd.DataFrame(snippet_index, columns=["snippet_index"])
-snippet_index.append(len(df))
-snippet_size = np.diff(snippet_index)
-just_snippets["snippet_size"] = snippet_size
-print(just_snippets)
+    # create a dataframe of just the snippet starts and sizes
+    just_snippets = pd.DataFrame(snippet_index, columns=["snippet_index"])
+    snippet_index.append(len(df))
+    snippet_size = np.diff(snippet_index)
+    just_snippets["snippet_size"] = snippet_size
 
-# get rid of all snippets less than (user defined length)
-keep_snippets_array = just_snippets.loc[
-    just_snippets["snippet_size"] >= (min_snippet_minutes / time_interval_minutes),
-    :
-].values
+    # get rid of all snippets less than (user defined length)
+    keep_snippets_array = just_snippets.loc[
+        just_snippets["snippet_size"] >= (min_snippet_minutes / time_interval_minutes),
+        :
+    ].values
 
-print(keep_snippets_array)
+    return keep_snippets_array
+
+keep_snippets_array = get_cgm_snippets(df=cgm_df)
 
 # %% blend snippets together using weighted sum
 t_df = cgm_df.copy()
