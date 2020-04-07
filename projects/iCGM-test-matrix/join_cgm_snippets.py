@@ -1,20 +1,14 @@
 # %% REQUIRED LIBRARIES
-import os
-import sys
 import requests
 import json
 import getpass
-import random
 import numpy as np
 import pandas as pd
 import datetime as dt
-from pytz import timezone
-from scipy import stats
-from scipy.optimize import curve_fit
 import plotly.graph_objs as go
-from plotly.offline import iplot, plot
-import matplotlib.pyplot as plt
+from plotly.offline import plot
 import plotly.express as px
+
 
 # %% FUNCTIONS
 def mmolL_to_mgdL(mmolL):
@@ -183,7 +177,7 @@ def get_data_from_api(
         else:
             userid = userid_of_shared_user
 
-        endDate = pd.datetime.now()
+        endDate = dt.datetime.now()
 
         if weeks_of_data > 52:
             years_of_data = int(np.floor(weeks_of_data / 52))
@@ -292,9 +286,8 @@ cgm_df = cgm_df[["roundedTime", "mg_dL"]]
 cgm_df.reset_index(drop=True, inplace=True)
 
 
-# %% build join cgm snippets function
-
-def get_cgm_snippets(
+# %% join cgm snippets functions
+def find_cgm_snippets(
         df,
         time_field="roundedTime",
         time_interval_minutes=5,
@@ -356,95 +349,135 @@ def get_cgm_snippets(
 
     return keep_snippets_array
 
-keep_snippets_array = get_cgm_snippets(df=cgm_df)
 
-# %% blend snippets together using weighted sum
-t_df = cgm_df.copy()
-n_smoothing_points = int(min_snippet_minutes / time_interval_minutes)
+# blend snippets together using weighted sum
+def blend_snippets(
+        df,
+        keep_snippets_array,
+        time_interval_minutes=5,
+        min_snippet_minutes=75,
+        show_evidence=False,
+):
+    '''
+    Return array of cgm values
 
-snip_start = keep_snippets_array[0][0]
-snip_end = snip_start + keep_snippets_array[0][1] - 1
-s_size = keep_snippets_array[0][1]
-previous_trace = t_df.loc[snip_start:snip_end, "mg_dL"].values
-for s in range(1, len(keep_snippets_array)):
-    snip_start = keep_snippets_array[s][0]
-    snip_end = snip_start + keep_snippets_array[s][1] - 1
-    s_size = keep_snippets_array[s][1]
-    current_trace = t_df.loc[snip_start:snip_end, "mg_dL"].values
+    An array of cgm values that is stitched and linearly blended together
+    from disparate cgm snippets to allow a smooth transition between snippets
+    TODO: improve explanation
 
-    # weight the last n_smoothing_points of the previous trace
-    weighted_prev = previous_trace[-n_smoothing_points:] * np.linspace(1, 0, n_smoothing_points)
-    # weight the first n_smoothing_points of the current trace
-    weighted_curr = current_trace[:n_smoothing_points] * np.linspace(0, 1, n_smoothing_points)
-    # combine the weighted traces to make a smooth transition
-    overlap_trace = weighted_prev + weighted_curr
-    # append the three traces together
-    print(previous_trace, current_trace, overlap_trace)
-    fig = px.line(y=overlap_trace, title="Combined Snippets")
-    prev_trace = go.Scatter(y=previous_trace[-n_smoothing_points:], name="Left Snippet")
-    fig.add_trace(prev_trace)
-    curr_trace = go.Scatter(y=current_trace[:n_smoothing_points], name="Right Snippet")
-    fig.add_trace(curr_trace)
-    plot(fig)
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Pandas dataframe that contains cgm data and a time field
+    keep_snippets_array : np.array
+        A two column array. The first column contains the index of the snippet starts,
+        and the second column contains the size of each snippet.
+    time_interval_minutes : int
+        The time interval of delta of the cgm data, typically 5 minutes and sometimes 15
+    min_snippet_minutes : int
+        This defines the minimum length of a snippet in minutes. A cgm snippet must be
+        greater than this threshold in order to be stitched together with another snippet.
+        TODO: make this explanation clearer
+    show_evidence : boolean
+        Default is False
+        If True will make plots of the parts of the snippets that are combined together
 
-    previous_trace = np.append(
-        previous_trace[:-n_smoothing_points],
-        np.append(
-            overlap_trace,
-            current_trace[n_smoothing_points:]
+    Returns
+    -------
+    contiguous_trace : np.array
+        A contiguous cgm trace with smooth transitions between discrete cgm snippets
+    '''
+    n_smoothing_points = int(min_snippet_minutes / time_interval_minutes)
+
+    snip_start = keep_snippets_array[0][0]
+    snip_end = snip_start + keep_snippets_array[0][1] - 1
+    s_size = keep_snippets_array[0][1]
+    previous_trace = df.loc[snip_start:snip_end, "mg_dL"].values
+    for s in range(1, len(keep_snippets_array)):
+        snip_start = keep_snippets_array[s][0]
+        snip_end = snip_start + keep_snippets_array[s][1] - 1
+        s_size = keep_snippets_array[s][1]
+        current_trace = df.loc[snip_start:snip_end, "mg_dL"].values
+
+        # weight the last n_smoothing_points of the previous trace
+        weighted_prev = previous_trace[-n_smoothing_points:] * np.linspace(1, 0, n_smoothing_points)
+        # weight the first n_smoothing_points of the current trace
+        weighted_curr = current_trace[:n_smoothing_points] * np.linspace(0, 1, n_smoothing_points)
+        # combine the weighted traces to make a smooth transition
+        overlap_trace = weighted_prev + weighted_curr
+
+        if show_evidence:  # optional (turned off by default)
+            fig = px.line(y=overlap_trace, title="Combined Snippets")
+            prev_trace = go.Scatter(y=previous_trace[-n_smoothing_points:], name="Left Snippet")
+            fig.add_trace(prev_trace)
+            curr_trace = go.Scatter(y=current_trace[:n_smoothing_points], name="Right Snippet")
+            fig.add_trace(curr_trace)
+            plot(fig)
+
+        # append the traces together
+        previous_trace = np.append(
+            previous_trace[:-n_smoothing_points],
+            np.append(
+                overlap_trace,
+                current_trace[n_smoothing_points:]
+            )
         )
+
+    contiguous_trace = previous_trace
+    return contiguous_trace
+
+
+def create_contiguous_cgm_trace_from_snippets(
+        df,
+        time_field="roundedTime",
+        time_interval_minutes=5,
+        min_gap_size=15,
+        min_snippet_minutes=75,
+        show_evidence=False,
+):
+    '''
+    Return array of cgm values
+
+    A wrapper function that calls functions:
+        find_cgm_snippets, and
+        blend_snippets
+
+    Returns
+    -------
+    contiguous_trace : np.array
+        A contiguous cgm trace with smooth transitions between discrete cgm snippets
+    '''
+    keep_snippets_array = find_cgm_snippets(
+        df,
+        time_field=time_field,
+        time_interval_minutes=time_interval_minutes,
+        min_gap_size=min_gap_size,
+        min_snippet_minutes=min_snippet_minutes,
     )
 
+    contiguous_trace = blend_snippets(
+        df,
+        keep_snippets_array,
+        time_interval_minutes=time_interval_minutes,
+        min_snippet_minutes=min_snippet_minutes,
+        show_evidence=show_evidence,
+    )
+
+    return contiguous_trace
 
 
-# for testing purposes, push this data back to the original so a plot can be made
 
+# %% call the function and plot the results
+make_plots = False
+contig_cgm_ts = create_contiguous_cgm_trace_from_snippets(
+        df=cgm_df,
+        time_field="roundedTime",
+        time_interval_minutes=5,
+        min_gap_size=15,
+        min_snippet_minutes=75,
+        show_evidence=make_plots,
+)
 
+if make_plots:
+    plot(px.line(y=contig_cgm_ts))
 
-# %% View original and joined (stitched) plots
-fig = px.line(y=cgm_df["mg_dL"])
-joined_trace = px.scatter(y=previous_trace)
-fig.add_trace(joined_trace.data[0])
-plot(fig)
-
-
-# %% OLD STUFF
-# # GET CGM DATA
-# # group data by type
-# groupedData = clean_data.groupby(by="type")
-#
-# # filter by cgm and sort by uploadTime
-# cgmData = groupedData.get_group("cbg").dropna(axis=1, how="all")
-#
-# # get rid of duplicates that have the same ["deviceTime", "value"]
-# cgmData, nCgmDuplicatesRemovedDeviceTime = removeCgmDuplicates(cgmData, "deviceTime")
-# metadata["nCgmDuplicatesRemovedDeviceTime"] = nCgmDuplicatesRemovedDeviceTime
-#
-# # get rid of duplicates that have the same ["time", "value"]
-# cgmData, nCgmDuplicatesRemovedUtcTime = removeCgmDuplicates(cgmData, "time")
-# metadata["cnCgmDuplicatesRemovedUtcTime"] = nCgmDuplicatesRemovedUtcTime
-#
-# # get rid of duplicates that have the same "roundedTime"
-# cgmData, nCgmDuplicatesRemovedRoundedTime = removeDuplicates(cgmData, "roundedTime")
-# metadata["nCgmDuplicatesRemovedRoundedTime"] = nCgmDuplicatesRemovedRoundedTime
-#
-# # get start and end times
-# cgmBeginDate, cgmEndDate = getStartAndEndTimes(cgmData, "roundedTime")
-# metadata["cgm.beginDate"] = cgmBeginDate
-# metadata["cgm.endDate"] = cgmEndDate
-#
-# # create a contiguous time series
-# rng = pd.date_range(cgmBeginDate, cgmEndDate, freq="5min")
-# contiguousData = pd.DataFrame(rng, columns=["cDateTime"])
-#
-# # get data in mg/dL units
-# cgmData["mg_dL"] = mmolL_to_mgdL(cgmData["value"]).astype(int)
-#
-# # merge data
-# contig_cgm = pd.merge(
-#     contiguousData,
-#     cgmData[["roundedTime", "mg_dL"]],
-#     left_on="cDateTime",
-#     right_on="roundedTime",
-#     how="left"
-# )
