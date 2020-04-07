@@ -45,3 +45,5 @@ projects/bigdata-processing-pipeline/get_stats/debug/
 projects/loop-algorithm/fonts/SF Compact/
 
 .idea/
+
+*.html

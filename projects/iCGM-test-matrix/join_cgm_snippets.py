@@ -297,27 +297,94 @@ cgm_df.reset_index(drop=True, inplace=True)
 
 # %% build join cgm snippets function
 df = cgm_df.copy()
-timeField = "roundedTime"
-timeIntervalMinutes = 5
-largest_allowable_gap = 5
+time_field = "roundedTime"
+
+time_interval_minutes = 5  # default to 5
+
+# consider the consecutive records a gap if > 15 minutes (or user defined)
+min_gap_size = 15  # default to 15 minutes
+
+# number of minutes required for joined snippets
+min_snippet_minutes = 75  # minutes
+
 # make sure the time field is in the right form
-t = pd.to_datetime(df[timeField])
+t = pd.to_datetime(df[time_field])
 
 # calculate the time between consecutive records
-t_shift = pd.to_datetime(df[timeField].shift(1))
+t_shift = pd.to_datetime(df[time_field].shift(1))
 df["timeBetweenRecords"] = \
-    round((t - t_shift).dt.days * (86400 / (60 * timeIntervalMinutes)) +
-          (t - t_shift).dt.seconds / (60 * timeIntervalMinutes)) * timeIntervalMinutes
+    round((t - t_shift).dt.days * (86400 / (60 * time_interval_minutes)) +
+          (t - t_shift).dt.seconds / (60 * time_interval_minutes)) * time_interval_minutes
 
 # separate the data into chunks if timeBetweenRecords is greater than largest allowable gap
-snippet_index = list(df.query("abs(timeBetweenRecords) > " + str(largest_allowable_gap)).index)
+snippet_index = list(
+    df.query("abs(timeBetweenRecords) > " + str(min_gap_size)).index
+)
 snippet_index.insert(0, 0)
-print(snippet_index)
+
+# create a dataframe of just the snippet starts and sizes
 just_snippets = pd.DataFrame(snippet_index, columns=["snippet_index"])
 snippet_index.append(len(df))
 snippet_size = np.diff(snippet_index)
 just_snippets["snippet_size"] = snippet_size
 print(just_snippets)
+
+# get rid of all snippets less than (user defined length)
+keep_snippets_array = just_snippets.loc[
+    just_snippets["snippet_size"] >= (min_snippet_minutes / time_interval_minutes),
+    :
+].values
+
+print(keep_snippets_array)
+
+# %% blend snippets together using weighted sum
+t_df = cgm_df.copy()
+n_smoothing_points = int(min_snippet_minutes / time_interval_minutes)
+
+snip_start = keep_snippets_array[0][0]
+snip_end = snip_start + keep_snippets_array[0][1] - 1
+s_size = keep_snippets_array[0][1]
+previous_trace = t_df.loc[snip_start:snip_end, "mg_dL"].values
+for s in range(1, len(keep_snippets_array)):
+    snip_start = keep_snippets_array[s][0]
+    snip_end = snip_start + keep_snippets_array[s][1] - 1
+    s_size = keep_snippets_array[s][1]
+    current_trace = t_df.loc[snip_start:snip_end, "mg_dL"].values
+
+    # weight the last n_smoothing_points of the previous trace
+    weighted_prev = previous_trace[-n_smoothing_points:] * np.linspace(1, 0, n_smoothing_points)
+    # weight the first n_smoothing_points of the current trace
+    weighted_curr = current_trace[:n_smoothing_points] * np.linspace(0, 1, n_smoothing_points)
+    # combine the weighted traces to make a smooth transition
+    overlap_trace = weighted_prev + weighted_curr
+    # append the three traces together
+    print(previous_trace, current_trace, overlap_trace)
+    fig = px.line(y=overlap_trace, title="Combined Snippets")
+    prev_trace = go.Scatter(y=previous_trace[-n_smoothing_points:], name="Left Snippet")
+    fig.add_trace(prev_trace)
+    curr_trace = go.Scatter(y=current_trace[:n_smoothing_points], name="Right Snippet")
+    fig.add_trace(curr_trace)
+    plot(fig)
+
+    previous_trace = np.append(
+        previous_trace[:-n_smoothing_points],
+        np.append(
+            overlap_trace,
+            current_trace[n_smoothing_points:]
+        )
+    )
+
+
+
+# for testing purposes, push this data back to the original so a plot can be made
+
+
+
+# %% View original and joined (stitched) plots
+fig = px.line(y=cgm_df["mg_dL"])
+joined_trace = px.scatter(y=previous_trace)
+fig.add_trace(joined_trace.data[0])
+plot(fig)
 
 
 # %% OLD STUFF
