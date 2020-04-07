@@ -556,6 +556,74 @@ def get_dose_events(snapshot_df):
     return dose_events
 
 
+def blend_cgm_gaps(
+        df,
+        time_interval_minutes=5,
+        min_gap_size=15,
+        min_snippet_minutes=75,
+):
+
+    df = df[df['value'].notnull()].reset_index().copy()
+
+    df["timeBetweenRecords"] = round(
+            df['rounded_local_time'].diff().dt.days*1440
+            + df['rounded_local_time'].diff().dt.seconds/60
+    )
+
+    snippet_index = list(df[df.timeBetweenRecords.abs() > min_gap_size].index)
+    snippet_index.insert(0, 0)
+
+    # create a dataframe of just the snippet starts and sizes
+    just_snippets = pd.DataFrame(snippet_index, columns=["snippet_index"])
+    just_snippets["snippet_size"] = np.diff(snippet_index + [len(df)])
+
+    # get rid of all snippets less than (user defined length)
+    min_snippet_size = min_snippet_minutes / time_interval_minutes
+    qualified_snippets = just_snippets["snippet_size"] >= min_snippet_size
+    #keep_snippets_array = just_snippets.loc[qualified_snippets, :].values
+    keep_snippets_array = just_snippets.loc[qualified_snippets, :]
+    keep_snippets_array.reset_index(drop=True, inplace=True)
+
+    n_smoothing_points = int(min_snippet_minutes / time_interval_minutes)
+
+    # Get the starting trace
+    snip_start = keep_snippets_array.loc[0, "snippet_index"]
+    snip_end = snip_start + keep_snippets_array.loc[0, "snippet_size"] - 1
+    previous_trace = df.loc[snip_start:snip_end, "value"].values
+
+    # Apply weighted smoothing to each traces
+    for s in range(1, len(keep_snippets_array)):
+        snip_start = keep_snippets_array.loc[s, "snippet_index"]
+        snip_end = snip_start + keep_snippets_array.loc[s, "snippet_size"] - 1
+        current_trace = df.loc[snip_start:snip_end, "value"].values
+
+        # weight the last n_smoothing_points of the previous trace
+        weighted_prev = (
+                previous_trace[-n_smoothing_points:]
+                * np.linspace(1, 0, n_smoothing_points)
+        )
+        # weight the first n_smoothing_points of the current trace
+        weighted_curr = (
+                current_trace[:n_smoothing_points]
+                * np.linspace(0, 1, n_smoothing_points)
+        )
+        # combine the weighted traces to make a smooth transition
+        blended_section = weighted_prev + weighted_curr
+
+        # insert the blended section into the previous and current traces
+        previous_trace = np.concatenate(
+                (
+                        previous_trace[:-n_smoothing_points],
+                        blended_section,
+                        current_trace[n_smoothing_points:]
+                )
+        )
+
+    blended_cgm_trace = previous_trace
+
+    return blended_cgm_trace
+
+
 def interpolate_and_smooth_cgm(cgm_df,
                                condition_num,
                                add_cgm_trail,
@@ -609,7 +677,8 @@ def interpolate_and_smooth_cgm(cgm_df,
     return cgm_df
 
 
-def get_cgm_df(snapshot_df,
+def get_cgm_df(data,
+               snapshot_df,
                smooth_cgm,
                condition_num,
                start_time,
@@ -624,6 +693,12 @@ def get_cgm_df(snapshot_df,
                   'glucose_units']
 
     cgm_df = pd.DataFrame(columns=df_columns)
+
+    blended_cgm_start = start_time - datetime.timedelta(days=10)
+    blended_cgm_end = evaluation_time - datetime.timedelta(days=1)
+
+    snapshot_df = data[(data['rounded_local_time'] >= blended_cgm_start) &
+                       (data['rounded_local_time'] <= end_time)]
 
     cgm_data = snapshot_df[snapshot_df.type == 'cbg'].copy()
 
@@ -644,14 +719,15 @@ def get_cgm_df(snapshot_df,
 
     contiguous_df = pd.DataFrame(contiguous_ts, columns=["rounded_local_time"])
 
-    cgm_data = pd.merge(contiguous_df,
-                        cgm_data,
-                        how="left",
-                        on="rounded_local_time"
-                        )
+    ten_day_cgm_data = pd.merge(
+            contiguous_df,
+            cgm_data,
+            how="left",
+            on="rounded_local_time"
+    )
     # Remove CGM duplicates from the contiguous_df
-    cgm_data, nRoundedTimeDuplicatesRemoved, cgmPercentDuplicated = \
-        cond_finder.remove_contiguous_rounded_CGM_duplicates(cgm_data)
+    ten_day_cgm_data, nRoundedTimeDuplicatesRemoved, cgmPercentDuplicated = \
+        cond_finder.remove_contiguous_rounded_CGM_duplicates(ten_day_cgm_data)
 
     # Drop cgm duplicates in snapshot (if any)
     # cgm_data.sort_values(['uploadId', 'rounded_local_time'],
@@ -664,8 +740,32 @@ def get_cgm_df(snapshot_df,
     #                     ascending=True,
     #                     inplace=True)
 
-    cgm_df['glucose_dates'] = cgm_data.rounded_local_time
-    cgm_df['glucose_values'] = round(cgm_data.value * 18.01559, 1)
+    cgm_df['glucose_dates'] = ten_day_cgm_data.rounded_local_time
+    cgm_df['glucose_values'] = round(ten_day_cgm_data.value * 18.01559, 1)
+    cgm_df.reset_index(drop=True, inplace=True)
+
+    # Take only the days before the 24-hour scenario for blending
+    cgm_values_to_blend = (
+            cgm_data.loc[
+                    cgm_data['rounded_local_time'] <= blended_cgm_end,
+                    ['rounded_local_time', 'value']
+            ].copy()
+        )
+
+    blended_cgm_values = blend_cgm_gaps(df=cgm_values_to_blend)
+    blended_length = len(blended_cgm_values)
+
+    if blended_length >= 288*9:
+        blended_cgm_values = blended_cgm_values[-(288*9):]
+    else:
+        padding_size = 288*9 - blended_length
+        print("Adding " + str(padding_size) + " NaNs to pad blended CGMs.")
+        padding = [np.nan]*padding_size
+        blended_cgm_values = np.concatenate((padding, blended_cgm_values))
+
+    blended_cgm_values = np.round(blended_cgm_values * 18.01559, 1)
+    blended_glucose_dates = cgm_df['glucose_dates'] <= blended_cgm_end
+    cgm_df.loc[blended_glucose_dates, 'glucose_values'] = blended_cgm_values
 
     if(smooth_cgm):
         # Interpolate and smooth the data
@@ -944,7 +1044,8 @@ def get_snapshot(data,
 
     carb_events = get_carb_events(snapshot_df)
     dose_events = get_dose_events(snapshot_df)
-    cgm_df = get_cgm_df(snapshot_df,
+    cgm_df = get_cgm_df(data,
+                        snapshot_df,
                         smooth_cgm,
                         condition_num,
                         start_time,
