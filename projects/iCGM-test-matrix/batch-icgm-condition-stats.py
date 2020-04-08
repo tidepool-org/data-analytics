@@ -23,7 +23,7 @@ import traceback
 import sys
 # %%
 
-data_location = "data_folder/"
+data_location = "sample_data/"
 file_list = os.listdir(data_location)
 
 # Filter only files with .csv in their name (includes .csv.gz files)
@@ -114,7 +114,7 @@ if __name__ == "__main__":
     icgm_condition_summary_df = pd.concat(results_array, sort=False)
     today_timestamp = dt.datetime.now().strftime("%Y-%m-%d")
     results_export_filename = \
-        'PHI-batch-icgm-condition-stats-' + \
+        'batch-icgm-condition-stats-' + \
         today_timestamp + \
         '.csv'
     icgm_condition_summary_df.to_csv(results_export_filename, index=False)

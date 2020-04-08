@@ -668,10 +668,11 @@ def main(data, file_name):
 
 # %%
 if __name__ == "__main__":
-    file_name = "data.csv"
-    file_location = "."
+    file_name = "sample.csv"
+    file_location = "sample_data/"
 
     file_path = os.path.join(file_location, file_name)
+
     data = import_data(file_path)
 
     results = main(data, file_name)

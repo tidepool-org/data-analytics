@@ -1250,8 +1250,8 @@ if __name__ == "__main__":
     start_time = time.time()
 
     # Import results from batch-icgm-condition-stats
-    condition_file = "PHI-batch-icgm-condition-stats-2020-02-27-with-metadata.csv"
-    condition_df = pd.read_csv(condition_file, low_memory=False)
+    batch_condition_file = "sample_data/sample-batch-icgm-condition-stats.csv"
+    condition_df = pd.read_csv(batch_condition_file, low_memory=False)
 
     # Snapshot processing parameters
     simplify_settings = True
@@ -1262,7 +1262,6 @@ if __name__ == "__main__":
     settings_summaries = []
 
     for file_selection in range(int(len(condition_df))):
-        #file_selection = 1
         print("STARTING FILE #: " + str(file_selection))
         file_name = condition_df.loc[file_selection, 'file_name']
 
@@ -1271,7 +1270,7 @@ if __name__ == "__main__":
         diagnosis_date = condition_df.loc[file_selection, 'diagnosisDate']
 
         # Location of csvs
-    data_location = "train-data/"
+        data_location = "sample_data/"
         file_path = os.path.join(data_location, file_name)
         data = pd.read_csv(file_path, low_memory=False)
         data = cond_finder.add_uploadDateTime(data)
