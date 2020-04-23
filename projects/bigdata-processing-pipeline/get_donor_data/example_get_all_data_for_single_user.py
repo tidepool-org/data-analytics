@@ -25,6 +25,6 @@ metadata, _ = get_shared_metadata(
 )
 data, _ = get_data(
     donor_group="bigdata",
-    userid_of_shared_user="0d4524bc11",
+    userid="0d4524bc11",
     weeks_of_data=4
     )

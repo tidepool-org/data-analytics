@@ -8,6 +8,10 @@ to get the most recent donor list
 """
 
 # %% REQUIRED LIBRARIES
+try:
+    from get_single_dataset_info import expand_data, save_df
+except: # TODO: there has to be a better way to do this
+    from get_donor_data.get_single_dataset_info import expand_data, save_df
 import pandas as pd
 import datetime as dt
 import numpy as np
@@ -16,7 +20,6 @@ import sys
 import getpass
 import requests
 import json
-import pdb
 import argparse
 envPath = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if envPath not in sys.path:
@@ -24,93 +27,7 @@ if envPath not in sys.path:
 import environmentalVariables
 
 
-# %% USER INPUTS (choices to be made in order to run the code)
-codeDescription = "get donor metadata"
-parser = argparse.ArgumentParser(description=codeDescription)
-
-parser.add_argument(
-    "-d",
-    "--date-stamp",
-    dest="date_stamp",
-    default=dt.datetime.now().strftime("%Y-%m-%d"),
-    help="date, in '%Y-%m-%d' format, of the date when " +
-    "donors were accepted"
-)
-
-parser.add_argument(
-    "-w",
-    "--weeks-of-data",
-    dest="weeks_of_data",
-    default=52*10,
-    help="enter the number of weeks of data you want to download"
-)
-
-parser.add_argument(
-    "-dg",
-    "--donor-group",
-    dest="donor_group",
-    default=np.nan,
-    help="name of the donor group in the tidepool .env file"
-)
-
-parser.add_argument(
-    "-u",
-    "--userid",
-    dest="userid_of_shared_user",
-    default=np.nan,
-    help="userid of account shared with the donor group or master account"
-)
-
-parser.add_argument(
-    "-a",
-    "--auth",
-    dest="auth",
-    default=np.nan,
-    help="tuple that contains (email, password)"
-)
-
-parser.add_argument(
-    "-e",
-    "--email",
-    dest="email",
-    default=np.nan,
-    help="email address of the master account"
-)
-
-parser.add_argument(
-    "-p",
-    "--password",
-    dest="password",
-    default=np.nan,
-    help="password of the master account"
-)
-
-parser.add_argument(
-    "-o",
-    "--output-data-path",
-    dest="data_path",
-    default=os.path.abspath(
-        os.path.join(
-            os.path.dirname(__file__), "..", "data"
-        )
-    ),
-    help="the output path where the data is stored"
-)
-
-args = parser.parse_args()
-
-
 # %% FUNCTIONS
-def make_folder_if_doesnt_exist(folder_paths):
-    ''' function requires a single path or a list of paths'''
-    if not isinstance(folder_paths, list):
-        folder_paths = [folder_paths]
-    for folder_path in folder_paths:
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
-    return
-
-
 def get_data_api(userid, startDate, endDate, headers):
 
     startDate = startDate.strftime("%Y-%m-%d") + "T00:00:00.000Z"
@@ -145,7 +62,7 @@ def get_data_api(userid, startDate, endDate, headers):
 def get_data(
     weeks_of_data=10*52,
     donor_group=np.nan,
-    userid_of_shared_user=np.nan,
+    userid=np.nan,
     auth=np.nan,
     email=np.nan,
     password=np.nan,
@@ -180,8 +97,8 @@ def get_data(
     else:
         sys.exit("Error with " + auth[0] + ":" + str(api_response.status_code))
 
-    if pd.isnull(userid_of_shared_user):
-        userid_of_shared_user = userid_master
+    if pd.isnull(userid):
+        userid = userid_master
         print(
             "getting data for the master account since no shared " +
             "user account was given"
@@ -204,7 +121,7 @@ def get_data(
                 endDate.day + 1
             )
             year_df, endDate = get_data_api(
-                userid_of_shared_user,
+                userid,
                 startDate,
                 endDate,
                 headers
@@ -222,7 +139,7 @@ def get_data(
         )
 
         df, _ = get_data_api(
-            userid_of_shared_user,
+            userid,
             startDate,
             endDate,
             headers
@@ -241,58 +158,170 @@ def get_data(
             auth[0] + ":" + str(api_response.status_code)
         )
 
-    return df, userid_of_shared_user
+    return df, userid
 
 
 # %% START OF CODE
 def get_and_save_dataset(
-    date_stamp=args.date_stamp,
-    data_path=args.data_path,
-    weeks_of_data=args.weeks_of_data,
-    donor_group=args.donor_group,
-    userid_of_shared_user=args.userid_of_shared_user,
-    auth=args.auth,
-    email=args.email,
-    password=args.password
+    date_stamp,
+    data_path,
+    weeks_of_data,
+    donor_group,
+    userid,
+    auth,
+    email,
+    password,
+    expand_dataset
 ):
-    # create output folders if they don't exist
-
-    phi_date_stamp = "PHI-" + date_stamp
-    donor_folder = os.path.join(data_path, phi_date_stamp + "-donor-data")
-
-    dataset_path = os.path.join(
-        donor_folder,
-        phi_date_stamp + "-csvData"
-    )
-    make_folder_if_doesnt_exist(dataset_path)
 
     # get dataset
     data, userid = get_data(
         weeks_of_data=weeks_of_data,
         donor_group=donor_group,
-        userid_of_shared_user=userid_of_shared_user,
+        userid=userid,
         auth=auth,
         email=email,
         password=password
     )
 
-    # save data
-    dataset_output_path = os.path.join(
-        dataset_path,
-        'PHI-' + userid + ".csv"
-    )
+    # if the there is data
+    if len(data) > 1:
+        # save data
+        print("saving csv data...")
+        _ = save_df(
+                data,
+                userid=userid,
+                data_path=data_path,
+                date_stamp=date_stamp,
+                folder_name="csvData",
+                phi=True
+        )
 
-    data.to_csv(dataset_output_path)
+        # get dataset info
+        if expand_dataset:
+            summary_df, expanded_df = expand_data(data)
+            print("saving summary data...")
+            _ = save_df(
+                summary_df,
+                userid=userid,
+                data_path=data_path,
+                date_stamp=date_stamp,
+                folder_name="datasetSummary",
+                phi=True,
+                name_suffix="-datasetSummary"
+            )
+
+            # save expanded data
+            print("saving expanded data...")
+            _ = save_df(
+                expanded_df,
+                userid=userid,
+                data_path=args.data_path,
+                date_stamp=args.date_stamp,
+                folder_name="expandedData",
+                phi=True,
+                name_suffix="-expandedData"
+            )
+    else:
+        print("{} has no data".format(userid))
 
 
 if __name__ == "__main__":
+    # USER INPUTS (choices to be made in order to run the code)
+    codeDescription = "get donor metadata"
+    parser = argparse.ArgumentParser(description=codeDescription)
+
+    parser.add_argument(
+        "-d",
+        "--date-stamp",
+        dest="date_stamp",
+        default=dt.datetime.now().strftime("%Y-%m-%d"),
+        help="date, in '%Y-%m-%d' format, of the date when " +
+        "donors were accepted"
+    )
+
+    parser.add_argument(
+        "-w",
+        "--weeks-of-data",
+        dest="weeks_of_data",
+        default=52*10,
+        help="enter the number of weeks of data you want to download"
+    )
+
+    parser.add_argument(
+        "-dg",
+        "--donor-group",
+        dest="donor_group",
+        default=np.nan,
+        help="name of the donor group in the tidepool .env file"
+    )
+
+    parser.add_argument(
+        "-u",
+        "--userid",
+        dest="userid",
+        default=np.nan,
+        help="userid of account shared with the donor group or master account"
+    )
+
+    parser.add_argument(
+        "-a",
+        "--auth",
+        dest="auth",
+        default=np.nan,
+        help="tuple that contains (email, password)"
+    )
+
+    parser.add_argument(
+        "-e",
+        "--email",
+        dest="email",
+        default=np.nan,
+        help="email address of the master account"
+    )
+
+    parser.add_argument(
+        "-p",
+        "--password",
+        dest="password",
+        default=np.nan,
+        help="password of the master account"
+    )
+
+    parser.add_argument(
+        "-o",
+        "--output-data-path",
+        dest="data_path",
+        default=os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__), "..", "data"
+            )
+        ),
+        help="the output path where the data is stored"
+    )
+
+    parser.add_argument(
+        "-ex",
+        "--expand-dataset",
+        dest="expand_dataset",
+        default=True,
+        help=(
+            "specify if you want to get/save the expanded datafram (True/False)"
+            + "NOTE: this process is time consuming"
+        )
+    )
+
+    args = parser.parse_args()
+
+    # the main function
     get_and_save_dataset(
         date_stamp=args.date_stamp,
         data_path=args.data_path,
         weeks_of_data=args.weeks_of_data,
         donor_group=args.donor_group,
-        userid_of_shared_user=args.userid_of_shared_user,
+        userid=args.userid,
         auth=args.auth,
         email=args.email,
-        password=args.password
+        password=args.password,
+        expand_dataset=args.expand_dataset
     )
