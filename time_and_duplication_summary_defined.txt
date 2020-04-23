@@ -1,0 +1,74 @@
+﻿Time and Duplication Summary, Definition of Features:
+
+
+HashId - unique identifier for each Tidepool donor.  
+
+
+Num_Records - the total number of records (number of rows) included in the hashId
+
+
+Num_cbg_all - the total number of cbg records in the hashId
+
+
+Num_cbg_dT - the total number of cbg records in the hashId that have deviceTime (implying they were not sourced from the mobile uploader.
+
+
+Num_cbg_dups - the number of cbg duplications within the hashid based on records with equal deviceTime and cbg value.  The presence of a low number of duplicate values does not necessarily indicate a duplication issue.  There may be acceptable reasons for a low number of duplicate values.  Larger numbers merit investigation.
+
+
+cbg_dup_density - a percentage of Num_cbg_dups / Num_cbg_dT.  Attention is called to records with 5% or greater values with conditional formatting in .xls document.
+
+
+Num_basal - the number of basal records in the hashid.
+
+
+Num_basal_dups - the number of basal records with duplicate values.  Duplication is determined when multiple records show equal values in deviceTime, deliveryType, duration and rate.  In some cases, deliveryType may not be included in the hashid.  In this event, duplication is based on deviceTime and rate.  
+
+
+basal_dup_density - a percentage of Num_basal_dups / Num_basal.  Attention is called to records with 5% or greater values in the .xls document.
+
+
+Num_bolusl - the number of bolus records in the hashid.
+
+
+Num_bolus_dups - the number of basal records with duplicate values.  Duplication is determined when multiple records show equal values in deviceTime and normal.  
+
+
+bolus_dup_density - a percentage of Num_bolus_dups / Num_bolusl.  Attention is called to records with 5% or greater values in the .xls document.
+
+
+Num_smbg - the number of smbg records in the hashid.
+
+
+Num_smbg_dups - the number of smbg records with duplicate values.  Duplication is determined when multiple records show equal values in deviceTime and value.  
+smbg_dup_density - a percentage of Num_smbg_dups / Num_smbg.  Attention is called to records with 5% or greater values in the .xls document.
+
+
+time_sync_ratio_all - the percentage of records in the hashid where deviceTime and est.localTime are equal.  Records without a deviceTime are omitted.  Attention is called to records with sync ratio less than 75% in .xls document.
+
+
+time_sync_ratio_cbg - the percentage of cbg records in the hashid where deviceTime and est.localTime are equal.  Records without a deviceTime are omitted. Attention is called to records with sync ratio less than 75% in .xls document.
+
+
+time_sync_ratio_basal - the percentage of basal records in the hashid where deviceTime and est.localTime are equal.  Records without a deviceTime are omitted. Attention is called to records with sync ratio less than 75% in .xls document.
+
+
+time_sync_ratio_bolus - the percentage of bolus records in the hashid where deviceTime and est.localTime are equal.  Records without a deviceTime are omitted. Attention is called to records with sync ratio less than 75% in .xls document.
+
+
+max_timedelta - the maximum difference in hours (rounded to nearest hour) between deviceTime and est.localTime.  Records that report as NA or #Name? Indicate that there was no deviceTime available for the comparison (data was sourced from mobile upload). 
+
+
+min_timedelta - the minimum difference in hours (rounded to nearest hour) between deviceTime and est.localTime.  Records that report as NA or #Name? Indicate that there was no deviceTime available for the comparison (data was sourced from mobile upload). 
+
+
+hour12_diff - A binary flag where ‘1’ indicates that the time delta (difference between deviceTime and  est.localTime) was exactly 12 (hours) or -12 (hours) at any point within the dataset.  This could indicate an AM/PM issue.
+
+
+hour24_diff - A binary flag where ‘1’ indicates that the time delta (difference between deviceTime and  est.localTime) was exactly 24 (hours) or -24 (hours) at any point within the dataset.  This indicates that the date was off by 1 day.  This can be indicative of travel across the international dateline.
+
+
+year_diff - A binary flag where ‘1’ indicates that the time delta (difference between deviceTime and  est.localTime) was greater than or equal to +/- 1 year (+/-8760 hours) at any point within the dataset.  This could indicate user error in time setting or possible reset to factory default initial time.
+
+
+Missing Cols - a boolean value where TRUE indicates that one or more of the target fields for this analysis were missing in the dataset. The target fields include: deviceTime, deliveryType, duration, rate, normal, value, est.localTime and computerTime.
