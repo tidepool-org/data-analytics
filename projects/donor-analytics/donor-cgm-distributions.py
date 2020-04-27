@@ -133,7 +133,6 @@ def add_metadata(contiguous_df, value_counts, diff_counts, metadata):
 
 def calc_cgm_distributions(cgm_df, file_name, metadata):
 
-    print(file_name)
     contiguous_df = create_contiguous_data(cgm_df)
     value_counts = pd.DataFrame(contiguous_df["value"].value_counts()).T.reset_index(
         drop=True
@@ -191,7 +190,6 @@ if __name__ == "__main__":
 
     data_location = '/mnt/jasonmeno/donor-data-pipeline/src/PHI-2020-04-18-csvData/'
     metadata_location = '/mnt/jasonmeno/donor-data-pipeline/src/PHI-batch-metadata-2020-04-27.csv'
-
     file_list = os.listdir(data_location)
 
     # Filter only .csv files
@@ -203,7 +201,7 @@ if __name__ == "__main__":
     metadata_df = metadata_df[
         ["file_name", "birthday", "diagnosisDate", "diagnosisType", "biologicalSex"]
     ]
-    metadata_df = metadata_df[metadata_df["file_name"].isin(file_list)]
+    metadata_df = metadata_df[metadata_df["file_name"].isin(file_list)].reset_index(drop=True)
 
     start_time = time.time()
 
@@ -213,7 +211,7 @@ if __name__ == "__main__":
         pool.apply_async(
             import_and_process, args=[metadata_df.loc[file_loc], file_loc]
         )
-        for file_loc in range(len(file_list))
+        for file_loc in range(len(metadata_df))
     ]
     pool.close()
     pool.join()
@@ -261,11 +259,12 @@ if __name__ == "__main__":
     elapsed_minutes = (end_time - start_time) / 60
     elapsed_time_message = (
         "Processed "
-        + str(len(file_list))
+        + str(len(metadata_df))
         + " csv files in "
         + str(elapsed_minutes)
         + " minutes\n"
     )
+    print(elapsed_time_message)
     log_file = open("batch-donor-cgm_distributions-log.txt", "a")
     log_file.write(elapsed_time_message)
     log_file.close()
