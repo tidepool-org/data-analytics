@@ -21,6 +21,7 @@ work-record-archive
 export
 internal
 data
+.dccache
 
 # Test
 htmlcov
