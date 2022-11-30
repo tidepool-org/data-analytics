@@ -9,7 +9,6 @@ license: BSD-2-Clause
 """
 import os
 
-
 class Sections:
     G5_CGM_MANAGER = "g5_cgm_manager"
     DEX_CGM_MANAGER = "dex_cgm_manager"
@@ -48,6 +47,8 @@ class Sections:
     GET_NORMALIZED_DOSE_ENTRIES = "get_normalized_dose_entries"
     CACHED_DOSE_ENTRIES = "cached_dose_entries"
     STATUS_EXTENSION_DATA_MANAGER = "status_extension_data_manager"
+    INTEGRAL_RETROSPECTIVE_CORRECTION = "integral_retrospective_correction"
+    G4_CGM_MANAGER = "g4_cgm_manager"
 
     """ 
         #not sure this one is used
@@ -323,6 +324,18 @@ def parse_loop_report(path: str, file_name: str):
                     all_sections["g6_cgm_manager"] = g6_cgm_manager
                     new_line = False
 
+                elif line.startswith("## G4CGMManager"):
+                    g4_cgm_manager = {}
+                    current_section = "g4_cgm_manager"
+                    all_sections["g4_cgm_manager"] = g4_cgm_manager
+                    new_line = False
+
+                elif line.startswith("## IntegralRetrospectiveCorrection"):
+                    integral_retrospective_correction = {}
+                    current_section = "integral_retrospective_correction"
+                    all_sections["integral_retrospective_correction"] = integral_retrospective_correction
+                    new_line = False
+
                 elif line.startswith("## ShareClientManager"):
                     share_client_manager = {}
                     current_section = "share_client_manager"
@@ -407,6 +420,10 @@ def parse_loop_report(path: str, file_name: str):
                         and current_section == Sections.LOOP_DATA_MANAGER
                     ):
                         one = "one"
+                    elif(line.startswith("* basalProfileApplyingOverrideHistory")):
+                        dict = all_sections[current_section]
+                        dict["basalProfileApplyingOverrideHistory"] = line.replace("* basalProfileApplyingOverrideHistory", "")
+
                     elif current_section:
                         new_line = False
                         dict = all_sections[current_section]
@@ -424,6 +441,9 @@ def parse_loop_report(path: str, file_name: str):
         print(e)
 
     return all_sections
+
+
+
 
 
 def parse_key_value(all_sections, line):

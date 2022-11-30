@@ -150,6 +150,8 @@ class LoopReport:
         if Sections.DOSE_STORE in dict:
             try:
                 dose_store = dict[Sections.DOSE_STORE]
+
+
                 basal_profile = json.loads(
                     dose_store["basalProfile"]
                     .replace("[", "{")
@@ -173,7 +175,123 @@ class LoopReport:
                     ).group(1)
                 )
 
+
+                substr = dose_store["basalProfileApplyingOverrideHistory"]
+                value = "timeZone";
+                start_index = substr.index(value)
+                value_temp = substr[start_index:]
+                value_temp = value_temp.replace('"', '')
+                last_index = 0
+                if value_temp.find(",") == -1:
+                    last_index = value_temp.index("]")
+                else:
+                    last_index = value_temp.find(",")
+                loop_report_dict["basalProfileApplyingOverrideHistory_timeZone"] = value_temp[len(
+                    value) + 1:last_index]
+
+
+
+                value = "items";
+                substr = dose_store["basalProfileApplyingOverrideHistory"]
+                start_index = substr.index(value)
+                value_temp = substr[start_index:]
+                last_index = value_temp.index("]]")
+                items_val = '{"items": [' + value_temp[len(value) + 2:last_index + 2].replace(" ", "") \
+                    .replace("(", "{").replace("]", "}").replace("[", "{").replace("{{", "{").replace("}}", "}") + ']}'
+                loop_report_dict["basalProfileApplyingOverrideHistory_items"] = json.loads(items_val)[
+                    "items"]
+
+
+
             except:
+                logger.debug("handled error dose store")
+        if Sections.CARB_STORE in dict:
+            try:
+                """ 
+                ["timeZone": -25200, "items": [["startTime": 0.0, "value": 60.0], [
+                    "startTime": 23400.0, "value": 40.0], [
+                    "value": 66.66666666666667, "startTime": 28369.19808101654], [
+                    "startTime": 35569.19808101654, "value": 40.0], [
+                    "value": 80.0, "startTime": 50400.0]], "unit": "mg/dL"]
+
+                ["timeZone": -25200, "unit": "mg/dL",
+                "items": [["startTime": 0.0, "value": 45.0], ["value": 45.0, "startTime": 16200.0], [
+                    "startTime": 32400.0, "value": 55.0]]]
+                """
+
+                carb_store = dict[Sections.CARB_STORE]
+                ###insulinSensitivityScheduleApplyingOverrideHistory###
+                substr = carb_store["insulinSensitivityScheduleApplyingOverrideHistory"]
+                value = "timeZone";
+                start_index = substr.index(value)
+                value_temp = substr[start_index:]
+                value_temp = value_temp.replace('"', '')
+                last_index = 0
+                if value_temp.find(",") == -1:
+                    last_index = value_temp.index("]")
+                else:
+                    last_index = value_temp.find(",")
+
+                loop_report_dict["insulinSensitivityScheduleApplyingOverrideHistory_timeZone"] = value_temp[len(value) + 1:last_index]
+
+                value = "unit";
+                substr = carb_store["insulinSensitivityScheduleApplyingOverrideHistory"]
+                start_index = substr.index(value)
+                value_temp = substr[start_index:]
+                value_temp = value_temp.replace('"', '')
+                last_index = value_temp.index("]")
+                if last_index > 12:
+                    last_index = value_temp.index(",")
+                loop_report_dict["insulinSensitivityScheduleApplyingOverrideHistory_units"] = value_temp[len(value) + 1:last_index]
+
+                value = "items";
+                start_index = substr.index(value)
+                value_temp = substr[start_index:]
+                last_index = value_temp.index("]]")
+                items_val = '{"items": [' + value_temp[len(value) + 2:last_index+2].replace(" ", "")\
+                    .replace("(", "{").replace("]", "}").replace("[", "{").replace("{{", "{").replace("}}", "}") + ']}'
+                loop_report_dict["insulinSensitivityScheduleApplyingOverrideHistory_items"] =json.loads(items_val)["items"]
+
+
+                ####carbRatioScheduleApplyingOverrideHistory###
+                substr = carb_store["carbRatioScheduleApplyingOverrideHistory"]
+                value = "timeZone";
+                start_index = substr.index(value)
+                value_temp = substr[start_index:]
+                value_temp = value_temp.replace('"', '')
+                last_index = 0
+                if value_temp.find(",") == -1:
+                    last_index = value_temp.index("]")
+                else:
+                    last_index = value_temp.find(",")
+
+                loop_report_dict["carbRatioScheduleApplyingOverrideHistory_timeZone"] = value_temp[len(
+                    value) + 1:last_index]
+
+                value = "unit";
+                substr = carb_store["carbRatioScheduleApplyingOverrideHistory"]
+                start_index = substr.index(value)
+                value_temp = substr[start_index:]
+                value_temp = value_temp.replace('"', '')
+                last_index = value_temp.index("]")
+                if last_index > 12:
+                    last_index = value_temp.index(",")
+                loop_report_dict["carbRatioScheduleApplyingOverrideHistory_units"] = value_temp[len(value) + 1:last_index]
+
+                value = "items";
+                substr = carb_store["carbRatioScheduleApplyingOverrideHistory"]
+                start_index = substr.index(value)
+                value_temp = substr[start_index:]
+                last_index = value_temp.index("]]")
+                items_val = '{"items": [' + value_temp[len(value) + 2:last_index + 2].replace(" ", "") \
+                    .replace("(", "{").replace("]", "}").replace("[", "{").replace("{{", "{").replace("}}", "}") + ']}'
+                loop_report_dict["carbRatioScheduleApplyingOverrideHistory_items"] = json.loads(items_val)[
+                    "items"]
+
+
+
+            except Exception as error:
+
                 logger.debug("handled error dose store")
 
         minimed_pump_manager = None
@@ -411,12 +529,30 @@ class LoopReport:
                     if temp:
                         loop_report_dict["retrospective_correction_enabled"] = temp.group(1)
 
-                    loop_report_dict["suspend_threshold"] = float(
-                        re.search(
-                            r"Loop.GlucoseThreshold\(value: (.+?), unit",
-                            loop_data_manager["settings"],
-                        ).group(1)
-                    )
+                    try:
+                        loop_report_dict["suspend_threshold"] = float(
+                            re.search(
+                                r"Loop.GlucoseThreshold\(value: (.+?), unit",
+                                loop_data_manager["settings"],
+                            ).group(1)
+
+                        )
+                    except Exception as e:
+                        logger.debug("handled error LOOP_DATA_MANAGER - suspend_threshold_unit - Loop.GlucoseThreshold miss")
+                        logger.debug(e)
+
+                    try:
+
+                        if  "suspend_threshold" not in loop_report_dict or loop_report_dict["suspend_threshold"] is None or loop_report_dict["suspend_threshold"] == "":
+                            loop_report_dict["suspend_threshold"] = float(
+                                re.search(
+                                    r"LoopCore.GlucoseThreshold\(value: (.+?), unit",
+                                    loop_data_manager["settings"],
+                                ).group(1)
+                            )
+                    except Exception as e:
+                        logger.debug("handled error LOOP_DATA_MANAGER - suspend_threshold_unit -  LoopCore.GlucoseThreshold miss")
+                        logger.debug(e)
                 except Exception as e:
                     logger.debug("handled error LOOP_DATA_MANAGER - retrospective_correction_enabled")
                     logger.debug(e)
@@ -517,6 +653,27 @@ class LoopReport:
                 except Exception as e:
                     logger.debug("preMeal is not in loop data")
                     logger.debug(e)
+
+
+                try:
+                    unit = substr.index("unit")
+
+                    start_index = unit + 8
+                    end_index = start_index
+                    check = ""
+
+                    while check != '"':
+                        end_index += 1
+                        check = substr[end_index]
+
+                    override_units = substr[start_index : end_index]
+
+                    loop_report_dict["override_units"] = override_units
+
+                except Exception as e:
+                    logger.debug("override_units is not in loop data")
+                    logger.debug(e)
+
 
             except Exception as e:
                 logger.debug("handled error loop data manager")
@@ -1337,6 +1494,75 @@ class LoopReport:
             except Exception as e:
                 logger.debug("handled error CACHED_GLUCOSE_SAMPLES")
                 logger.debug(e)
+
+        if Sections.G4_CGM_MANAGER in dict:
+            try:
+                temp_dict = dict[Sections.G4_CGM_MANAGER]
+                dictionary_complete = {}
+                if "receiver" in temp_dict:
+                    dictionary_complete["receiver"] = temp_dict["receiver"]
+
+                if "providesBLEHeartbeat" in temp_dict:
+                    dictionary_complete["providesBLEHeartbeat"] = temp_dict["providesBLEHeartbeat"]
+
+                if "latestBackfill" in temp_dict:
+                    dictionary_complete["latestBackfill"] = temp_dict["latestBackfill"]
+
+                latestReading_dict = temp_dict["latestReading"]
+                latestReading_dict = latestReading_dict.replace(
+                    "Optional(G4ShareSpy.GlucoseG4(",
+                    "",
+                )
+                latestReading_dict = latestReading_dict.replace("))", "")
+                split_list = latestReading_dict.split(",")
+                dictionary = {}
+                latestReading = {}
+                for item in split_list:
+                    item = item.replace(")", "")
+                    keyvalue = item.split(":")
+                    m = keyvalue[0].strip("'")
+                    m = m.replace('"', "").strip()
+                    dictionary[m] = keyvalue[1].strip("\"'")
+
+                if "sequence" in dictionary:
+                    latestReading["sequence"] = dictionary["sequence"]
+
+                if "glucose" in dictionary:
+                    latestReading["glucose"] = dictionary["glucose"]
+
+                if "isDisplayOnly" in dictionary:
+                    latestReading["isDisplayOnly"] = dictionary["isDisplayOnly"]
+
+                if "trend" in dictionary:
+                    latestReading["trend"] = dictionary["trend"]
+
+                if "time" in dictionary:
+                    latestReading["time"] = dictionary["time"]
+
+                if "wallTime" in dictionary:
+                    latestReading["wallTime"] = dictionary["wallTime"]
+
+                if "systemTime" in dictionary:
+                    latestReading["systemTime"] = dictionary["systemTime"]
+
+                dictionary_complete["latestReading"] = latestReading
+
+                loop_report_dict["g4_cgm_manager"] = dictionary_complete
+
+            except Exception as e:
+                logger.debug("handled error G4_CGM_MANAGER")
+                logger.debug(e)
+
+        if Sections.INTEGRAL_RETROSPECTIVE_CORRECTION in dict:
+            try:
+                local_list = dict[Sections.INTEGRAL_RETROSPECTIVE_CORRECTION]
+                loop_report_dict["integral_retrospective_correction"] = local_list
+            except Exception as e:
+                logger.debug("handled error G4_CGM_MANAGER")
+                logger.debug(e)
+
+
+
 
         return loop_report_dict
 
