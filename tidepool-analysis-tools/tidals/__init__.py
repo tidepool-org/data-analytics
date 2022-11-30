@@ -8,5 +8,5 @@ author: Ed Nykaza
 license: BSD-2-Clause
 """
 
-from .clean import clean
-from .load import load
+from tidals.clean.clean import *
+from tidals.load.load import *

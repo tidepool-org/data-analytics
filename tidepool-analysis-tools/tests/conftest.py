@@ -1,5 +1,7 @@
 import pytest
 import pandas as pd
+import os
+from distutils import dir_util
 
 
 @pytest.fixture()
@@ -9,8 +11,13 @@ def valid_df():
      ["hqoh", "AB9953", "response1", "response2", "Sun Nov 19 23:29:59 2018", pd.to_datetime("2018-11-19 23:30:00")],
      ["hhawe", "AB8769", "response1", "response2", "Sun Nov 19 23:20:01 2018", pd.to_datetime("2018-11-19 23:20:00")]]
 
-    valid_df = pd.DataFrame(check_data, columns=['userID', 'studyID', "getData.response1", "getData.response2", "time", "roundedTime"])
-
-    return valid_df
+    return pd.DataFrame(check_data, columns=['userID', 'studyID', "getData.response1", "getData.response2", "time", "roundedTime"])
 
 
+@pytest.fixture()
+def current_path_load():
+    return os.path.dirname(os.path.realpath(__file__)) + "/load"
+
+@pytest.fixture()
+def current_path_clean():
+    return os.path.dirname(os.path.realpath(__file__)) + "/clean"
