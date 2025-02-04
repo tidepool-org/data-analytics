@@ -311,6 +311,10 @@ def removeInvalidCgmValues(df):
 
 def tslimCalibrationFix(df):
     searchfor = ['tan']
+
+    if "deviceId" not in df.columns:  # CAS Jan 4, 2025: tmp fix, needs refactor
+        return df, 0
+
     tandemDataIndex = ((df.deviceId.str.contains('|'.join(searchfor))) &
                        (df.type == "deviceEvent"))
 
@@ -699,12 +703,8 @@ def full_anon_pipeline_2025(data, metadata_df, qual_months, userID, export_dirpa
     # remove cgm values <38 & >402 mg/dL
     data, numberOfInvalidCgmValues = removeInvalidCgmValues(data)
 
-    # Tslim calibration bug fix
-    try:
-        data, numberOfTandemAndPayloadCalReadings = tslimCalibrationFix(data)
-        print("Calibration fix done, took", round(time.time() - startTime, 1), "seconds")
-    except Exception as e:
-        print("T-Slim Calibration Fix Error")
+    data, numberOfTandemAndPayloadCalReadings = tslimCalibrationFix(data)
+    print("Calibration fix done, took", round(time.time() - startTime, 1), "seconds")
 
     # %% ANONYMIZE DATA
     print("Anonymizing data...")
