@@ -18,10 +18,14 @@ import requests
 import json
 import pdb
 import argparse
+
+import get_donor_data.tidepool_api_bigdata as tpapi
+
 envPath = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if envPath not in sys.path:
     sys.path.insert(0, envPath)
 import environmentalVariables
+
 
 
 # %% USER INPUTS (choices to be made in order to run the code)
@@ -104,58 +108,23 @@ def make_folder_if_doesnt_exist(folder_paths):
 
 
 def get_shared_metadata(
-    donor_group=np.nan,
+    donor_group="",
     userid_of_shared_user=np.nan,
-    auth=np.nan,
-    email=np.nan,
-    password=np.nan,
 ):
-    # login
-    if pd.notnull(donor_group):
-        if donor_group == "bigdata":
-            dg = ""
-        else:
-            dg = donor_group
 
-        auth = environmentalVariables.get_environmental_variables(dg)
+    print("\tGetting user metadata..")
+    auth = environmentalVariables.get_environmental_variables(donor_group)
 
-    if pd.isnull(auth):
-        if pd.isnull(email):
-            email = input("Enter Tidepool email address:\n")
+    metadata_api_call = f"https://api.tidepool.org/metadata/{userid_of_shared_user}/profile"
 
-        if pd.isnull(password):
-            password = getpass.getpass("Enter password:\n")
+    username, password = auth
+    access_token = tpapi.retrieve_existing_token(username=username, password=password)
 
-        auth = (email, password)
-
-    api_call = "https://api.tidepool.org/auth/login"
-    api_response = requests.post(api_call, auth=auth)
-    if(api_response.ok):
-        xtoken = api_response.headers["x-tidepool-session-token"]
-        userid_master = json.loads(api_response.content.decode())["userid"]
-        headers = {
-            "x-tidepool-session-token": xtoken,
-            "Content-Type": "application/json"
-        }
-    else:
-        sys.exit("Error with " + auth[0] + ":" + str(api_response.status_code))
-
-    if pd.isnull(userid_of_shared_user):
-        userid_of_shared_user = userid_master
-        print(
-            "getting metadata for the master account since no shared " +
-            "user account was given"
-        )
-
-    print("logging into", auth[0], "...")
-
-    # get shared or donro metadata
-    print("get donor metadata for %s ..." % userid_of_shared_user)
-    api_call = (
-        "https://api.tidepool.org/metadata/%s/profile"
-        % userid_of_shared_user
-    )
-    api_response = requests.get(api_call, headers=headers)
+    headers = {
+        "x-tidepool-session-token": access_token,
+        "Content-Type": "application/json"
+    }
+    api_response = requests.get(metadata_api_call, headers=headers)
     df = pd.DataFrame(
         dtype=object,
         columns=[
@@ -179,25 +148,13 @@ def get_shared_metadata(
             ):
                 df.at[userid_of_shared_user, k] = d
     else:
-        sys.exit(
-            "Error getting metadata API " +
-            str(api_response.status_code)
-        )
+        sys.exit(f"Error getting metadata API {str(api_response.status_code)}")
 
-    # logout
-    api_call = "https://api.tidepool.org/auth/logout"
-    api_response = requests.post(api_call, auth=auth)
+    tpapi.logout(username, password)
 
-    if(api_response.ok):
-        print("successfully logged out of", auth[0])
-
-    else:
-        sys.exit(
-            "Error with logging out for " +
-            auth[0] + ":" + str(api_response.status_code)
-        )
     df.index.rename("userid", inplace=True)
 
+    print("\tFinished getting user metadata.")
     return df, userid_of_shared_user
 
 

@@ -2,7 +2,7 @@
 Python code for anonymizing and exporting donated diabetes data
 
 There is one main function:
-* [anonymize-and-export.py](./anonymize-and-export.py)
+* [anonymize-and-export.py](./anonymize_and_export.py)
 
 ## Process Pseudocode
 

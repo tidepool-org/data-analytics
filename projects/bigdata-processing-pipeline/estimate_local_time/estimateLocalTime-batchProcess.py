@@ -6,7 +6,7 @@ version: 0.0.1
 created: 2018-10-23
 author: Ed Nykaza
 dependencies:
-    * estimate-local-time.py
+    * estimate_local_time.py
 license: BSD-2-Clause
 """
 
@@ -32,7 +32,7 @@ print("starting at " + dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 
 # %% USER INPUTS
-codeDescription = "A batch processing or wrapper script to run the estimate-local-time.py"
+codeDescription = "A batch processing or wrapper script to run the estimate_local_time.py"
 parser = argparse.ArgumentParser(description=codeDescription)
 
 parser.add_argument("-d",
@@ -96,7 +96,7 @@ def run_estimate_local_time(dIndex):
             print("starting with index=" + str(dIndex),
                   "file size is: " + str(round(fileSize/1E6, 1)) + "MB")
             # local time estimate
-            p = sub.Popen(["python", "estimate-local-time.py",
+            p = sub.Popen(["python", "estimate_local_time.py",
                            "-i", jsonFileName,
                            "-o", localTimeEstimateDataPath,
                            "--day-series-output-path", localTimeEstimateDaySeriesPath,

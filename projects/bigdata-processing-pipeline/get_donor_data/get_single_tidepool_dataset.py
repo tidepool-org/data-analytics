@@ -23,6 +23,8 @@ if envPath not in sys.path:
     sys.path.insert(0, envPath)
 import environmentalVariables
 
+import get_donor_data.tidepool_api_bigdata as tpapi
+
 
 # %% USER INPUTS (choices to be made in order to run the code)
 codeDescription = "get donor metadata"
@@ -41,6 +43,7 @@ parser.add_argument(
     "-w",
     "--weeks-of-data",
     dest="weeks_of_data",
+    type=int,
     default=52*10,
     help="enter the number of weeks of data you want to download"
 )
@@ -116,7 +119,9 @@ def get_data_api(userid, startDate, endDate, headers):
     startDate = startDate.strftime("%Y-%m-%d") + "T00:00:00.000Z"
     endDate = endDate.strftime("%Y-%m-%d") + "T23:59:59.999Z"
 
-    api_call = (
+    print(f"Downloading data between {startDate} and {endDate}")
+
+    device_data_api_call = (
         "https://api.tidepool.org/data/" + userid + "?" +
         "endDate=" + endDate + "&" +
         "startDate=" + startDate + "&" +
@@ -125,17 +130,12 @@ def get_data_api(userid, startDate, endDate, headers):
         "carelink=true"
     )
 
-    api_response = requests.get(api_call, headers=headers)
-    if(api_response.ok):
-        json_data = json.loads(api_response.content.decode())
+    device_data_api_response = requests.get(device_data_api_call, headers=headers)
+    if(device_data_api_response.ok):
+        json_data = json.loads(device_data_api_response.content.decode())
         df = pd.DataFrame(json_data)
-        print("getting data between %s and %s" % (startDate, endDate))
-
     else:
-        sys.exit(
-            "ERROR in getting data between %s and %s" % (startDate, endDate),
-            api_response.status_code
-        )
+        sys.exit(f"ERROR in getting data between {startDate} and {endDate}. {device_data_api_response.status_code}")
 
     endDate = pd.to_datetime(startDate) - pd.Timedelta(1, unit="d")
 
@@ -144,103 +144,33 @@ def get_data_api(userid, startDate, endDate, headers):
 
 def get_data(
     weeks_of_data=10*52,
-    donor_group=np.nan,
+    donor_group="",
     userid_of_shared_user=np.nan,
-    auth=np.nan,
-    email=np.nan,
-    password=np.nan,
 ):
-    # login
-    if pd.notnull(donor_group):
-        if donor_group == "bigdata":
-            dg = ""
-        else:
-            dg = donor_group
 
-        auth = environmentalVariables.get_environmental_variables(dg)
+    print("\tGetting user data...")
+    auth = environmentalVariables.get_environmental_variables(donor_group)
 
-    if pd.isnull(auth):
-        if pd.isnull(email):
-            email = input("Enter Tidepool email address:\n")
+    username, password = auth
+    access_token = tpapi.retrieve_existing_token(username=username, password=password)
+    headers = {
+        "x-tidepool-session-token": access_token,
+        "Content-Type": "application/json"
+    }
 
-        if pd.isnull(password):
-            password = getpass.getpass("Enter password:\n")
+    endDate = pd.to_datetime("now") + pd.Timedelta(1, unit="d")
+    startDate = pd.to_datetime(endDate) - pd.Timedelta(weeks_of_data*7, "d")
 
-        auth = (email, password)
-
-    api_call = "https://api.tidepool.org/auth/login"
-    api_response = requests.post(api_call, auth=auth)
-    if(api_response.ok):
-        xtoken = api_response.headers["x-tidepool-session-token"]
-        userid_master = json.loads(api_response.content.decode())["userid"]
-        headers = {
-            "x-tidepool-session-token": xtoken,
-            "Content-Type": "application/json"
-        }
-    else:
-        sys.exit("Error with " + auth[0] + ":" + str(api_response.status_code))
-
-    if pd.isnull(userid_of_shared_user):
-        userid_of_shared_user = userid_master
-        print(
-            "getting data for the master account since no shared " +
-            "user account was given"
+    df, _ = get_data_api(
+        userid_of_shared_user,
+        startDate,
+        endDate,
+        headers
         )
 
-    print("logging into", auth[0], "...")
+    tpapi.logout(username, password)
 
-    # download user data
-    print("downloading data ...")
-    df = pd.DataFrame()
-    endDate = pd.datetime.now() + pd.Timedelta(1, unit="d")
-
-    if weeks_of_data > 52:
-        years_of_data = int(np.floor(weeks_of_data/52))
-
-        for years in range(0, years_of_data + 1):
-            startDate = pd.datetime(
-                endDate.year - 1,
-                endDate.month,
-                endDate.day + 1
-            )
-            year_df, endDate = get_data_api(
-                userid_of_shared_user,
-                startDate,
-                endDate,
-                headers
-            )
-
-            df = pd.concat(
-                [df, year_df],
-                ignore_index=True,
-                sort=False
-            )
-
-    else:
-        startDate = (
-            pd.to_datetime(endDate) - pd.Timedelta(weeks_of_data*7, "d")
-        )
-
-        df, _ = get_data_api(
-            userid_of_shared_user,
-            startDate,
-            endDate,
-            headers
-            )
-
-    # logout
-    api_call = "https://api.tidepool.org/auth/logout"
-    api_response = requests.post(api_call, auth=auth)
-
-    if(api_response.ok):
-        print("successfully logged out of", auth[0])
-
-    else:
-        sys.exit(
-            "Error with logging out for " +
-            auth[0] + ":" + str(api_response.status_code)
-        )
-
+    print("\tFinished getting user data.")
     return df, userid_of_shared_user
 
 
@@ -256,31 +186,17 @@ def get_and_save_dataset(
     password=args.password
 ):
     # create output folders if they don't exist
-
     phi_date_stamp = "PHI-" + date_stamp
-    donor_folder = os.path.join(data_path, phi_date_stamp + "-donor-data")
+    donor_folder = os.path.join(data_path,  f"{phi_date_stamp}-donor-data")
 
-    dataset_path = os.path.join(
-        donor_folder,
-        phi_date_stamp + "-csvData"
-    )
+    dataset_path = os.path.join(donor_folder, f"{phi_date_stamp}-csvData")
     make_folder_if_doesnt_exist(dataset_path)
 
     # get dataset
-    data, userid = get_data(
-        weeks_of_data=weeks_of_data,
-        donor_group=donor_group,
-        userid_of_shared_user=userid_of_shared_user,
-        auth=auth,
-        email=email,
-        password=password
-    )
+    data, userid = get_data(weeks_of_data, donor_group, userid_of_shared_user)
 
     # save data
-    dataset_output_path = os.path.join(
-        dataset_path,
-        'PHI-' + userid + ".csv"
-    )
+    dataset_output_path = os.path.join(dataset_path, f"PHI-{userid}.csv")
 
     data.to_csv(dataset_output_path)
 

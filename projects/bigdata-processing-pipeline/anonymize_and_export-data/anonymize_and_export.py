@@ -10,6 +10,7 @@ dependencies:
     * requires Tidepool data (e.g., PHI-jill-jellyfish.json in example-data folder)
 license: BSD-2-Clause
 """
+import json
 
 # %% REQUIRED LIBRARIES
 import pandas as pd
@@ -362,7 +363,7 @@ def hashScheduleNames(df, salt, userID):
                 # loop through each key and replace with hashed version
                 for scheduleNameKey in scheduleNameKeys:
                     hashedScheduleName = \
-                    hashlib.sha256((scheduleNameKey + args.salt + userID).
+                    hashlib.sha256((scheduleNameKey + salt + userID).
                                encode()).hexdigest()[0:8]
                     scheduleNameDataFrame[scheduleName][scheduleNameRow][hashedScheduleName] = \
                         scheduleNameDataFrame[scheduleName][scheduleNameRow].pop(scheduleNameKey)
@@ -668,72 +669,138 @@ def exportData(df, fileName, fileType, exportDirectory, mergeCalculatorData):
     return
 
 
-# %% LOAD DATA
-startTime = time.time()
-print("loading data...", end="")
-# check input file and load data. File must be bigger than 2 bytes,
-# and in either json, xlsx, or csv format
-data, userID = checkInputFile(args.inputFilePathAndName)
-print("done, took", round(time.time() - startTime, 1), "seconds")
+def full_anon_pipeline_2025(data, metadata_df, qual_months, userID, export_dirpath):
 
+    print(f"Num data records {len(data)}")
 
-# %% FILTER DATA
-startTime = time.time()
-print("filtering data...", end="")
-# check export/approved data field list
-outputFields, anonymizeFields = checkDataFieldList(args.dataFieldExportList)
+    # Secret salt
+    hash_salt = os.environ.get("HASH_SALT")
+    if hash_salt is None:
+        raise Exception("No hash salt provided in env vars.")
 
-# remove data between start and end dates
-if args.filterByDatesExceptUploadsAndSettings:
-    data = filterByDatesExceptUploadsAndSettings(data,
-                                                 args.startDate,
-                                                 args.endDate)
-else:
-    data = filterByDates(data, args.startDate, args.endDate)
+    # %% FILTER DATA
+    print("Filtering data...")
+    # check export/approved data field list
 
-# only keep the data fields that are approved
-data = filterByApprovedDataFields(data, outputFields)
-print("done, took", round(time.time() - startTime, 1), "seconds")
+    data_field_export_list_path = os.path.abspath(
+                            os.path.join(
+                            os.path.dirname(__file__),
+                            "example-data",
+                            "dataFieldExportList.csv"))
+    outputFields, anonymizeFields = checkDataFieldList(data_field_export_list_path)
 
+    data = filterByApprovedDataFields(data, outputFields)
 
-# %% CLEAN DATA
-startTime = time.time()
-print("cleaning data...", end="")
-# remove negative durations
-data = removeNegativeDurations(data)
-
-# get rid of cgm values too low/high (< 38 & > 402 mg/dL)
-data, numberOfInvalidCgmValues = removeInvalidCgmValues(data)
-
-# Tslim calibration bug fix
-data, numberOfTandemAndPayloadCalReadings = tslimCalibrationFix(data)
-print("done, took", round(time.time() - startTime, 1), "seconds")
-
-
-# %% ANONYMIZE DATA
-
-if "t" in args.anonymize.lower():
+    # %% CLEAN DATA
     startTime = time.time()
-    print("anonymzing data...", end="")
-    # remove manufacturer from annotations.code
+    print("Cleaning data...")
+    data = removeNegativeDurations(data)
+
+    # remove cgm values <38 & >402 mg/dL
+    data, numberOfInvalidCgmValues = removeInvalidCgmValues(data)
+
+    # Tslim calibration bug fix
+    try:
+        data, numberOfTandemAndPayloadCalReadings = tslimCalibrationFix(data)
+        print("Calibration fix done, took", round(time.time() - startTime, 1), "seconds")
+    except Exception as e:
+        print("T-Slim Calibration Fix Error")
+
+    # %% ANONYMIZE DATA
+    print("Anonymizing data...")
     data = removeManufacturersFromAnnotationsCode(data)
 
     # hash the required data fields
-    data = anonymizeData(data, anonymizeFields, args.salt, userID)
-    hashID = hashUserId(userID, args.salt)
+    data = anonymizeData(data, anonymizeFields, hash_salt, userID)
+    hashID = hashUserId(userID, hash_salt)
+
+    # %% EXPORT DATA
+    if not os.path.exists(export_dirpath):
+        os.mkdir(export_dirpath)
+
+    print("Exporting data...")
+    exportData(data, hashID, ["csv"], export_dirpath, mergeCalculatorData=True)
+
+    # Save metadata with same hash id for later global metadata file generation
+    meta_output_path = os.path.join(export_dirpath, f"{hashID}_metadata.csv")
+    metadata_df.reset_index(drop=True, inplace=True)  # remove userid index, hashed filenames link metadata and data
+    metadata_df.to_csv(meta_output_path)
+    print(f"Exporting metadata to {meta_output_path}")
+
+    # Save months that qualify under definitions
+    qualifying_months_path = os.path.join(export_dirpath, f"{hashID}_qualifying_months.json")
+    with open(qualifying_months_path, "w") as json_file:
+        json.dump(qual_months, json_file)
+        print(f"Exporting qualified months to {qualifying_months_path}")
+
+
+if __name__ == "__main__":
+    # %% LOAD DATA
+    startTime = time.time()
+    print("loading data...", end="")
+    # check input file and load data. File must be bigger than 2 bytes,
+    # and in either json, xlsx, or csv format
+    data, userID = checkInputFile(args.inputFilePathAndName)
     print("done, took", round(time.time() - startTime, 1), "seconds")
-else:
-    print("skipping anonymization")
 
-# %% EXPORT DATA
-# if a hashID is defined, then use the hashID, if not use the PHI userID
-startTime = time.time()
-print("exporting data...", end="")
-if 'hashID' in locals():
-    outputName = hashID
-else:
-    outputName = "PHI-" + userID
 
-exportData(data, outputName, args.exportFormat,
-           args.exportPath, "t" in args.mergeWizardDataWithBolusData.lower())
-print("done, took", round(time.time() - startTime, 1), "seconds")
+    # %% FILTER DATA
+    startTime = time.time()
+    print("filtering data...", end="")
+    # check export/approved data field list
+    outputFields, anonymizeFields = checkDataFieldList(args.dataFieldExportList)
+
+    # remove data between start and end dates
+    if args.filterByDatesExceptUploadsAndSettings:
+        data = filterByDatesExceptUploadsAndSettings(data,
+                                                     args.startDate,
+                                                     args.endDate)
+    else:
+        data = filterByDates(data, args.startDate, args.endDate)
+
+    # only keep the data fields that are approved
+    data = filterByApprovedDataFields(data, outputFields)
+    print("done, took", round(time.time() - startTime, 1), "seconds")
+
+
+    # %% CLEAN DATA
+    startTime = time.time()
+    print("cleaning data...", end="")
+    # remove negative durations
+    data = removeNegativeDurations(data)
+
+    # get rid of cgm values too low/high (< 38 & > 402 mg/dL)
+    data, numberOfInvalidCgmValues = removeInvalidCgmValues(data)
+
+    # Tslim calibration bug fix
+    data, numberOfTandemAndPayloadCalReadings = tslimCalibrationFix(data)
+    print("done, took", round(time.time() - startTime, 1), "seconds")
+
+
+    # %% ANONYMIZE DATA
+
+    if "t" in args.anonymize.lower():
+        startTime = time.time()
+        print("anonymzing data...", end="")
+        # remove manufacturer from annotations.code
+        data = removeManufacturersFromAnnotationsCode(data)
+
+        # hash the required data fields
+        data = anonymizeData(data, anonymizeFields, args.salt, userID)
+        hashID = hashUserId(userID, args.salt)
+        print("done, took", round(time.time() - startTime, 1), "seconds")
+    else:
+        print("skipping anonymization")
+
+    # %% EXPORT DATA
+    # if a hashID is defined, then use the hashID, if not use the PHI userID
+    startTime = time.time()
+    print("exporting data...", end="")
+    if 'hashID' in locals():
+        outputName = hashID
+    else:
+        outputName = "PHI-" + userID
+
+    exportData(data, outputName, args.exportFormat,
+               args.exportPath, "t" in args.mergeWizardDataWithBolusData.lower())
+    print("done, took", round(time.time() - startTime, 1), "seconds")

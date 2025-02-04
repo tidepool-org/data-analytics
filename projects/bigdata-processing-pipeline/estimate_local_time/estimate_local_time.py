@@ -139,19 +139,24 @@ def createContiguousDaySeries(df):
 
 
 def getAndPreprocessUploadRecords(df):
-    # first make sure deviceTag is in string format
-    df["deviceTags"] = df.deviceTags.astype(str)
     # filter by type upload
     ud = df[df.type == "upload"].copy()
+
+    if len(ud) == 0:
+        return ud
+
+    # first make sure deviceTag is in string format
+    df["deviceTags"] = df.deviceTags.astype(str)
+
     # define a device type (e.g., pump, cgm, or healthkit)
     ud["deviceType"] = np.nan
-    ud.loc[ud.deviceTags.str.contains("pump"), ["deviceType"]] = "pump"
+    ud.loc[ud.deviceTags.str.contains("pump", na=False), ["deviceType"]] = "pump"
 
     # this is for non-healthkit cgm records only
-    ud.loc[((ud.deviceTags.str.contains("cgm")) &
+    ud.loc[((ud.deviceTags.str.contains("cgm", na=False)) &
             (ud.timeProcessing != "none")), ["deviceType"]] = "cgm"
 
-    ud.loc[((ud.deviceTags.str.contains("cgm")) &
+    ud.loc[((ud.deviceTags.str.contains("cgm", na=False)) &
             (ud.timeProcessing == "none")), ["deviceType"]] = "healthkit"
 
     return ud
@@ -821,8 +826,9 @@ def correctEstimatesAroundDst(df, cDF):
                 tz = timezone(df.loc[dIdx, "est.timezone"])
                 tzRange = getRangeOfTZOsForTimezone(str(tz))
                 minHoursToLocal = min(tzRange)/60
-                tzoNum = int(tz.localize(df.loc[dIdx, "utcTime"] +
-                             timedelta(hours=minHoursToLocal)).strftime("%z"))
+
+                # CAS Feb 4 2025 - Fix date handling - errors due to unfrozen packages in environment.yml
+                tzoNum = int((df.loc[dIdx, "utcTime"] + timedelta(hours=minHoursToLocal)).replace(tzinfo=tz).strftime("%z"))
                 tzoHours = np.floor(tzoNum / 100)
                 tzoMinutes = round((tzoNum / 100 - tzoHours) * 100, 0)
                 tzoSign = np.sign(tzoHours)
@@ -844,105 +850,210 @@ def applyLocalTimeEstimates(df, cDF):
     return df
 
 
-# %% CHECK INPUTS AND OUTPUTS
-# check inputs and load data. File must be bigger than 1 KB,
-# and in either json, xlsx, or csv format
-data, fileName = checkInputFile(args.inputFilePathAndName)
+def run_estimate_local_time(data):
+    # %% CHECK INPUTS AND OUTPUTS
+    # check inputs and load data. File must be bigger than 1 KB,
+    # and in either json, xlsx, or csv format
+    # data, fileName = checkInputFile(input_csv_path)
 
-if os.path.isfile(args.timezoneAliasesFilePathAndName):
-    timezoneAliases = pd.read_csv(args.timezoneAliasesFilePathAndName,
-                                  low_memory=False)
-else:
-    sys.exit("{0} is not a valid file".format(
-            args.timezoneAliasesFilePathAndName))
+    if os.path.isfile(args.timezoneAliasesFilePathAndName):
+        timezoneAliases = pd.read_csv(args.timezoneAliasesFilePathAndName,
+                                      low_memory=False)
+    else:
+        sys.exit("{0} is not a valid file".format(
+                args.timezoneAliasesFilePathAndName))
 
-if not os.path.isdir(args.outputPath):
-    os.makedirs(args.outputPath)
+    if not os.path.isdir(args.outputPath):
+        os.makedirs(args.outputPath)
 
-if pd.notnull(args.daySeriesOutputPath):
-    if not os.path.isdir(args.daySeriesOutputPath):
-        os.makedirs(args.daySeriesOutputPath)
+    if pd.notnull(args.daySeriesOutputPath):
+        if not os.path.isdir(args.daySeriesOutputPath):
+            os.makedirs(args.daySeriesOutputPath)
+
+    # %% PREPROCESS DATA: FILTER, CLEAN, & CORRECT DATA
+
+    # get rid of data that does not have a UTC time
+    data = data[data.time.notnull()]
+
+    # get rid of data that does not fall within a valid date range
+    data = filterByDates(data, args.startDate, args.endDate)
+
+    # convert deprecated timezones to their aliases
+    data = convertDeprecatedTimezoneToAlias(data, timezoneAliases)
+
+    # apply the large timezone offset correction (AKA Darin's fix)
+    data = largeTimezoneOffsetCorrection(data)
+
+    # %% PREPROCESS DATA: CREATE "DAY" SERIES (cDays)
+    # create a continguous-day-series that spans the data date-range
+    data["utcTime"] = pd.to_datetime(data.time, format="mixed")
+    data["date"] = data["utcTime"].dt.date
+    contiguousDays = createContiguousDaySeries(data)
+
+    # create day series for pump, and non-healthkit cgm upload records
+    uploadData = getAndPreprocessUploadRecords(data)
+    cDays = addDeviceDaySeries(uploadData, contiguousDays, "upload")
+
+    # create day series for cgm data
+    cgmData = getAndPreprocessNonDexApiCgmRecords(data)
+    cDays = addDeviceDaySeries(cgmData, cDays, "cgm")
+
+    # create day series for pump data
+    pumpData = data[(data.type == "bolus") & (data.timezoneOffset.notnull())]
+    cDays = addDeviceDaySeries(pumpData, cDays, "pump")
+
+    # interpolate between upload records of the same deviceType, and create a
+    # day series for interpolated pump, non-hk-cgm, and healthkit uploads
+    for deviceType in ["pump", "cgm", "healthkit"]:
+        if "deviceType" in uploadData.columns:
+            tempUploadData = uploadData[uploadData.deviceType == deviceType]
+        else:
+            tempUploadData = pd.DataFrame()
+        cDays = imputeUploadRecords(tempUploadData, cDays,
+                                    deviceType + ".upload.imputed")
+
+    # add a home timezone that also accounts for daylight savings time changes
+    cDays = addHomeTimezone(data, cDays)
+
+    # %% ESTIMATE TIMEZONE OFFSET & TIMEZONE (IF POSSIBLE)
+    # There are 3 methods at work here:
+    # 1. Use upload records to estimate the TZ and TZO
+    # 2. Use device timezone offsets (TZO) to estimate TZO
+    # 3. Impute the TZ and TZO using the results from methods 1 and 2
+
+    # 1. USE UPLOAD RECORDS TO ESTIMATE TZ AND TZO
+    cDays = estimateTzAndTzoWithUploadRecords(cDays)
+
+    # 2. USE DEVICE TZOs TO ESTIMATE TZO AND TZ (IF POSSIBLE)
+    # estimates can be made from pump and cgm data that have a TZO
+    # NOTE: the healthkit and dexcom-api cgm data are excluded
+    cDays = estimateTzAndTzoWithDeviceRecords(cDays)
+
+    # 3. impute, infer, or interpolate gaps in the estimated tzo and tz
+    cDays = imputeTzAndTzo(cDays)
+
+    # %% APPLY LOCAL TIME ESTIMATES TO ALL DATA
+    # postprocess TZ and TZO day estiamte data
+    cDays["est.version"] = codeVersion
+    # reorder columns
+    # cDays = reorderColumns(cDays)
+
+    data = applyLocalTimeEstimates(data, cDays)
+
+    return data
+
+    # # %% SAVE THE OUTPUT
+    # data.to_csv(os.path.join(args.outputPath, fileName + ".csv"))
+    #
+    # # save the day series data
+    # if "PHI" in fileName:
+    #     daySeriesFileName = fileName[4:]
+    # else:
+    #     daySeriesFileName = fileName
+    # if pd.notnull(args.daySeriesOutputPath):
+    #     cDays.to_csv(os.path.join(args.daySeriesOutputPath,
+    #                               daySeriesFileName + "-daySeries.csv"))
 
 
-# %% PREPROCESS DATA: FILTER, CLEAN, & CORRECT DATA
-
-# get rid of data that does not have a UTC time
-data = data[data.time.notnull()]
-
-# get rid of data that does not fall within a valid date range
-data = filterByDates(data, args.startDate, args.endDate)
-
-# convert deprecated timezones to their aliases
-data = convertDeprecatedTimezoneToAlias(data, timezoneAliases)
-
-# apply the large timezone offset correction (AKA Darin's fix)
-data = largeTimezoneOffsetCorrection(data)
-
-
-# %% PREPROCESS DATA: CREATE "DAY" SERIES (cDays)
-# create a continguous-day-series that spans the data date-range
-data["utcTime"] = pd.to_datetime(data.time)
-data["date"] = data["utcTime"].dt.date
-contiguousDays = createContiguousDaySeries(data)
-
-# create day series for pump, and non-healthkit cgm upload records
-uploadData = getAndPreprocessUploadRecords(data)
-cDays = addDeviceDaySeries(uploadData, contiguousDays, "upload")
-
-# create day series for cgm data
-cgmData = getAndPreprocessNonDexApiCgmRecords(data)
-cDays = addDeviceDaySeries(cgmData, cDays, "cgm")
-
-# create day series for pump data
-pumpData = data[(data.type == "bolus") & (data.timezoneOffset.notnull())]
-cDays = addDeviceDaySeries(pumpData, cDays, "pump")
-
-# interpolate between upload records of the same deviceType, and create a
-# day series for interpolated pump, non-hk-cgm, and healthkit uploads
-for deviceType in ["pump", "cgm", "healthkit"]:
-    tempUploadData = uploadData[uploadData.deviceType == deviceType]
-    cDays = imputeUploadRecords(tempUploadData, cDays,
-                                deviceType + ".upload.imputed")
-
-# add a home timezone that also accounts for daylight savings time changes
-cDays = addHomeTimezone(data, cDays)
-
-
-# %% ESTIMATE TIMEZONE OFFSET & TIMEZONE (IF POSSIBLE)
-# There are 3 methods at work here:
-# 1. Use upload records to estimate the TZ and TZO
-# 2. Use device timezone offsets (TZO) to estimate TZO
-# 3. Impute the TZ and TZO using the results from methods 1 and 2
-
-# 1. USE UPLOAD RECORDS TO ESTIMATE TZ AND TZO
-cDays = estimateTzAndTzoWithUploadRecords(cDays)
-
-# 2. USE DEVICE TZOs TO ESTIMATE TZO AND TZ (IF POSSIBLE)
-# estimates can be made from pump and cgm data that have a TZO
-# NOTE: the healthkit and dexcom-api cgm data are excluded
-cDays = estimateTzAndTzoWithDeviceRecords(cDays)
-
-# 3. impute, infer, or interpolate gaps in the estimated tzo and tz
-cDays = imputeTzAndTzo(cDays)
-
-
-# %% APPLY LOCAL TIME ESTIMATES TO ALL DATA
-# postprocess TZ and TZO day estiamte data
-cDays["est.version"] = codeVersion
-# reorder columns
-cDays = reorderColumns(cDays)
-
-data = applyLocalTimeEstimates(data, cDays)
-
-
-# %% SAVE THE OUTPUT
-data.to_csv(os.path.join(args.outputPath, fileName + ".csv"))
-
-# save the day series data
-if "PHI" in fileName:
-    daySeriesFileName = fileName[4:]
-else:
-    daySeriesFileName = fileName
-if pd.notnull(args.daySeriesOutputPath):
-    cDays.to_csv(os.path.join(args.daySeriesOutputPath,
-                              daySeriesFileName + "-daySeries.csv"))
+# # %% CHECK INPUTS AND OUTPUTS
+# # check inputs and load data. File must be bigger than 1 KB,
+# # and in either json, xlsx, or csv format
+# data, fileName = checkInputFile(args.inputFilePathAndName)
+#
+# if os.path.isfile(args.timezoneAliasesFilePathAndName):
+#     timezoneAliases = pd.read_csv(args.timezoneAliasesFilePathAndName,
+#                                   low_memory=False)
+# else:
+#     sys.exit("{0} is not a valid file".format(
+#             args.timezoneAliasesFilePathAndName))
+#
+# if not os.path.isdir(args.outputPath):
+#     os.makedirs(args.outputPath)
+#
+# if pd.notnull(args.daySeriesOutputPath):
+#     if not os.path.isdir(args.daySeriesOutputPath):
+#         os.makedirs(args.daySeriesOutputPath)
+#
+#
+# # %% PREPROCESS DATA: FILTER, CLEAN, & CORRECT DATA
+#
+# # get rid of data that does not have a UTC time
+# data = data[data.time.notnull()]
+#
+# # get rid of data that does not fall within a valid date range
+# data = filterByDates(data, args.startDate, args.endDate)
+#
+# # convert deprecated timezones to their aliases
+# data = convertDeprecatedTimezoneToAlias(data, timezoneAliases)
+#
+# # apply the large timezone offset correction (AKA Darin's fix)
+# data = largeTimezoneOffsetCorrection(data)
+#
+#
+# # %% PREPROCESS DATA: CREATE "DAY" SERIES (cDays)
+# # create a continguous-day-series that spans the data date-range
+# data["utcTime"] = pd.to_datetime(data.time)
+# data["date"] = data["utcTime"].dt.date
+# contiguousDays = createContiguousDaySeries(data)
+#
+# # create day series for pump, and non-healthkit cgm upload records
+# uploadData = getAndPreprocessUploadRecords(data)
+# cDays = addDeviceDaySeries(uploadData, contiguousDays, "upload")
+#
+# # create day series for cgm data
+# cgmData = getAndPreprocessNonDexApiCgmRecords(data)
+# cDays = addDeviceDaySeries(cgmData, cDays, "cgm")
+#
+# # create day series for pump data
+# pumpData = data[(data.type == "bolus") & (data.timezoneOffset.notnull())]
+# cDays = addDeviceDaySeries(pumpData, cDays, "pump")
+#
+# # interpolate between upload records of the same deviceType, and create a
+# # day series for interpolated pump, non-hk-cgm, and healthkit uploads
+# for deviceType in ["pump", "cgm", "healthkit"]:
+#     tempUploadData = uploadData[uploadData.deviceType == deviceType]
+#     cDays = imputeUploadRecords(tempUploadData, cDays,
+#                                 deviceType + ".upload.imputed")
+#
+# # add a home timezone that also accounts for daylight savings time changes
+# cDays = addHomeTimezone(data, cDays)
+#
+#
+# # %% ESTIMATE TIMEZONE OFFSET & TIMEZONE (IF POSSIBLE)
+# # There are 3 methods at work here:
+# # 1. Use upload records to estimate the TZ and TZO
+# # 2. Use device timezone offsets (TZO) to estimate TZO
+# # 3. Impute the TZ and TZO using the results from methods 1 and 2
+#
+# # 1. USE UPLOAD RECORDS TO ESTIMATE TZ AND TZO
+# cDays = estimateTzAndTzoWithUploadRecords(cDays)
+#
+# # 2. USE DEVICE TZOs TO ESTIMATE TZO AND TZ (IF POSSIBLE)
+# # estimates can be made from pump and cgm data that have a TZO
+# # NOTE: the healthkit and dexcom-api cgm data are excluded
+# cDays = estimateTzAndTzoWithDeviceRecords(cDays)
+#
+# # 3. impute, infer, or interpolate gaps in the estimated tzo and tz
+# cDays = imputeTzAndTzo(cDays)
+#
+#
+# # %% APPLY LOCAL TIME ESTIMATES TO ALL DATA
+# # postprocess TZ and TZO day estiamte data
+# cDays["est.version"] = codeVersion
+# # reorder columns
+# cDays = reorderColumns(cDays)
+#
+# data = applyLocalTimeEstimates(data, cDays)
+#
+#
+# # %% SAVE THE OUTPUT
+# data.to_csv(os.path.join(args.outputPath, fileName + ".csv"))
+#
+# # save the day series data
+# if "PHI" in fileName:
+#     daySeriesFileName = fileName[4:]
+# else:
+#     daySeriesFileName = fileName
+# if pd.notnull(args.daySeriesOutputPath):
+#     cDays.to_csv(os.path.join(args.daySeriesOutputPath,
+#                               daySeriesFileName + "-daySeries.csv"))
