@@ -855,6 +855,7 @@ def run_estimate_local_time(data):
     # check inputs and load data. File must be bigger than 1 KB,
     # and in either json, xlsx, or csv format
     # data, fileName = checkInputFile(input_csv_path)
+    print("Running estimate local time algorithm...")
 
     if os.path.isfile(args.timezoneAliasesFilePathAndName):
         timezoneAliases = pd.read_csv(args.timezoneAliasesFilePathAndName,

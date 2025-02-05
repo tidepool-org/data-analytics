@@ -54,7 +54,6 @@ def export_user(user_qual_id, qual_months, export_dirpath):
     metadata_df, _ = get_shared_metadata(userid_of_shared_user=user_qual_id)
 
     data, _ = get_data(userid_of_shared_user=user_qual_id, weeks_of_data=12 * 52)
-    # data, _ = get_data(userid_of_shared_user=user_qual_id, weeks_of_data=4*52)
 
     data = run_estimate_local_time(data)
 
