@@ -70,6 +70,8 @@ def export_all_users(users_qualified_dict, export_dirpath):
     """
     process_start_time = time.time()
 
+    time_str = time.strftime("%Y-%m-%d_%H-%M-%S")
+
     rand_state = random.Random(12345678)
     user_qual_ids = list(users_qualified_dict.keys())
     rand_state.shuffle(user_qual_ids)
@@ -87,12 +89,12 @@ def export_all_users(users_qualified_dict, export_dirpath):
         except Exception as e:
             failed_users[user_qual_id] = str(e)
             print(f"FAILED user {i}. Error {str(e)}")
-            json.dump(failed_users, open("failed_users.json", "w"))
+            json.dump(failed_users, open(f"failed_users_{time_str}.json", "w"))
 
         process_total_time = int(time.time() - process_start_time)
         print(f"Total Time {process_total_time}. Num failed {len(failed_users)}. Num processed {i}\n")
 
-        if i == 1:  # testing
+        if i == 25:  # testing
             break
 
 
@@ -107,6 +109,7 @@ if __name__ == "__main__":
     # users_to_export = load_user_group1()
     # export_dirpath = "./data/rgroup1/"
 
+    # failed_users = json.load(open("failed_users.json"))
     # users_to_export = {user: months for user, months in users_to_export.items() if user == ""}
 
     export_all_users(users_to_export, export_dirpath)

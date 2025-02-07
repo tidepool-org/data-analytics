@@ -108,6 +108,9 @@ def convertDeprecatedTimezoneToAlias(df, tzAlias):
 
 def largeTimezoneOffsetCorrection(df):
 
+    if "timezoneOffset" not in df.columns:
+        return df
+
     while ((df.timezoneOffset > 840).sum() > 0):
         df.loc[df.timezoneOffset > 840, ["conversionOffset"]] = \
             df.loc[df.timezoneOffset > 840, ["conversionOffset"]] - \
@@ -164,15 +167,20 @@ def getAndPreprocessUploadRecords(df):
 
 def getAndPreprocessNonDexApiCgmRecords(df):
     # non-healthkit cgm and exclude dexcom-api data
-    if "payload" in df:
+    if "payload" in df and "timezoneOffset" in df.columns:
+
         # convert payloads to strings
         df["isDexcomAPI"] = df.payload.astype(str).str.contains("systemTime")
+
         cd = df[(df.type == "cbg") &
                 (df.timezoneOffset.notnull()) &
                 (~df.isDexcomAPI.fillna(False))].copy()
 
-    else:
+    elif "timezoneOffset" in df.columns:
         cd = df[(df.type == "cbg") & (df.timezoneOffset.notnull())]
+
+    else:
+        cd = pd.DataFrame()
 
     return cd
 
@@ -900,7 +908,11 @@ def run_estimate_local_time(data):
     cDays = addDeviceDaySeries(cgmData, cDays, "cgm")
 
     # create day series for pump data
-    pumpData = data[(data.type == "bolus") & (data.timezoneOffset.notnull())]
+    if "timezoneOffset" in data.columns:
+        pumpData = data[(data.type == "bolus") & (data.timezoneOffset.notnull())]
+    else:
+        pumpData = pd.DataFrame()
+
     cDays = addDeviceDaySeries(pumpData, cDays, "pump")
 
     # interpolate between upload records of the same deviceType, and create a

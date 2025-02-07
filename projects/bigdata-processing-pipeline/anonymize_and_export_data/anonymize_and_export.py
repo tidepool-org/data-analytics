@@ -691,7 +691,7 @@ def full_anon_pipeline_2025(data, metadata_df, qual_months, userID, export_dirpa
                             os.path.join(
                             os.path.dirname(__file__),
                             "example-data",
-                            "dataFieldExportList.csv"))
+                            "dataFieldExportListR2025.csv"))
     outputFields, anonymizeFields = checkDataFieldList(data_field_export_list_path)
 
     data = filterByApprovedDataFields(data, outputFields)
