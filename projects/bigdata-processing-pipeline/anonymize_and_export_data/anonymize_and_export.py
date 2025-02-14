@@ -260,8 +260,7 @@ def flattenJson(df, dataFieldsForExport):
             df.loc[jsonBlob.index, colHead] = np.nan
 
             # turn jsonBlob to dataframe
-            newDataFrame = pd.concat([newDataFrame, pd.DataFrame(jsonBlob.tolist(),
-                                        index=jsonBlob.index).add_prefix(colHead + '.')], axis=1)
+            newDataFrame = pd.concat([newDataFrame, pd.json_normalize(jsonBlob.tolist()).add_prefix(colHead + '.')], axis=1)
 
     newColHeadings = list(newDataFrame)
 

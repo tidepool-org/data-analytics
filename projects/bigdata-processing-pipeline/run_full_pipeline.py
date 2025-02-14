@@ -14,7 +14,7 @@ def load_user_group2_nonAID():
     Primary group of interest. Return dict with userid mapped to qualifying months.
     """
     rgroup2_nonAID_users = json.load(open(
-        "/Users/csummers/dev/data-science-tidepool-api-python/data_science_tidepool_api_python/projects/tbddp/rgroup2_final_nonAID.json"))
+        "/Users/csummers/dev/data-science-tidepool-api-python/data_science_tidepool_api_python/projects/tbddp/r_UserCategoryA_final_nonAID.json"))
     rgroup2_nonAID_users_qual = {user_id: months for user_id, months in rgroup2_nonAID_users.items() if
                                       len(months) > 0}
 
@@ -26,7 +26,7 @@ def load_user_group2_AID():
     Secondary group of interest. Return dict with userid mapped to qualifying months.
     """
     rgroup2_AID_users = json.load(open(
-        "/Users/csummers/dev/data-science-tidepool-api-python/data_science_tidepool_api_python/projects/tbddp/rgroup2_final_AID.json"))
+        "/Users/csummers/dev/data-science-tidepool-api-python/data_science_tidepool_api_python/projects/tbddp/r_UserCategoryA_final_AID.json"))
     rgroup2_AID_users_qual = {user_id: months for user_id, months in rgroup2_AID_users.items() if
                                       len(months) > 0}
 
