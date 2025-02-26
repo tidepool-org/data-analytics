@@ -256,11 +256,14 @@ def flattenJson(df, dataFieldsForExport):
             # grab the data that is in brackets
             jsonBlob = df[colHead][df[colHead].astype(str).str[0] == "{"]
 
+            # explode json to columns. keeping rows constant since previous code failed in its assumptions of row matching
+            df_normalized = pd.json_normalize(df[colHead]).add_prefix(colHead + '.')
+
             # replace those values with nan
             df.loc[jsonBlob.index, colHead] = np.nan
 
             # turn jsonBlob to dataframe
-            newDataFrame = pd.concat([newDataFrame, pd.json_normalize(jsonBlob.tolist()).add_prefix(colHead + '.')], axis=1)
+            newDataFrame = pd.concat([newDataFrame, df_normalized], axis=1)
 
     newColHeadings = list(newDataFrame)
 
@@ -268,9 +271,9 @@ def flattenJson(df, dataFieldsForExport):
     # and add the fields that were removed back in
     columnFilter = list(set(newColHeadings) & set(dataFieldsForExport))
     tempDataFrame = newDataFrame.filter(items=columnFilter)
-    df = pd.concat([df, tempDataFrame, holdData], axis=1)
+    df_final = pd.concat([df, tempDataFrame, holdData], axis=1)
 
-    return df
+    return df_final
 
 
 def filterByApprovedDataFields(df, dataFieldsForExport):
