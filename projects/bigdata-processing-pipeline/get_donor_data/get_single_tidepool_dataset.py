@@ -135,11 +135,50 @@ def get_data_api(userid, startDate, endDate, headers):
         json_data = json.loads(device_data_api_response.content.decode())
         df = pd.DataFrame(json_data)
     else:
-        sys.exit(f"ERROR in getting data between {startDate} and {endDate}. {device_data_api_response.status_code}")
+        raise Exception(f"ERROR in getting data between {startDate} and {endDate}. {device_data_api_response.status_code}")
 
     endDate = pd.to_datetime(startDate) - pd.Timedelta(1, unit="d")
 
     return df, endDate
+
+
+def get_date_groups(start_date, end_date, num_groups=1):
+    """
+    Get non-overlapping groups of dates between a start and end date.
+    """
+    num_days_each_group = (end_date - start_date).days / num_groups
+
+    if num_groups > 1:
+        for i in range(num_groups - 1):
+            yield (start_date + dt.timedelta(num_days_each_group * i), start_date + dt.timedelta(num_days_each_group*(i+1) - 1))
+        yield (start_date + dt.timedelta(num_days_each_group * (num_groups-1)), end_date)
+    else:
+        yield (start_date, end_date)
+
+
+def test_get_date_groups():
+    """
+    Basic logic tests for date groupings used to break up api calls
+    """
+
+    test_start_date = dt.datetime(2013, 1, 1)
+    test_end_date = dt.datetime(2025, 1, 1)
+
+    for num_groups in range(1, 20):
+        groups = list(get_date_groups(test_start_date, test_end_date, num_groups=num_groups))
+
+        grp_ctr = 0
+
+        assert groups[0][0] == test_start_date
+        assert groups[-1][-1] == test_end_date
+
+        # Last date in each group is one day before first date in each group
+        for i, (group_start_date, group_end_date) in enumerate(groups):
+            if i > 0:
+                assert (groups[i][0] - groups[i-1][1]).days == 1  # groups are 1 day apart
+            grp_ctr += 1
+
+        assert grp_ctr == num_groups  # groups are the expected number
 
 
 def get_data(
@@ -149,26 +188,39 @@ def get_data(
 ):
 
     print("\tGetting user data...")
-    auth = environmentalVariables.get_environmental_variables(donor_group)
-
-    username, password = auth
-    access_token = tpapi.retrieve_existing_token(username=username, password=password)
-    headers = {
-        "x-tidepool-session-token": access_token,
-        "Content-Type": "application/json"
-    }
+    username, password = environmentalVariables.get_environmental_variables(donor_group)
 
     endDate = pd.to_datetime("now") + pd.Timedelta(1, unit="d")
     startDate = pd.to_datetime(endDate) - pd.Timedelta(weeks_of_data*7, "d")
 
-    df, _ = get_data_api(
-        userid_of_shared_user,
-        startDate,
-        endDate,
-        headers
-        )
+    # max_retries = 4
+    num_retries = 0
+    date_groups = get_date_groups(startDate, endDate, num_groups=100)
 
-    tpapi.logout(username, password)
+    df = pd.DataFrame()
+    while True:
+        try:
+            for start_date_chunk, end_date_chunk in date_groups:
+                access_token = tpapi.retrieve_existing_token(username=username, password=password)
+                headers = {
+                    "x-tidepool-session-token": access_token,
+                    "Content-Type": "application/json"
+                }
+
+                df_chunk, _ = get_data_api(
+                    userid_of_shared_user,
+                    start_date_chunk,
+                    end_date_chunk,
+                    headers
+                )
+                df = pd.concat([df, df_chunk], axis=0)
+
+            break
+        except Exception:
+            num_retries += 1
+            # date_groups = list(get_date_groups(start_date_chunk, endDate, num_groups=num_retries))
+            print(f"Exception getting data for user. Trying again. Num retries: {num_retries}")
+            break
 
     print("\tFinished getting user data.")
     return df, userid_of_shared_user
@@ -202,13 +254,16 @@ def get_and_save_dataset(
 
 
 if __name__ == "__main__":
-    get_and_save_dataset(
-        date_stamp=args.date_stamp,
-        data_path=args.data_path,
-        weeks_of_data=args.weeks_of_data,
-        donor_group=args.donor_group,
-        userid_of_shared_user=args.userid_of_shared_user,
-        auth=args.auth,
-        email=args.email,
-        password=args.password
-    )
+
+    test_get_date_groups()
+
+    # get_and_save_dataset(
+    #     date_stamp=args.date_stamp,
+    #     data_path=args.data_path,
+    #     weeks_of_data=args.weeks_of_data,
+    #     donor_group=args.donor_group,
+    #     userid_of_shared_user=args.userid_of_shared_user,
+    #     auth=args.auth,
+    #     email=args.email,
+    #     password=args.password
+    # )

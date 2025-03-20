@@ -52,7 +52,6 @@ def export_user(user_qual_id, qual_months, export_dirpath):
     user_start_time = time.time()
 
     metadata_df, _ = get_shared_metadata(userid_of_shared_user=user_qual_id)
-
     data, _ = get_data(userid_of_shared_user=user_qual_id, weeks_of_data=12 * 52)
 
     data = run_estimate_local_time(data)
@@ -101,7 +100,7 @@ def export_all_users(users_qualified_dict, export_dirpath):
 if __name__ == "__main__":
 
     users_to_export = load_user_group2_nonAID()
-    export_dirpath = "./data/rgroup2_nonAID/"
+    # export_dirpath = "./data/rgroup2_nonAID/"
 
     # users_to_export = load_user_group2_AID()
     # export_dirpath = "./data/rgroup2_AID/"
@@ -109,7 +108,10 @@ if __name__ == "__main__":
     # users_to_export = load_user_group1()
     # export_dirpath = "./data/rgroup1/"
 
-    # failed_users = json.load(open("failed_users.json"))
+    failed_users = json.load(open("failed_users.json"))
+    export_dirpath = "./data/rgroup2_failed_users/"
+
     # users_to_export = {user: months for user, months in users_to_export.items() if user == ""}
+    users_to_export = {user: months for user, months in users_to_export.items() if user in failed_users}
 
     export_all_users(users_to_export, export_dirpath)
