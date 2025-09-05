@@ -244,7 +244,7 @@ def accept_and_get_list(args):
     # define the donor groups
     donor_groups = [
         "bigdata", "ADCES", "BT1", "CDN",
-        "CWD", "DYF1", "DIATRIBE", "DIABETESSISTERS",
+        "CWD", "DYF", "DIATRIBE", "DIABETESSISTERS",
         "JDRF", "NSF", "T1DX",
     ]
 
