@@ -9,18 +9,20 @@ are associated with the main account.
 """
 
 # %% REQUIRED LIBRARIES
+import base64
 import pandas as pd
 import datetime as dt
 import os
 import sys
 import requests
 import json
+import jwt
 import argparse
 envPath = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if envPath not in sys.path:
     sys.path.insert(0, envPath)
 import environmentalVariables
-
+import pyotp
 
 # %% USER INPUTS (choices to be made in order to run the code)
 codeDescription = "accepts new donors (shares) and return a list of userids"
@@ -55,6 +57,30 @@ parser.add_argument(
     help="specify if you want to save the donor list (True/False)"
 )
 
+parser.add_argument(
+    "-a",
+    "--api-host",
+    dest="api_host",
+    default="https://api.tidepool.org",
+    help="Tidepool API Host"
+)
+
+parser.add_argument(
+    "-t",
+    "--token-endpoint",
+    dest="token_endpoint",
+    default="https://auth.tidepool.org/realms/tidepool/protocol/openid-connect/token",
+    help="Tidepool Token Endpoint"
+)
+
+parser.add_argument(
+    "-r",
+    "--revoke-endpoint",
+    dest="revoke_endpoint",
+    default="https://auth.tidepool.org/realms/tidepool/protocol/openid-connect/revoke",
+    help="Tidepool Token Revocation Endpoint"
+)
+
 args = parser.parse_args()
 
 
@@ -70,13 +96,30 @@ def make_folder_if_doesnt_exist(folder_paths):
 
 
 def login_api(auth):
-    api_call = "https://api.tidepool.org/auth/login"
-    api_response = requests.post(api_call, auth=auth)
+    client_id, client_secret = environmentalVariables.get_client_credentials()
+    data = {
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "username": auth[0],
+        "password": auth[1],
+        "scope": "openid",
+        "grant_type": "password"
+    }
+    if auth[2] != "":
+        totp =  pyotp.TOTP(auth[2])
+        data["otp"] = totp.now()
+
+    api_response = requests.post(args.token_endpoint, data=data, headers={'Content-Type': 'application/x-www-form-urlencoded'})
     if(api_response.ok):
-        xtoken = api_response.headers["x-tidepool-session-token"]
-        userid = json.loads(api_response.content.decode())["userid"]
+        payload = json.loads(api_response.content.decode())
+        access_token = payload['access_token']
+        refresh_token = payload['refresh_token']
+        id_token = payload['id_token']
+        decoded_id_token = jwt.decode(id_token, options={"verify_signature": False})
+
+        userid = decoded_id_token["sub"]
         headers = {
-            "x-tidepool-session-token": xtoken,
+            "x-tidepool-session-token": access_token,
             "Content-Type": "application/json"
         }
 
@@ -85,12 +128,18 @@ def login_api(auth):
 
     print("logging into", auth[0], "...")
 
-    return headers, userid
+    return headers, userid, refresh_token
 
 
-def logout_api(auth):
-    api_call = "https://api.tidepool.org/auth/logout"
-    api_response = requests.post(api_call, auth=auth)
+def logout_api(auth, refresh_token):
+    client_id, client_secret = environmentalVariables.get_client_credentials()
+    data = {
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "token": refresh_token
+    }
+
+    api_response = requests.post(args.revoke_endpoint, data=data)
 
     if(api_response.ok):
         print("successfully logged out of", auth[0])
@@ -107,7 +156,7 @@ def logout_api(auth):
 def accept_invite_api(headers, userid):
     print("accepting new donors ...")
     nAccepted = 0
-    api_call = "https://api.tidepool.org/confirm/invitations/" + userid
+    api_call = args.api_host + "/confirm/invitations/" + userid
     api_response = requests.get(api_call, headers=headers)
     if(api_response.ok):
 
@@ -120,7 +169,7 @@ def accept_invite_api(headers, userid):
                 "key": shareKey
             }
 
-            api_call2 = "https://api.tidepool.org/confirm/accept/invite/" + \
+            api_call2 = args.api_host + "/confirm/accept/invite/" + \
                 userid + "/" + shareID
 
             api_response2 = requests.put(
@@ -151,7 +200,7 @@ def accept_invite_api(headers, userid):
 
 def get_donor_list_api(headers, userid):
     print("getting donor list ...")
-    api_call = "https://api.tidepool.org/access/groups/" + userid
+    api_call = args.api_host + "/access/groups/" + userid
     api_response = requests.get(api_call, headers=headers)
     if(api_response.ok):
         donors_list = json.loads(api_response.content.decode())
@@ -167,13 +216,13 @@ def get_donor_list_api(headers, userid):
 
 def accept_new_donors_and_get_donor_list(auth):
     # login
-    headers, userid = login_api(auth)
+    headers, userid, refresh_token = login_api(auth)
     # accept invitations to the master donor account
     nAccepted = accept_invite_api(headers, userid)
     # get a list of donors associated with the master account
     df = get_donor_list_api(headers, userid)
     # logout
-    logout_api(auth)
+    logout_api(auth, refresh_token)
 
     return nAccepted, df
 
@@ -191,11 +240,12 @@ def accept_and_get_list(args):
         phi_date_stamp + "-uniqueDonorList.csv"
     )
 
+
     # define the donor groups
     donor_groups = [
-        "bigdata", "AADE", "BT1", "carbdm", "CDN",
-        "CWD", "DHF", "DIATRIBE", "diabetessisters",
-        "DYF", "JDRF", "NSF", "T1DX",
+        "bigdata", "ADCES", "BT1", "CDN",
+        "CWD", "DYF1", "DIATRIBE", "DIABETESSISTERS",
+        "JDRF", "NSF", "T1DX",
     ]
 
     all_donors_df = pd.DataFrame(columns=["userID", "donorGroup"])
