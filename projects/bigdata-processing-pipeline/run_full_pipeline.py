@@ -44,7 +44,15 @@ def load_user_group1():
     return rgroup1_users_qual
 
 
-def export_user(user_qual_id, qual_months, export_dirpath):
+def load_r_q2_2025_delivered_user_group():
+    """
+    user group delivered R. Q2 2025
+    """
+    rgroup_delivered = json.load(open("./final_plus_suppl_tp_userids.json"))
+    return rgroup_delivered
+
+
+def export_user(user_qual_id, qual_months, export_dirpath, weeks_of_data=624):
     """
     Process a single user start to finish
     """
@@ -52,7 +60,7 @@ def export_user(user_qual_id, qual_months, export_dirpath):
     user_start_time = time.time()
 
     metadata_df, _ = get_shared_metadata(userid_of_shared_user=user_qual_id)
-    data, _ = get_data(userid_of_shared_user=user_qual_id, weeks_of_data=12 * 52)
+    data, _ = get_data(userid_of_shared_user=user_qual_id, weeks_of_data=weeks_of_data)
 
     data = run_estimate_local_time(data)
 
@@ -83,7 +91,8 @@ def export_all_users(users_qualified_dict, export_dirpath):
 
         try:
             print(f"Starting user {i}")
-            export_user(user_qual_id, qual_months, export_dirpath)
+            weeks_of_data=33 # refresh Feb to Oct
+            export_user(user_qual_id, qual_months, export_dirpath, weeks_of_data=weeks_of_data)
             print(f"Success user {i}")
         except Exception as e:
             failed_users[user_qual_id] = str(e)
@@ -108,10 +117,13 @@ if __name__ == "__main__":
     # users_to_export = load_user_group1()
     # export_dirpath = "./data/rgroup1/"
 
-    failed_users = json.load(open("failed_users.json"))
-    export_dirpath = "./data/rgroup2_failed_users/"
+    # failed_users = json.load(open("failed_users.json"))
+    # export_dirpath = "./data/rgroup2_failed_users/"
+
+    users_to_export = load_r_q2_2025_delivered_user_group()
+    export_dirpath = "./data/rgroup_delivered_Nov2025_refresh"
 
     # users_to_export = {user: months for user, months in users_to_export.items() if user == ""}
-    users_to_export = {user: months for user, months in users_to_export.items() if user in failed_users}
+    # users_to_export = {user: months for user, months in users_to_export.items() if user in failed_users}
 
     export_all_users(users_to_export, export_dirpath)

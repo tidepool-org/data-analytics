@@ -195,7 +195,7 @@ def get_data(
 
     # max_retries = 4
     num_retries = 0
-    date_groups = get_date_groups(startDate, endDate, num_groups=100)
+    date_groups = get_date_groups(startDate, endDate, num_groups=1)
 
     df = pd.DataFrame()
     while True:

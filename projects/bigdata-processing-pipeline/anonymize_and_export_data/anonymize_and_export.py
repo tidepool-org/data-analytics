@@ -738,24 +738,25 @@ def full_anon_pipeline_2025(data, metadata_df, qual_months, userID, export_dirpa
 
     # This is icky, but quickest. Refactor all this to make more flexible/maintainable and avoid multiple writes.
     # Upload to S3
+    run_id = "roche_refresh_Nov2025"
     session = boto3.Session(profile_name='data-eng')
     s3_client = session.client('s3')
     s3_bucket = "tdp-data-extracts"
     device_data_filepath = os.path.join(export_dirpath, f"{hashID}.csv")
     try:
-        s3_client.upload_file(device_data_filepath, s3_bucket, f"roche/{hashID}.csv")
+        s3_client.upload_file(device_data_filepath, s3_bucket, f"{run_id}/{hashID}.csv")
     except Exception as e:
         print("Failed to upload device data to S3", e)
 
     try:
-        s3_client.upload_file(meta_output_path, s3_bucket, f"roche/{hashID}_metadata.csv")
+        s3_client.upload_file(meta_output_path, s3_bucket, f"{run_id}/{hashID}_metadata.csv")
     except Exception as e:
         print("Failed to upload metadata data to S3", e)
 
-    try:
-        s3_client.upload_file(qualifying_months_path, s3_bucket, f"roche/{hashID}_qualifying_months.json")
-    except Exception as e:
-        print("Failed to upload qualifying months data to S3", e)
+    # try:
+    #     s3_client.upload_file(qualifying_months_path, s3_bucket, f"{run_id}/{hashID}_qualifying_months.json")
+    # except Exception as e:
+    #     print("Failed to upload qualifying months data to S3", e)
 
 
 if __name__ == "__main__":
