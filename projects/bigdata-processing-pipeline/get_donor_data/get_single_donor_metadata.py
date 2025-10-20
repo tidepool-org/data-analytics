@@ -148,7 +148,7 @@ def get_shared_metadata(
             ):
                 df.at[userid_of_shared_user, k] = d
     else:
-        sys.exit(f"Error getting metadata API {str(api_response.status_code)}")
+        raise Exception(f"Error getting metadata API {str(api_response.status_code)}")
 
     tpapi.logout(username, password)
 

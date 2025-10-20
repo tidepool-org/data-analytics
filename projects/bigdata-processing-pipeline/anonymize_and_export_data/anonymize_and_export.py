@@ -753,6 +753,10 @@ def full_anon_pipeline_2025(data, metadata_df, qual_months, userID, export_dirpa
     except Exception as e:
         print("Failed to upload metadata data to S3", e)
 
+    os.remove(device_data_filepath)
+    os.remove(meta_output_path)
+    os.remove(qualifying_months_path)
+    
     # try:
     #     s3_client.upload_file(qualifying_months_path, s3_bucket, f"{run_id}/{hashID}_qualifying_months.json")
     # except Exception as e:
