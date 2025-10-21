@@ -21,6 +21,15 @@ dotenv_path = join(dirname(__file__), '.env')
 if isfile(dotenv_path):
     load_dotenv(dotenv_path)
 
+def get_client_credentials():
+    try:
+        clientId = os.environ.get("BIGDATA_CLIENT_ID")
+        clientSecret = os.environ.get("BIGDATA_CLIENT_SECRET")
+
+        return clientId, clientSecret
+
+    except KeyError:
+        raise KeyError("Big data client credentials not set in .env")
 
 # %% define functions
 def get_environmental_variables(donorGroup):
@@ -31,7 +40,10 @@ def get_environmental_variables(donorGroup):
         envPasswordVariableName = "BIGDATA_" + donorGroup + "_PASSWORD"
         pswd = os.environ[envPasswordVariableName]
 
-        return emailAddress, pswd
+        envTotpVariableName = "BIGDATA_" + donorGroup + "_TOTP_KEY"
+        totpKey = os.environ.get(envTotpVariableName, "")
+
+        return emailAddress, pswd, totpKey
 
     except KeyError:
         raise KeyError("Details for Donor Group '{0}' not found in .env".format(donorGroup))

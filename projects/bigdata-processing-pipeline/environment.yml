@@ -9,3 +9,5 @@ dependencies:
   - spyder=3.3.5
   - pip:
     - python-dotenv==0.10.3
+    - pyotp==2.9.0
+    - PyJWT==2.8.0
