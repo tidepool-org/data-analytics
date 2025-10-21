@@ -15,6 +15,7 @@ dependencies:
 - pip
 - pytest
 - pytest-cov
+- twine
 
 - pip:
   - python-dotenv
