@@ -91,7 +91,7 @@ def export_all_users(users_qualified_dict, export_dirpath):
 
         try:
             print(f"Starting user {i}")
-            weeks_of_data=33 # refresh Feb to Oct
+            weeks_of_data=26 # refresh Oct 28th to April 17
             export_user(user_qual_id, qual_months, export_dirpath, weeks_of_data=weeks_of_data)
             print(f"Success user {i}")
         except Exception as e:
@@ -102,13 +102,13 @@ def export_all_users(users_qualified_dict, export_dirpath):
         process_total_time = int(time.time() - process_start_time)
         print(f"Total Time {process_total_time}. Num failed {len(failed_users)}. Num processed {i}\n")
 
-        if i == 25:  # testing
-            break
+        # if i == 25:  # testing
+        #     break
 
 
 if __name__ == "__main__":
 
-    users_to_export = load_user_group2_nonAID()
+    # users_to_export = load_user_group2_nonAID()
     # export_dirpath = "./data/rgroup2_nonAID/"
 
     # users_to_export = load_user_group2_AID()
@@ -121,7 +121,7 @@ if __name__ == "__main__":
     # export_dirpath = "./data/rgroup2_failed_users/"
 
     users_to_export = load_r_q2_2025_delivered_user_group()
-    export_dirpath = "./data/rgroup_delivered_Nov2025_refresh"
+    export_dirpath = "./data/rgroup_delivered_May2026_refresh"
 
     # users_to_export = {user: months for user, months in users_to_export.items() if user == ""}
     # users_to_export = {user: months for user, months in users_to_export.items() if user in failed_users}

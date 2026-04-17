@@ -698,6 +698,8 @@ def full_anon_pipeline_2025(data, metadata_df, qual_months, userID, export_dirpa
 
     data = filterByApprovedDataFields(data, outputFields)
 
+    print("Num data rows:", len(data))
+
     # %% CLEAN DATA
     startTime = time.time()
     print("Cleaning data...")
@@ -738,7 +740,7 @@ def full_anon_pipeline_2025(data, metadata_df, qual_months, userID, export_dirpa
 
     # This is icky, but quickest. Refactor all this to make more flexible/maintainable and avoid multiple writes.
     # Upload to S3
-    run_id = "roche_refresh_Nov2025"
+    run_id = "roche_refresh_May2026"
     session = boto3.Session(profile_name='data-eng')
     s3_client = session.client('s3')
     s3_bucket = "tdp-data-extracts"
@@ -756,11 +758,11 @@ def full_anon_pipeline_2025(data, metadata_df, qual_months, userID, export_dirpa
     os.remove(device_data_filepath)
     os.remove(meta_output_path)
     os.remove(qualifying_months_path)
-    
-    # try:
-    #     s3_client.upload_file(qualifying_months_path, s3_bucket, f"{run_id}/{hashID}_qualifying_months.json")
-    # except Exception as e:
-    #     print("Failed to upload qualifying months data to S3", e)
+
+    try:
+        s3_client.upload_file(qualifying_months_path, s3_bucket, f"{run_id}/{hashID}_qualifying_months.json")
+    except Exception as e:
+        print("Failed to upload qualifying months data to S3", e)
 
 
 if __name__ == "__main__":
